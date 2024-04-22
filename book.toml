@@ -1,0 +1,9 @@
+[book]
+authors = ["pandazhangs"]
+language = "zh"
+multilingual = false
+src = "src"
+title = "panda note :)"
+description = "The note book of pandazhangs"
+[output.html]
+mathjax-support = true

@@ -1,0 +1,29 @@
+name: mdbook
+on:
+  push:
+    branches:
+      - main
+    pull_request:
+
+jobs:
+  mdbook_build:
+    runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: "latest"
+      - name: 编译 mdbook
+        run: |
+          mdbook build
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.pandazhangs.github.io }}
+          publish_dir: ./book
