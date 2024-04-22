@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>异步日志写设计实现 - panda note :)</title>
+        <title>文件多格式压缩实现 - panda note :)</title>
 
 
         <!-- Custom HTML head -->
@@ -90,7 +90,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html" class="active"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html" class="active"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -175,165 +175,160 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="异步日志写实现"><a class="header" href="#异步日志写实现">异步日志写实现</a></h1>
-<p>[TOC]</p>
-<h2 id="设计逻辑"><a class="header" href="#设计逻辑">设计逻辑</a></h2>
-<p>内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：</p>
-<ol>
-<li>要写入的字节流长度是否大于缓存剩下的部分？
-<ol>
-<li>是将当前写缓存内容刷写落盘，</li>
-<li>否 直接追加到写缓存后面 异步轮询的 poller 函数会从队列里面取出 next writer，如果不是空的就直接执行缓存操作，这部分用 select 来做个定时操作，如果较长时间没有新的日志进来，就先把缓存里面有的数据落盘</li>
-</ol>
-</li>
-</ol>
-<h2 id="go-代码实现"><a class="header" href="#go-代码实现">go 代码实现</a></h2>
-<pre><code class="language-go">
-type FixSizeLargeBuff struct {
-	buf []byte
-}
+                        <h1 id="文件多格式压缩"><a class="header" href="#文件多格式压缩">文件多格式压缩</a></h1>
+<hr />
+<blockquote>
+<p>使用了一个压缩集合库来实现的这部分功能
+<a href="github.com/klauspost/compress">compress</a></p>
+</blockquote>
+<h2 id="代码实现"><a class="header" href="#代码实现">代码实现</a></h2>
+<pre><code class="language-go">package kit
 
-const Megabit = 1024 * 1024
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
 
-func NewFixSizeLargeBuff() *FixSizeLargeBuff {
-	return &amp;FixSizeLargeBuff{buf: make([]byte, 0, Megabit)}
-}
-func (f *FixSizeLargeBuff) Avail() int {
-	return Megabit - len(f.buf)
-}
-func (f *FixSizeLargeBuff) Reset() {
-	f.buf = f.buf[:0]
-}
-func (f *FixSizeLargeBuff) Append(p []byte) (int, error) {
-	if f.Avail() &lt; len(p) {
-		return 0, fmt.Errorf("no avail free bytes")
+	gzip "github.com/klauspost/compress/gzip"
+	snappy "github.com/klauspost/compress/s2"
+	zip "github.com/klauspost/compress/zip"
+	zstd "github.com/klauspost/compress/zstd"
+)
+
+/* compress file func  start */
+// go build:+ linux
+var osChown = os.Chown
+
+type (
+	CompressType int
+	ZWriter      interface {
+		io.WriteCloser
+		Flush() error
 	}
-	f.buf = append(f.buf, p...)
-	return len(p), nil
-}
+)
 
-type SimpleAsyncWriter struct {
-	data     chan *FixSizeLargeBuff
-	curbuff  *FixSizeLargeBuff
-	buffpool sync.Pool
-	wt       io.Writer
-	lock     sync.Mutex
-	wg       sync.WaitGroup
-	ct       *time.Ticker
-	last     time.Time
-	active   chan struct{}
-}
+const (
+	GZIP_TYEP CompressType = iota
+	ZSTD_TYPE
+	SNAPPY_TYPE
+	ZIP_TYPE
+)
 
-func NewSimpleAsyncWriter(w io.Writer, limit int) *SimpleAsyncWriter {
-	ret := &amp;SimpleAsyncWriter{
-		data: make(chan *FixSizeLargeBuff, limit),
-		buffpool: sync.Pool{New: func() any {
-			return NewFixSizeLargeBuff()
-		}},
-		wt:     w,
-		lock:   sync.Mutex{},
-		active: make(chan struct{}),
-		ct:     time.NewTicker(1 * time.Second),
+var suffixs = [4]string{".gz", ".zst", ".snappy", ".zip"}
+
+func chown(name string, info os.FileInfo) error {
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
 	}
-	ret.addCount()
-	go ret.poller()
-	return ret
+	f.Close()
+	stat := info.Sys().(*syscall.Stat_t)
+	return osChown(name, int(stat.Uid), int(stat.Gid))
 }
-func (s *SimpleAsyncWriter) addCount() {
-	s.wg.Add(1)
-}
-func (s *SimpleAsyncWriter) Write(p []byte) (int, error) {
-	select {
-	case &lt;-s.active:
-		return 0, ErrorWriteAsyncerIsClosed
-	default:
+
+func CompressLogFile(src, dst string, ct CompressType, rm bool) (err error) {
+	f, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open log file: %v", err)
+	}
+	defer f.Close()
+	if dst == src {
+		dst += "out"
+	}
+	fi, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to stat log file: %v", err)
 	}
 
-	s.last = time.Now()
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	select {
-	case &lt;-s.active:
-		return 0, ErrorWriteAsyncerIsClosed
-	case &lt;-s.ct.C:
-		if s.curbuff.Avail() &gt; 0 &amp;&amp; time.Since(s.last) &gt; 5*time.Second {
-			s.data &lt;- s.curbuff
-			s.curbuff = s.buffpool.Get().(*FixSizeLargeBuff)
-		}
-	default:
+	if !strings.HasSuffix(dst, suffixs[ct]) {
+		dst += suffixs[ct]
+	}
+	if err := chown(dst, fi); err != nil {
+		return fmt.Errorf("failed to chown compressed log file: %v", err)
+	}
 
-		if s.curbuff == nil {
-			s.curbuff = s.buffpool.Get().(*FixSizeLargeBuff)
-		}
-		if len(p) &gt; s.curbuff.Avail() {
-			s.data &lt;- s.curbuff
-			s.curbuff = s.buffpool.Get().(*FixSizeLargeBuff)
+	// If this file already exists, we presume it was created by
+	// a previous attempt to compress the log file.
+	zf, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, fi.Mode())
+	if err != nil {
+		return fmt.Errorf("failed to open compressed log file: %v", err)
+	}
+	defer zf.Close()
+	if ct == ZIP_TYPE {
+		w := zip.NewWriter(zf)
 
+		_, filename := filepath.Split(src)
+		temp, err := w.Create(filename)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(temp, f); err != nil {
+			w.Close()
+			return err
+		}
+		if err := w.Close(); err != nil {
+			return err
+		}
+	} else {
+
+		var zwriter ZWriter
+		switch ct {
+		case GZIP_TYEP:
+			zwriter = gzip.NewWriter(zf)
+		case SNAPPY_TYPE:
+			zwriter = snappy.NewWriter(zf, snappy.WriterSnappyCompat())
+		case ZSTD_TYPE:
+			zwriter, _ = zstd.NewWriter(zf)
+		}
+
+		defer func() {
+			if err != nil {
+				os.Remove(dst)
+				err = fmt.Errorf("failed to compress log file: %v", err)
+			}
+		}()
+
+		if n, err := io.Copy(zwriter, f); err != nil {
+			zwriter.Close()
+			return err
+		} else {
+			fmt.Printf("debug %d byets has beed write to dst path %s", n, dst)
+		}
+		zwriter.Flush()
+		if err := zwriter.Close(); err != nil {
+			return err
+		}
+	}
+	if err := zf.Close(); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if rm {
+		if err := os.Remove(src); err != nil {
+			return err
 		}
 	}
 
-	if n, err := s.curbuff.Append(p); err != nil {
-		return n, err
-	}
-	return len(p), nil
-
+	return nil
 }
 
-func (s *SimpleAsyncWriter) poller() {
-
-	defer func() {
-
-		for i := len(s.data); i &gt; 0; i-- {
-			d := &lt;-s.data
-			s.wt.Write(d.buf)
-		}
-		if s.curbuff.Avail() &gt; 0 {
-			s.wt.Write(s.curbuff.buf)
-		}
-		close(s.data)
-		s.data = nil
-		s.ct.Stop()
-		s.wg.Done()
-	}()
-
-	for {
-		select {
-		case &lt;-s.active:
-			goto outer
-		case d := &lt;-s.data:
-			s.wt.Write(d.buf)
-			d.Reset()
-			s.buffpool.Put(d)
-		}
-	}
-outer:
-}
-
-func (s *SimpleAsyncWriter) Stop() {
-	s.active &lt;- struct{}{}
-	s.wg.Wait()
-}
 </code></pre>
-<h2 id="基准测试"><a class="header" href="#基准测试">基准测试</a></h2>
-<p>使用 <a href="https://gitee.com/link?target=https%3A%2F%2Fgithub.com%2Fshengyanli1982%2Flaw">law</a> 的 benckmark 测试并给 BlackHoleWriter 类的 Writer 增加了时延模拟真实的落盘耗时，使用随机预先生成的字节数组队列来模拟真实负载填充，下面是 benckmark 测试的耗时</p>
-<p><img src="asset/image.png" alt="benchmark 测试结果" /></p>
-<p>第一列是测试项-cpu 数，第二列是每秒钟执行的次数，第三列是耗时，第四列是每个操作分配的字节数(这个可能是我预生成的随机字节数组拷贝时产生的)，第五列是每个操作的分配次数</p>
-<p>可以看到在 write 写操作平均耗时和平均分配的字节数来看，都有比较明显的优化，同时因为利用 defer 和 wait 机制联动，可以保证在调用 stop 是已经写入缓存的内容可以安全落盘，可以优雅推出，同步机制使用原生 channel 管道</p>
-<p><strong>特点</strong></p>
-<ul>
-<li>轻量级，代码简洁封装少，使用原生操作实现</li>
-<li>多缓冲，使用sync.Pool 实现多级缓冲</li>
-<li>安全并发， 虽然使用了互斥锁，但是仅用在write 方法上，对性能影响足够小</li>
-</ul>
+<p>这部分主要是通过枚举加分支逻辑来处理不同压缩格式的处理，通过io.Copy 来做数据管道</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-
-                            <a rel="next prefetch" href="chapter_2.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
+                            <a rel="prev" href="chapter_2.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
                             </a>
+
 
                         <div style="clear: both"></div>
                     </nav>
@@ -341,10 +336,10 @@ func (s *SimpleAsyncWriter) Stop() {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-
-                    <a rel="next prefetch" href="chapter_2.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
+                    <a rel="prev" href="chapter_2.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
                     </a>
+
             </nav>
 
         </div>
