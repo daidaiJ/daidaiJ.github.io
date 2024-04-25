@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>雪花算法go 实现 - panda note :)</title>
+        <title>tls 和 h2 使用简记 - panda note :)</title>
 
 
         <!-- Custom HTML head -->
@@ -90,7 +90,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html" class="active"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html" class="active"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -175,81 +175,86 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="雪花算法实现"><a class="header" href="#雪花算法实现">雪花算法实现</a></h1>
-<h2 id="雪花算法"><a class="header" href="#雪花算法">雪花算法</a></h2>
-<p>0     - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000</p>
-<p>符号位               时间戳                                   机器码         序列号</p>
-<p>41位毫秒级时间戳，10位机器id  12位序列号
-这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内</p>
-<h2 id="代码"><a class="header" href="#代码">代码</a></h2>
-<pre><code class="language-go">package utils
+                        <h1 id="tls-和-h2-配置"><a class="header" href="#tls-和-h2-配置">TLS 和 H2 配置</a></h1>
+<hr />
+<h2 id="tls-证书签发流程"><a class="header" href="#tls-证书签发流程">TLS 证书签发流程</a></h2>
+<pre><code class="language-shell"># 下面是 v3.ext 的内容
+# authorityKeyIdentifier=keyid,issuer
+# basicConstraints=CA:FALSE
+# keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+# extendedKeyUsage = serverAuth
+# subjectAltName = @alt_names
 
-// https://sourcegraph.com/github.com/sohaha/zlsgo/-/blob/zstring/snowflake.go
-// 学习 zlsgo的总结
+# [alt_names]
+# DNS.1=localhost
+# DNS.2=10.110.8.36
+openssl genrsa &gt; serve.key 
+openssl req -new -key serve.key -out serve.csr -subj "/C=GB/L=China/O=hx/CN=localhost" -days 365 -addext "subjectAltName = DNS:localhost"
+# 个人感觉 这边加个  -addext "subjectAltName = DNS:localhost" 也可以替代 extfile
+openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key  -in serve.csr -out serve.crt
+</code></pre>
+<p>三个文件：</p>
+<ul>
+<li>serve.key 私钥</li>
+<li>serve.csr 公钥</li>
+<li>serve.crt 给客户端用来验证服务的签名证书</li>
+</ul>
+<h2 id="代码实现tls-和h2"><a class="header" href="#代码实现tls-和h2">代码实现TLS 和H2</a></h2>
+<p>服务端这边</p>
+<pre><code class="language-go">	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		io.WriteString(w, "hello, world!\n")
+	})
+    // 这里要指向两个文件的路径
+	if e := http.ListenAndServeTLS(":443", "serve.crt", "serve.key", nil); e != nil {
+		log.Fatal("ListenAndServe: ", e)
+	}
+</code></pre>
+<p>客户端这边</p>
+<pre><code class="language-go">package main
+
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
-	"sync"
-	"time"
+	"io"
+	"log"
+	"net/http"
+	"os"
+
+	"golang.org/x/net/http2"
 )
 
-const (
-	sEpoch     = 1474802888000 // 这个可以是业务上线的时间
-	TimeBase   = int64(1000000)
-	MaxWorkID  = 1&lt;&lt;5 - 1
-	MaxDataID  = MaxWorkID
-	MaxSeqID   = 1&lt;&lt;12 - 1
-	MaskWorkID = 1&lt;&lt;10 - 1
-	MaskSeqID  = 1&lt;&lt;12 - 1
-)
+func loadCA(caFile string) *x509.CertPool {
+	pool := x509.NewCertPool()
 
-type SnowFlakeBuilder struct {
-	start  int64
-	workid int64
-	seqid  int64
-	lock   sync.Mutex
-}
-
-func NewBuilder(st time.Time, data int, worker int) *SnowFlakeBuilder {
-	if data &lt; 0 || data &gt; MaxDataID || worker &lt; 0 || worker &gt; MaxWorkID || st.After(time.Now()) {
-		panic("invaild argument error")
-	}
-	return &amp;SnowFlakeBuilder{
-		start:  st.UnixNano() / TimeBase,
-		workid: int64(data&lt;&lt;5|worker) &amp; MaskWorkID,
-	}
-}
-
-// 类似自旋锁的逻辑，持续试图获取下一毫秒的时间资源
-func (s *SnowFlakeBuilder) waitToNextMS(last int64) int64 {
-	ts := time.Now().UnixNano() / TimeBase
-	for {
-		if ts &lt;= last {
-			ts = time.Now().UnixNano() / TimeBase
-		} else {
-			break
-		}
-	}
-	return ts
-}
-
-func (s *SnowFlakeBuilder) GetID() (int64, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	ts := time.Now().UnixNano() / TimeBase
-	if ts == s.start {
-		s.seqid = (s.seqid + 1) &amp; MaskSeqID
-		if s.seqid == 0 {
-			ts = s.waitToNextMS(ts)
-		}
+	if ca, e := os.ReadFile(caFile); e != nil {
+		log.Fatal("ReadFile: ", e)
 	} else {
-		s.seqid = 0
+		pool.AppendCertsFromPEM(ca)
 	}
-	if ts &lt; s.start {
-		return 0, fmt.Errorf("clock moved backwards, refuse gen id")
+	return pool
+}
+
+func main() {
+	c := &amp;http.Client{
+        // 这个会拿到 h2的协议
+		Transport: &amp;http2.Transport{
+			TLSClientConfig: &amp;tls.Config{RootCAs: loadCA("../serve.crt")},
+			AllowHTTP:       true,
+		},
+        // 启用下面这个注释的就是 https 的协议
+		// Transport: &amp;http.Transport{
+		// 	TLSClientConfig: &amp;tls.Config{RootCAs: loadCA("../serve.crt")},
+		// },
 	}
-	s.start = ts
-	ts = (ts-sEpoch)&lt;&lt;22 | s.workid&lt;&lt;12 | s.seqid
-	return ts, nil
+
+	if resp, e := c.Get("https://localhost:443/"); e != nil {
+		log.Fatal("http.Client.Get: ", e)
+	} else {
+		defer resp.Body.Close()
+		io.Copy(os.Stdout, resp.Body)
+		fmt.Printf("Got response %d: %s \n", resp.StatusCode, resp.Proto)
+	}
 }
 </code></pre>
 
@@ -257,11 +262,11 @@ func (s *SnowFlakeBuilder) GetID() (int64, error) {
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="chapter_3.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="subpush.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="gopprof.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="grpc.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -271,11 +276,11 @@ func (s *SnowFlakeBuilder) GetID() (int64, error) {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="chapter_3.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="subpush.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="gopprof.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="grpc.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
