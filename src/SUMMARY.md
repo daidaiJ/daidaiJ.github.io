@@ -6,5 +6,8 @@
 - [雪花算法go 实现](./snowflake.md)
 - [一个监控服务的pprof 优化流程](./gopprof.md)
 - [消息订阅推送实现](./subpush.md)
+- [tls 和 h2 使用简记](./tls_h2.md)
+- [gRPC 学习笔记](./grpc.md)
+- [etcd 学习笔记](./etcd.md)
 
 
