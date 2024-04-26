@@ -30,6 +30,7 @@
         <link rel="stylesheet" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="js/whichlang.css">
 
         <!-- MathJax -->
         <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
@@ -91,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -1580,6 +1581,159 @@ etcdctl snapshot restore snapshot.db --name etcd01 --initial-cluster etcd01=http
 </code></pre>
 <h2 id="快照"><a class="header" href="#快照">快照</a></h2>
 <p>etcd 的快照和虚拟机的快照比较类似，是摸一个时间点etcd 节点的所有数据；快照是一个checkpoint，避免因为wal 数据被无限制写入，导致体量超大，通过checkpoint做一个记录，后续的wal可以做增量，checkpoint生成的快照充当的应该是快照前的数据，发生修改后的数据会在wal上，(也不能这么说，因为wal记录本来就是修改记录)。</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="rhksum-生成校验和的cli-工具"><a class="header" href="#rhksum-生成校验和的cli-工具">rhksum 生成校验和的cli 工具</a></h1>
+<hr />
+<blockquote>
+<p>标签： rust  md5  sha1  crc32</p>
+<p><a href="https://gitee.com/adamszhang/rust-util/blob/master/rhksum">源码仓库连接</a></p>
+</blockquote>
+<h2 id="简单的功能设计和使用说明"><a class="header" href="#简单的功能设计和使用说明">简单的功能设计和使用说明</a></h2>
+<p>首先rhksum 定位是能够容忍将校验和指定输出到文件，或者控制台上，所以对原先设想的base64 编解码做了舍弃；因为base64的长度是随输入内容变动的，所以如果指定一个大文件然后将编码的结构打印到控制台上，体验会非常糟糕，同时和其他三个生成编码的算法不相对称，base64 是可以从编码上恢复的，同时没有校验功能，所以没有嵌入这部分。</p>
+<pre><code class="language-shell">rhksum -e crc32|md5|sha1 /
+       -f  path/to/file  /
+       -o  the out file  /
+       -h help 
+</code></pre>
+<p>因为是一个命令行工具，所以一定是要能够支持管道符重定向输入的，所以在未指定文件时会自行推测从 stdin 开始获取。但是为了避免手动输入的滑稽场景，在检测到标准输入来源不是管道符就会退出，提前终止，避免需要手动触发退出；</p>
+<h2 id="命令行解析"><a class="header" href="#命令行解析">命令行解析</a></h2>
+<p>这部分用的是 clap 的 builder 模式，需要在使用 <code>cargo add clap --feature cargo</code> 来使部分功能生效；</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 配置命令行参数选项
+  let matches = command!()
+        .arg(
+            arg!(-'e' --"encode" &lt;encode&gt; "set the encode format")
+                .required(false) // 传入 false 可以使这个 参数变成可选的
+                .value_parser(["crc32", "md5", "sha1"]),
+        )
+        .arg(
+            arg!(-'f' --"file" &lt;file&gt;  "set the input file")
+                .required(false)
+                .value_parser(clap::builder::NonEmptyStringValueParser::new()),
+        )
+        .arg(arg!(-'o' --"output" &lt;output&gt; "set the out put file").required(false))
+        .get_matches();
+
+// 解析命令行参数
+    // 先声明四个变量，分别应对标准io 和 文件io
+    let mut ifile: File;
+    let mut ofile: File;
+    let mut stdin = stdin();
+    let mut stdout = stdout();
+
+    let f = matches.get_one::&lt;String&gt;("file");
+    let o = matches.get_one::&lt;String&gt;("output");
+    // 这个 e 是编码格式的选项
+    let e = matches
+        .get_one::&lt;String&gt;("encode")
+        .expect("parser encode format failed");
+    // 通过 io::Write  io::Read 这两个Traits 用来做动态类型，让各个mod 的方法在签名上统一
+    let dest: &amp;mut dyn io::Write = match o {
+        None =&gt; &amp;mut stdout,
+        Some(ref a) =&gt; {
+            ofile = File::create(a).expect("output file open failed");
+            &amp;mut ofile
+        }
+    };
+    let src: &amp;mut dyn io::Read = match f {
+        None =&gt; {
+            // 未指定输入文件的时候，主动检测标准输入是不是终端，是的话提前失败退出
+            if stdin.is_terminal() {
+                println!("dont support input by manual type");
+                return;
+            }
+            &amp;mut stdin
+        }
+        Some(ref a) =&gt; {
+            ifile = File::open(a).unwrap();
+            &amp;mut ifile
+        }
+    };
+
+<span class="boring">}</span></code></pre></pre>
+<h2 id="模式匹配"><a class="header" href="#模式匹配">模式匹配</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    // 这部分要写的这么难看就是  
+    // rust 会认为 &amp;std::string::String 和 &amp;str 不是一个类型，需要主动去转换；
+    match &amp;e as &amp;str {
+       
+       "crc32" =&gt; crc32_::encode(&amp;mut *src, &amp;mut *dest),
+        "md5" =&gt; md5::encode(&amp;mut *src, &amp;mut *dest),
+        "sha1" =&gt; sha1::encode(&amp;mut *src, &amp;mut *dest),
+        _ =&gt; {}    // 未匹配路径这里旧直接退出了，
+        // 其实这个逻辑 分支会在命令行输入出被校验出来提前失败,所以这里不处理是可以的
+    }
+<span class="boring">}</span></code></pre></pre>
+<h2 id="校验加密算法"><a class="header" href="#校验加密算法">校验加密算法</a></h2>
+<p>这里三个mod 模块都是公开的，可以被作为库嵌入使用</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub mod crc32_ {
+    use crc::{Crc, CRC_32_ISO_HDLC};
+    use std::{io::Read, io::Write};
+    pub fn encode(r: &amp;mut dyn Read, w: &amp;mut dyn Write) {
+        let crc = Crc::&lt;u32&gt;::new(&amp;CRC_32_ISO_HDLC);
+        let mut digest = crc.digest();
+        let mut v = [0u8; 1024];
+        loop {
+            let cnt = r.read(&amp;mut v[..]).unwrap();
+            if cnt == 0 {
+                break;
+            }
+            digest.update(&amp;mut v[..cnt])
+        }
+        let checksum = format!("{0:&lt;8X}\n", digest.finalize()); // 大写的十六进制输出下32/4 最后有8位字符，通过0左填充以防长度问题
+        // println!("result is {0:8}", checksum);
+        let re = w.write(checksum.as_bytes());
+        if re.is_err() {
+            println!("err is {:#} ", re.expect_err("write error"))
+        }
+    }
+}
+
+pub mod md5 {
+    use chksum_md5 as md5;
+    use std::{io::Read, io::Write};
+    pub fn encode(r: &amp;mut dyn Read, w: &amp;mut dyn Write) {
+        let mut f = md5::reader::new(r);
+        let mut buffer = Vec::new();
+        f.read_to_end(&amp;mut buffer).unwrap();
+        let digest = f.digest();
+        let checksum = format!("{}\n", digest.to_string().to_uppercase());
+        // println!("result is {}", checksum);
+        let re = w.write(checksum.as_bytes());
+        if re.is_err() {
+            println!("err is {:#} ", re.expect_err("write error"))
+        }
+    }
+}
+
+pub mod sha1 {
+    use sha1_smol::Sha1 as sha1;
+    use std::{io::Read, io::Write};
+    pub fn encode(r: &amp;mut dyn Read, w: &amp;mut dyn Write) {
+        let mut digest = sha1::new();
+        let mut v = [0u8; 1024];
+        loop {
+            let cnt = r.read(&amp;mut v[..]).unwrap();
+            if cnt == 0 {
+                break;
+            }
+            digest.update(&amp;mut v[..cnt])
+        }
+        let checksum = format!("{}\n", digest.digest().to_string().to_ascii_uppercase());
+        // println!("result is {}", checksum);
+        let re = w.write(checksum.as_bytes());
+        if re.is_err() {
+            println!("err is {:#} ", re.expect_err("write error"))
+        }
+    }
+}
+
+
+<span class="boring">}</span></code></pre></pre>
+<p>这部分其实做的工作不多，但是这几个库的调用形式是有差异的，为了统一函数签名，还是花了些时间</p>
 
                     </main>
 
@@ -1615,6 +1769,10 @@ etcdctl snapshot restore snapshot.db --name etcd01 --initial-cluster etcd01=http
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="js/fzf.umd.js"></script>
+        <script src="js/elasticlunr.js"></script>
+        <script src="js/import-html.js"></script>
+        <script src="js/whichlang.js"></script>
 
         <script>
         window.addEventListener('load', function() {
