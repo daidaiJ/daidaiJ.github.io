@@ -3,7 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>分布式一致性hash实现 - panda note :)</title>
+        <title>Page not found - panda note :)</title>
+        <base href="/">
 
 
         <!-- Custom HTML head -->
@@ -91,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html" class="active"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -176,113 +177,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="分布式一致性哈希-golang-实现"><a class="header" href="#分布式一致性哈希-golang-实现">分布式一致性哈希 Golang 实现</a></h1>
-<p>[TOC]</p>
-<h2 id="哈希环定义"><a class="header" href="#哈希环定义">哈希环定义</a></h2>
-<pre><code class="language-go">import "hash/crc32"
-type Hash func(data []byte) uint32
-// 用crc32 
-var defaultHashFn = crc32.ChecksumIEEE
-// 哈希环
-// 注意，非线程安全，业务需要自行加锁
-type HashRing struct {
-    hash Hash
-    // 每个真实节点的虚拟节点数量
-    replicas int
-    // 哈希环，按照节点哈希值排序
-    ring []int
-    // 用来在新增节点时去重的
-    keys []string
-    // 节点哈希值到真实节点字符串，哈希映射的逆过程
-    nodes map[int]string
-}
-
-func NewHashRing(r int,fn Hash)*HashRing(){
-    if fn==nil{
-        fn = defaultHashFn
-    }
-    return &amp;HashRing{
-        replicas: r,
-        hash: fn,
-        ring: make([]int,0,8*r),
-        keys: make([]string,0,8),
-        nodes: make(map[int]string,8),
-    }
-    
-}
-</code></pre>
-<h2 id="方法实现"><a class="header" href="#方法实现">方法实现</a></h2>
-<pre><code class="language-go">import (
-    "slices"
-    "sort"
-    "strconv"
-)
-
-func (h *HashRing) Add(nodes ...string) {
-    for _, k := range nodes {
-
-        exist := false
-        for _, val := range h.keys {
-            if val == k {
-                exist = true
-            }
-        }
-        if !exist {
-            h.keys = append(h.keys, k)
-            for i := 0; i &lt; h.replicas; i++ {
-                hash := int(h.hash([]byte(strconv.Itoa(i) + k)))
-                h.ring = append(h.ring, hash)
-                h.nodes[hash] = k
-            }
-        }
-    }
-    slices.Sort(h.ring)
-}
-func (h *HashRing) Len() int {
-    return len(h.keys)
-}
-
-func (h *HashRing) Get(key string) string {
-    if h.Len() == 0 {
-        return ""
-    }
-
-    hash := int(h.hash([]byte(key)))
-
-    // Binary search for appropriate replica.
-    idx := sort.Search(len(h.ring), func(i int) bool { return h.ring[i] &gt;= hash })
-
-    // Means we have cycled back to the first replica.
-    if idx == len(h.ring) {
-        idx = 0
-    }
-
-    return h.nodes[h.ring[idx]]
-}
-func (h *HashRing)Rest(){
-    h.ring = h.ring[:0]
-    h.keys = h.keys[:0]
-    clear(h.nodes)
-}
-
-</code></pre>
-<ul>
-<li>Add() 方法是用来创建节点环的,在一些节点退出后，可能需要reset 哈希环来再次重构哈希环</li>
-<li>Reset() 是用来重置hash环信息的</li>
-<li>Get()   就是用来获取 一致性哈希映射到的 节点的字符串上</li>
-</ul>
+                        <h1 id="pandazhangsgithubio"><a class="header" href="#pandazhangsgithubio">pandazhangs.github.io</a></h1>
+<hr />
+<p>一个正在施工的主页</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="chapter_1.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
-                            </a>
 
-                            <a rel="next prefetch" href="chapter_3.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -290,13 +193,7 @@ func (h *HashRing)Rest(){
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="chapter_1.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
-                    </a>
 
-                    <a rel="next prefetch" href="chapter_3.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>

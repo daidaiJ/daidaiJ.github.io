@@ -9,5 +9,6 @@
 - [tls 和 h2 使用简记](./tls_h2.md)
 - [gRPC 学习笔记](./grpc.md)
 - [etcd 学习笔记](./etcd.md)
+- [校验和生成工具](./rust/rshsum.md)
 
 
