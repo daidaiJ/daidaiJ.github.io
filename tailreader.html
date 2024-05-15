@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>一个监控服务的pprof 优化流程 - panda note :)</title>
+        <title>一个反向文本迭代器实现 - panda note :)</title>
 
 
         <!-- Custom HTML head -->
@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html" class="active"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html" class="active"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -176,151 +176,195 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="prometheus-exporter-pprof-优化"><a class="header" href="#prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化</a></h1>
+                        <h1 id="tailreader-一个反向迭代器"><a class="header" href="#tailreader-一个反向迭代器">TailReader 一个反向迭代器</a></h1>
 <hr />
 <blockquote>
-<p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题</p>
+<p>面对大文本获取最后的消息，向前遍历go 目前没有现成的接口</p>
 </blockquote>
-<h2 id="怎么采集后台运行进程性能数据"><a class="header" href="#怎么采集后台运行进程性能数据">怎么采集后台运行进程性能数据</a></h2>
+<h2 id="设计思路"><a class="header" href="#设计思路">设计思路</a></h2>
 <ol>
-<li>使用<code>ps -ef | grep xxx</code> 来获取进程号pid
-<ol>
-<li><code> pidstat -u -p pid  15 4</code> 来采集进程的cpu 占用率</li>
+<li>seek 反向移动offset ，然后bytes 判断不同系统上的换行符在哪里？</li>
+<li>将一次分割后的字节数组，缓存起来，留待下次取分行字节</li>
+<li>在多次未能查看到换行符的时候，默认是3KB 就提前终止提交失败，避免因为错误遍历大二进制文件</li>
+<li>有缓存机制，大小文件效率都不差，适合做类似 tail -n 3 这种文本获取行为</li>
+<li>目前支持的 empty 行跳过行为比较简单，其实更接近于剔除前缀换行符, 如果需要跳过空行，可以嵌套个if 判断len(temp)&gt;0</li>
+<li>面对极小文件可以直接用ReadFile 来切split，避免带来额外的复杂度</li>
 </ol>
-</li>
-<li>top 按t 和m 来切换 cpu 和 内存排序</li>
-<li>go 使用  _ "net/http/pprof" 然后非http 网络服务就再增加一个拉起http 服务的几行代码
-<ol>
-<li>使用curl -o cpupgo.out http://your_address:your_port/debug/pprof/profile?seconds=60 来采样一分钟的运行数据</li>
-<li><code>go tool pprof -http=:9000 cpupgo.out </code> 使用 pprof 工具开启一个网络服务在web网页上查看性能采样</li>
-</ol>
-</li>
-<li>使用 perf 工具来采样 基本上会用到 record 和 report 这些，然后转成火山图来分析</li>
-</ol>
-<h2 id="问题追踪"><a class="header" href="#问题追踪">问题追踪</a></h2>
-<p><strong>问题1.</strong> 缓存为什么没有生效(降低延迟减少耗时操作)
-通过go 的pprof 对后台运行的服务采样后发现大部分cpu 时间在生成Metric 相关的结构体上，同时缓存的数据格式是json，取json 数据会用到仿射，这使得组装Metric 的过程中充斥着大量的耗时操作，于是选择将json 数据缓存改成 Metric 数据缓冲，和时效时间戳一起封装成一个抽象的容器，在未过期时会将，slice 里面所有的Metric 通过管道发送出去，过期时会将slice 长度重置，发送Metric 的同时将其append 到slice 里面缓存，总结来说，缓存生效了，但是又没完全覆盖到所有耗时操作上。</p>
-<p>改进后的缓存实现，在应用中遇到了新的问题，缓存应用后没被触发？</p>
-<p><strong>问题2</strong>.  缓存为什么没被触发？
-复盘对比了两种缓存机制和Collect 方法被调用的过程时发现，Collect 中声明的对象在每次调用时重新创建的，之前json 缓存是用的全局变量，所以创建前后用的都是一个缓存；这里将新的缓存实现也没大改，给新建的这些对象实例也做个全局缓存，没过期失效前这些实例就不会被重新创建，减少了一些再分配构建的过程，通过预留的 cache stat handler 可以看到缓存除了初次和过期时未命中外，其余时刻缓存全命中，符合预期</p>
-<p>新的全局缓冲实现生效了，将cpu 占用率降低到原先的30%，同时内存占用差别不大，但剩下的30%还能不能继续优化呢？</p>
-<h2 id="终极优化方案"><a class="header" href="#终极优化方案">终极优化方案</a></h2>
-<p>通过对 Prometheus client go 的源码阅读，确定了相应http 响应的整个构造流程，脑中浮现了一个比较极端的想法，缓冲响应；</p>
-<p>这个适合用来缓存响应内容在一段时间内不会发生改动的 http handler 接口对象</p>
-<pre><code class="language-go">/* get resp cache code  start  */
-type respCacheWriter struct {
-	header     http.Header
-    expireat time.Time
-	statuscode int
-	buf        []byte
-    update     bool
+<h2 id="实现细节"><a class="header" href="#实现细节">实现细节</a></h2>
+<pre><code class="language-go">
+type TailReader struct {
+	rc        *os.File
+	buf       []byte    // 用来缓存剩余字节
+	temp      []byte   // 提供给 Read
+	sep       []byte   // 兼容不同系统架构分隔符
+	offset    int64   // 记录offset
+	size      int64   // 文件大小
+	skipempty bool    // 控制是否跳过空行行为
+	atEnd     bool    // 记录offset 是否被移动到文件开始位置了
 }
-func newRespCacheWriter() *respCacheWriter {
-    return &amp;respCacheWriter{
-        header: make(http.Header, 3),
-		buf:    make([]byte, 0, 1024*4),
+
+var (
+	Sep_win   = []byte("\r\n")
+	Sep_linux = []byte("\n")
+)
+
+func NewTailReader(fname string, sep []byte, skip bool) (*TailReader, error) {
+	file, err := os.Open(fname)
+	if err != nil {
+		return nil, err
 	}
-}
-func (r *respCacheWriter) NotExpire() bool {
-    return time.Now().Before(r.expireat)&amp;&amp;!r.update
-}
-func (r *respCacheWriter) Update(interval time.Duration) {
-     r.expireat = time.Now().Add(interval)
-     r.update = false
-}
-func (r *respCacheWriter) Header() http.Header {
-	return r.header
-}
-func (r *respCacheWriter) SetUpdate() http.Header {
-	return r.update = true
-}
-
-func (r *respCacheWriter) WriteHeader(statusCode int) {
-	r.statuscode = statusCode
-}
-
-func (r *respCacheWriter) Write(p []byte) (int, error) {
-	if p == nil {
-		return 0, fmt.Errorf("Write []byte length should not be zero")
+	stat, _ := file.Stat()
+	size := stat.Size()
+	var offset int64 = 1024
+	if size &lt; offset {
+		offset = size
 	}
-	r.buf = append(r.buf, p...)
-	return len(r.buf), nil
-}
 
-type GetRespCache struct {
-	
-	interval time.Duration
-	cache    map[string]*respCacheWriter
-	next     http.Handler
-}
-
-func NewGetRespCache(i time.Duration,next http.Handler)GetRespCache{
-	return GetRespCache{ 
-		interval: i,
-		cache: make(map[string]*respCacheWriter,1),
-		next: next,
+	_, errs := file.Seek(int64(-offset), 2)
+	if errs != nil {
+		return nil, errs
 	}
-}
-
-// 这个方法其实也可以 转成私有的，但是不会修改cache 状态所以无所谓
-
-func (g *GetRespCache)UpdateCache()bool{
-    key := fmt.Sprintf("key%v", r.URL.Query())
-    if c,ok:=g.cache[key];key&amp;&amp;c!=nil{
-        c.SetUpdate()
-    }
-}
-
-func (g *GetRespCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := fmt.Sprintf("key%v", r.URL.Query())
-	if val, ok := g.cache[key]; ok  &amp;&amp; val != nil&amp;&amp;val.NotExpire() {
-		g.generateResp(val, w)
-	} else {
-		// 调用 write 方法时 缓存响应的 header
-		resp := newRespCacheWriter()
-		g.next.ServeHTTP(resp, r)
-		g.generateResp(resp, w)
-		g.update(key, resp)
-
+	offset2, _ := file.Seek(0, io.SeekCurrent)
+	fmt.Printf("seek to offset %d, file size is %d\n", offset2, size)
+	atEnd := false
+	if offset == size {
+		atEnd = true
 	}
+	return &amp;TailReader{rc: file, buf: make([]byte, 0, 1024), temp: make([]byte, 1024), sep: sep, skipempty: skip, offset: int64(offset), size: size, atEnd: atEnd}, nil
 }
-func (g *GetRespCache) update(key string, resp *respCacheWriter) {
-    // 这里会更新过期时间和下一个响应状态
-	resp.Update(g.interval)
-    g.cache[key] = resp
+
+func (t *TailReader) Close() {
+	t.rc.Close()
 }
-func (*GetRespCache) generateResp(val *respCacheWriter, w http.ResponseWriter) {
-	for k, s := range val.header {
-		for _, v := range s {
-			w.Header().Set(k, v)
+
+func (t *TailReader) ReadBytes() ([]byte, error) {
+	// 如果上次缓存没清完，检查是否有换行符
+	sepsize := 0
+	if t.skipempty {
+		sepsize = len(t.sep)
+	}
+	// 处理上次遗留的缓存
+	if len(t.buf) &gt; 0 {
+		if idx := bytes.LastIndex(t.buf, t.sep); idx != -1 {
+			temp := append([]byte{}, t.buf[idx+sepsize:]...)
+			t.buf = t.buf[:idx]
+			return temp, nil
+		}
+		if t.atEnd {
+			p := slices.Clone(t.buf[:len(t.buf)])
+			t.buf = t.buf[:0]
+			return p, nil
 		}
 	}
-	w.WriteHeader(val.statuscode)
-	w.Write(val.buf)
+
+	if t.size &lt; t.offset {
+		return nil, io.EOF
+	}
+	// 拷贝重置缓存
+	var p []byte
+	// 先将这部分尾巴给卸除出去
+	if len(t.buf) &gt; 0 {
+		p = append([]byte{}, t.buf...)
+	}
+	n, err := t.rc.Read(t.temp)
+	if err == nil &amp;&amp; n &gt; 0 {
+		idx := bytes.LastIndex(t.temp[:n], t.sep)
+
+		if idx != -1 {
+
+			temp := append([]byte{}, t.temp[idx+sepsize:n]...)
+			temp = append(temp, p...)
+			t.buf = t.buf[:0]
+			t.buf = append(t.buf, t.temp[:idx]...)
+			if err := t.move(n); err != nil {
+				return nil, err
+			}
+			return temp, nil
+		}
+
+		var cur, next []byte
+
+		cur = slices.Concat(t.temp[:n], p)
+		if err := t.move(n); err != nil {
+			return nil, err
+		}
+		// 用来预防二进制大文件，堆爆slice
+		for i := 0; i &lt; 3 &amp;&amp; idx == -1; i++ {
+			n, err = t.rc.ReadAt(t.buf, 0)
+			if err != nil {
+				return nil, err
+			}
+			if err := t.move(n); err != nil {
+				return nil, err
+			}
+			idx = bytes.LastIndex(t.buf[:n], t.sep)
+			if idx != -1 {
+				next = slices.Concat(t.temp[idx:n], cur)
+				// 尽量复用
+				t.buf = t.buf[:0]
+				t.buf = append(t.buf, t.temp[:idx]...)
+				break
+			}
+			next = slices.Concat(t.temp[:n], cur)
+		}
+
+		if idx != -1 {
+			return nil, errors.New("cant found sep in many times try")
+		}
+
+		return next, nil
+	}
+	return nil, err
 }
-/* get resp cache code  end  */
+
+func (t *TailReader) move(delta int) error {
+	t.offset += int64(delta)
+	if t.offset &gt; t.size {
+		t.offset = t.size
+	}
+	// 避免重复移动
+	if t.offset &lt;= t.size &amp;&amp; !t.atEnd {
+
+		_, err := t.rc.Seek(-t.offset, 2)
+		if err != nil {
+			return err
+		}
+		if t.offset == t.size {
+			t.atEnd = true
+		}
+	}
+	if len(t.buf) &gt; 0 {
+		return nil
+	}
+	return io.EOF
+}
+</code></pre>
+<h2 id="简单使用示例"><a class="header" href="#简单使用示例">简单使用示例</a></h2>
+<pre><code class="language-go">   f, err := NewTailReader(`test.txt`, utils.Sep_win, true)
+   if err != nil {
+   fmt.Printf("error %s", err.Error())
+   }
+   defer f.Close()
+   for {
+
+   b, e := f.ReadBytes()
+   // 一般是 io.EOF
+   if e != nil {
+   break
+   }
+   fmt.Printf("%s\t%v\n", string(b), e)
+   }
 
 </code></pre>
-<p>可以看到其实就是通过中间的代理接口，将被代理的handler 函数的修改缓存起来，根据get 请求的query值来做hash 返回响应的；
-过期的时效间隔这里倒是比较粗，用的是同一个过期间隔；</p>
-<p>这个get 缓存方案是我最看好的:</p>
-<ul>
-<li>第一点基本上是即插即用，迁移性好兼容性好，</li>
-<li>第二点是性能更好，缓存占用少，还剩去了内部handler 处理的时间</li>
-</ul>
-<p>这个之所以能用在这个场景上，其实是需求造成的，抓取端不改动，数据供应端又允许缓存；所以这个getcache 的方案理论上有奇效，但是最终还是没应用上这个，确定是按照问题2解决后的实现方案来。</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="snowflake.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="rust/rshsum.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="subpush.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -328,13 +372,10 @@ func (*GetRespCache) generateResp(val *respCacheWriter, w http.ResponseWriter) {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="snowflake.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="rust/rshsum.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="subpush.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
