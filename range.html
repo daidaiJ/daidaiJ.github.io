@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>tls 和 h2 使用简记 - panda note :)</title>
+        <title>一个go风格的Range迭代器封装 - panda note :)</title>
 
 
         <!-- Custom HTML head -->
@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html" class="active"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html" class="active"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -176,100 +176,113 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="tls-和-h2-配置"><a class="header" href="#tls-和-h2-配置">TLS 和 H2 配置</a></h1>
+                        <h1 id="一个range-风格的范围迭代器封装实现"><a class="header" href="#一个range-风格的范围迭代器封装实现">一个range 风格的范围迭代器封装实现</a></h1>
 <hr />
-<h2 id="tls-证书签发流程"><a class="header" href="#tls-证书签发流程">TLS 证书签发流程</a></h2>
-<pre><code class="language-shell"># 下面是 v3.ext 的内容
-# authorityKeyIdentifier=keyid,issuer
-# basicConstraints=CA:FALSE
-# keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-# extendedKeyUsage = serverAuth
-# subjectAltName = @alt_names
-
-# [alt_names]
-# DNS.1=localhost
-# DNS.2=10.110.8.36
-openssl genrsa &gt; serve.key 
-openssl req -new -key serve.key -out serve.csr -subj "/C=GB/L=China/O=hx/CN=localhost" -days 365 -addext "subjectAltName = DNS:localhost"
-# 个人感觉 这边加个  -addext "subjectAltName = DNS:localhost" 也可以替代 extfile
-openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key  -in serve.csr -out serve.crt
+<p>go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；</p>
+<h2 id="第一种宏定义"><a class="header" href="#第一种宏定义">第一种宏定义</a></h2>
+<p>这种其实类似 哪些OIer 常用的 for_each 宏</p>
+<pre><code class="language-cpp">    #define rangeI(_I, _end) for (i = 0; i &lt; (_end); i++)
 </code></pre>
-<p>三个文件：</p>
-<ul>
-<li>serve.key 私钥</li>
-<li>serve.csr 公钥</li>
-<li>serve.crt 给客户端用来验证服务的签名证书</li>
-</ul>
-<h2 id="代码实现tls-和h2"><a class="header" href="#代码实现tls-和h2">代码实现TLS 和H2</a></h2>
-<p>服务端这边</p>
-<pre><code class="language-go">	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		io.WriteString(w, "hello, world!\n")
-	})
-    // 这里要指向两个文件的路径
-	if e := http.ListenAndServeTLS(":443", "serve.crt", "serve.key", nil); e != nil {
-		log.Fatal("ListenAndServe: ", e)
-	}
+<p>其实就是一个包装常见的 for 表达式头的一个宏，限制挺多，优点是几乎零开销；</p>
+<h2 id="迭代器类封装实现"><a class="header" href="#迭代器类封装实现">迭代器类封装实现</a></h2>
+<p>这个东西实现上并未考虑太多性能,应该会需要创建两个对象，这个有点像cpp 20里面增加的，ranges::itoa_views()；但是这个功能更单一，仅用于整型范围迭代，而且接口也是更使用，提供，start，end，step，支持for range双向遍历</p>
+<pre><code class="language-cpp">
+
+class RangeIter {
+  private:
+  int step;
+  int cur_val;
+
+  public:
+  RangeIter(int step, int val) : step(step), cur_val(val) {}
+
+  // these three methods form the basis of an iterator for use with a rangeIter-based for loop
+  bool operator!=(const RangeIter &amp;other) const {
+    if (step &lt; 0) {
+      return cur_val != other.cur_val &amp;&amp; cur_val &gt; other.cur_val;
+    }
+    return cur_val != other.cur_val &amp;&amp; cur_val &lt; other.cur_val;
+  }
+
+  // this method must be defined after the definition of IntVector since it needs to use it
+  int operator*() const { return cur_val; }
+  const RangeIter &amp;operator++() {
+    cur_val += step;
+    return *this;
+  }
+};
+class Range {
+  private:
+  int _st, _end, _step;
+  bool args_check() const {
+    if (_step == 0) {
+      return false;
+    }
+    if (_step &lt; 0 &amp;&amp; _st &lt;= _end) {
+      return false;
+    }
+    return _step &lt;= 0 || _st &lt; _end;
+  }
+
+  public:
+  Range(int start, int end, int step) : _st(start), _end(end), _step(step) {}
+  Range(int start, int end) : _st(start), _end(end), _step(1) {}
+  explicit Range(int end) : _st(0), _end(end), _step(1) {}
+  RangeIter iter() { return RangeIter{_step, _st}; }
+  RangeIter cbegin() const {
+    if (!args_check()) {
+      throw std::invalid_argument("step should match the exper start+n*step&gt;end");
+    }
+    return RangeIter{_step, _st};
+  }
+  RangeIter cend() const {
+    // if (!args_check()){
+    //     throw std::invalid_argument("step should match the exper start+n*step&gt;end");
+    // }
+    return RangeIter{_step, _end};
+  }
+  RangeIter begin() {
+    if (!args_check()) {
+      throw std::invalid_argument("step should match the exper start+n*step&gt;end");
+    }
+    return RangeIter{_step, _st};
+  }
+  RangeIter end() { return RangeIter{_step, _end}; }
+};
 </code></pre>
-<p>客户端这边</p>
-<pre><code class="language-go">package main
-
-import (
-	"crypto/tls"
-	"crypto/x509"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"os"
-
-	"golang.org/x/net/http2"
-)
-
-func loadCA(caFile string) *x509.CertPool {
-	pool := x509.NewCertPool()
-
-	if ca, e := os.ReadFile(caFile); e != nil {
-		log.Fatal("ReadFile: ", e)
-	} else {
-		pool.AppendCertsFromPEM(ca)
-	}
-	return pool
+<p>这里对 begin 做了参数检查，避免意外的错误情况，导致无限循环之类的情况，其实正常情况应该是把RangeIter 这个迭代器实现给塞到 private 域里面去，避免他人骚操作；但这里只是一个简单的演示demo就不用考虑太多；</p>
+<h2 id="调用"><a class="header" href="#调用">调用</a></h2>
+<pre><code class="language-cpp">int main() {
+  std::vector&lt;int&gt; val{1, 2, 3};
+  int i = 0;
+  rangeI(i, val.size()) { std::cout &lt;&lt; val[i] &lt;&lt; std::endl; }
+  // 1
+  // 2
+  // 3
+  try {
+    for (auto i : Range(static_cast&lt;int&gt;(val.size()), 0, -1)) {
+      std::cout &lt;&lt; i &lt;&lt; ";\n";
+    }
+  } catch (std::logic_error &amp;e) {
+    std::cout &lt;&lt; "error" &lt;&lt; e.what() &lt;&lt; std::endl;
+  }
+  // 3;
+  // 2;
+  // 1;
+  std::cout &lt;&lt; std::endl;
 }
 
-func main() {
-	c := &amp;http.Client{
-        // 这个会拿到 h2的协议
-		Transport: &amp;http2.Transport{
-			TLSClientConfig: &amp;tls.Config{RootCAs: loadCA("../serve.crt")},
-			AllowHTTP:       true,
-		},
-        // 启用下面这个注释的就是 https 的协议
-		// Transport: &amp;http.Transport{
-		// 	TLSClientConfig: &amp;tls.Config{RootCAs: loadCA("../serve.crt")},
-		// },
-	}
-
-	if resp, e := c.Get("https://localhost:443/"); e != nil {
-		log.Fatal("http.Client.Get: ", e)
-	} else {
-		defer resp.Body.Close()
-		io.Copy(os.Stdout, resp.Body)
-		fmt.Printf("Got response %d: %s \n", resp.StatusCode, resp.Proto)
-	}
-}
 </code></pre>
+<p>总之复习了for range和迭代器实现</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="subpush.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="tailreader.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="grpc.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -277,13 +290,10 @@ func main() {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="subpush.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="tailreader.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="grpc.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
