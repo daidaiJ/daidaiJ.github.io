@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -2012,6 +2012,54 @@ class Range {
 
 </code></pre>
 <p>总之复习了for range和迭代器实现</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="使用脚本部署k8s-虚机集群"><a class="header" href="#使用脚本部署k8s-虚机集群">使用脚本部署k8s 虚机集群</a></h1>
+<hr />
+<h2 id="部署流程"><a class="header" href="#部署流程">部署流程</a></h2>
+<p>首先是物料准备，此脚本以centos8 为内核的虚机准备，理论上兼容<strong>anolis,rocky,almalinux</strong>；</p>
+<blockquote>
+<p>尽量先将环境中的docker或者其他容器运行时给先清理干净。</p>
+</blockquote>
+<ol>
+<li><a href="k8s/./k8s_deploy.sh">k8s基础环境脚本</a> 这个脚本需要在每个节点上执行</li>
+<li><a href="https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.14/cri-dockerd-0.3.14-3.el8.x86_64.rpm">cri_docker的预构建包</a> 如果对github 连接不稳定，建议将这个包分发到k8s基础环境脚本的工作目录里去</li>
+<li><a href="k8s/./kubeinit.sh">master需要的kubeinit脚本</a></li>
+<li><a href="k8s/./flannel.yml">k8s-cni的部署配置文件</a></li>
+</ol>
+<p>然后执行的流程基本上如下：</p>
+<ol>
+<li>将上述物料按照说明上载到虚机节点上；</li>
+<li>按照vmware 或者kvm 的虚机节点网络配置，修改53-55行里面有关于hosts配置的部分</li>
+</ol>
+<pre><code class="language-shell">cat &gt;&gt; /etc/hosts &lt;&lt; EOF
+192.168.160.11 master    // 修改成你要的ip
+192.168.160.12 node1   
+192.168.160.13 node2
+EOF
+</code></pre>
+<ol start="3">
+<li>可选根据节点规划的hostname 使用 <code>hostnamectl set-hostname  your-hostname</code> 来修改hostname</li>
+<li>首先在各个节点上执行k8s 基础环境准备脚本；<code>chmod u+x ./k8s_deploy.sh &amp;&amp; ./k8s_deploy.sh</code></li>
+<li>中间有个输出docker service 的状态信息的部分需要手动键入q 来退出这个交互信息输出的部分</li>
+<li>然后正常情况是不会报错的，同时会显示 kubelet 之类的包已经被拉取安装好了</li>
+<li>现在开始分节点role 执行不同脚本和命令</li>
+<li>master 上面执行 master 的 kubeinit 脚本，正常情况下会打印一些提示信息出来</li>
+</ol>
+<pre><code class="language-shell">1. exec 'kubeadm join ..(your cmd).. --cri-socket=unix:///var/run/cri-dockerd.sock' at your slave node please append the config '--cri-socket=unix:///var/run/cri-dockerd.sock' 
+2. exec 'kubectl apply -f flannel.yml' at your master node and wait until all nodes state is ready 
+</code></pre>
+<ol start="8">
+<li>这个提示信息其实是我加的，就是说明要:
+<ol>
+<li>在主节点上执行 <code>source /etc/profile</code> 启用环境变量配置</li>
+<li>在从节点上执行<code>kubeadm join ..(your cmd).. --cri-socket=unix:///var/run/cri-dockerd.sock</code> 注意中间有省略号的部分是k8s生成的token 号，这个有时效性，粘贴过来后加上<code>--cri-socket=unix:///var/run/cri-dockerd.sock</code> 就是为了应用cri-docker的cri配置</li>
+<li>执行正常的话会提示你执行 <code>kubectl get nodes </code> 类似的命令，切换到主节点上执行可以看到各个节点都是NotReady 这是因为没有部署好k8s的网络插件cni</li>
+<li>这里在主节点上执行 <code>kubectl apply -f flannel.yml</code>，这个配置需要几分钟时间，可以等一会儿，然后再执行 <code>kubectl get nodes </code></li>
+</ol>
+</li>
+<li>最终应该是有下面这个图的输出
+<img src="k8s/../asset/k8s.png" alt="k8s部署成功状态" />
+<strong>现在整个环境就可以用了，同时虚机重启也不会毁坏这个k8s集群</strong></li>
+</ol>
 
                     </main>
 
