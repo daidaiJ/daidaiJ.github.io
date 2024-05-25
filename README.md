@@ -18,3 +18,7 @@
 <span>  </span>
  <img  width="95%" src="https://github-readme-activity-graph.vercel.app/graph?username=daidaiJ&theme=vue&radius=10"/>
 </div>
+
+<!--START_SECTION:waka-->
+<!--END_SECTION:waka-->
+
