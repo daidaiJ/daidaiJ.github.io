@@ -318,7 +318,7 @@ func (s *SimpleAsyncWriter) Stop() {
 </code></pre>
 <h2 id="基准测试"><a class="header" href="#基准测试">基准测试</a></h2>
 <p>使用 <a href="https://gitee.com/link?target=https%3A%2F%2Fgithub.com%2Fshengyanli1982%2Flaw">law</a> 的 benckmark 测试并给 BlackHoleWriter 类的 Writer 增加了时延模拟真实的落盘耗时，使用随机预先生成的字节数组队列来模拟真实负载填充，下面是 benckmark 测试的耗时</p>
-<p><img src="asset/image.png" alt="benchmark 测试结果" /></p>
+<p><img src="asset/alog.png" alt="benchmark 测试结果" /></p>
 <p>第一列是测试项-cpu 数，第二列是每秒钟执行的次数，第三列是耗时，第四列是每个操作分配的字节数(这个可能是我预生成的随机字节数组拷贝时产生的)，第五列是每个操作的分配次数</p>
 <p>可以看到在 write 写操作平均耗时和平均分配的字节数来看，都有比较明显的优化，同时因为利用 defer 和 wait 机制联动，可以保证在调用 stop 是已经写入缓存的内容可以安全落盘，可以优雅推出，同步机制使用原生 channel 管道</p>
 <p><strong>特点</strong></p>
@@ -2063,7 +2063,9 @@ EOF
 </ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="一个gptapi-桌面套件"><a class="header" href="#一个gptapi-桌面套件">一个gptapi 桌面套件</a></h1>
 <hr />
-<p>使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。</p>
+<p>使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。
+<a href="https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk">chatdesk 桌面套件连接</a>
+<img src="asset/chatdesk.png" alt="alt text" /></p>
 <h2 id="功能"><a class="header" href="#功能">功能</a></h2>
 <ul>
 <li>markdown 自动导出</li>
