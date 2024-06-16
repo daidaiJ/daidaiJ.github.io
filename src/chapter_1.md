@@ -146,7 +146,7 @@ func (s *SimpleAsyncWriter) Stop() {
 
 使用 [law](https://gitee.com/link?target=https%3A%2F%2Fgithub.com%2Fshengyanli1982%2Flaw) 的 benckmark 测试并给 BlackHoleWriter 类的 Writer 增加了时延模拟真实的落盘耗时，使用随机预先生成的字节数组队列来模拟真实负载填充，下面是 benckmark 测试的耗时
 
-![benchmark 测试结果](asset/image.png)
+![benchmark 测试结果](asset/alog.png)
 
 第一列是测试项-cpu 数，第二列是每秒钟执行的次数，第三列是耗时，第四列是每个操作分配的字节数(这个可能是我预生成的随机字节数组拷贝时产生的)，第五列是每个操作的分配次数 
 

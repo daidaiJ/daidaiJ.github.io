@@ -1,6 +1,8 @@
 # 一个gptapi 桌面套件
 ------
 使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。
+[chatdesk 桌面套件连接](https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk)
+![alt text](asset/chatdesk.png)
 ## 功能
 - markdown 自动导出
 - 国产api {千问，豆包，混元，千帆，DeepSeek，Kimi}
