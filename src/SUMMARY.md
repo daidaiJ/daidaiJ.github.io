@@ -13,5 +13,6 @@
 - [一个反向文本迭代器实现](./tailreader.md)
 - [一个go风格的Range迭代器封装](./range.md)
 - [k8s集群部署脚本(docker,kubeadm)](./k8s/deployk8s.md)
+- [chatgpt 桌面工具(qt)](./openai.md)
 
 
