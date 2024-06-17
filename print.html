@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li><li class="chapter-item expanded "><a href="debug/crash.html"><strong aria-hidden="true">15.</strong> 进程崩溃捕获</a></li><li class="chapter-item expanded "><a href="vectorizer.html"><strong aria-hidden="true">16.</strong> clang矢量化扩展加速</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -2458,6 +2458,122 @@ class db:
 
 </code></pre>
 <p>实现这个异步响应就是通过调用agent 接口的 streamcall ，通过传入的s 表示请求消息，fn表示每轮执行的回调函数，这里的ctx 之类的返回需要增加一个if ctx检查防止某些情况下拿到的对象是None 出现错误</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="进程崩溃"><a class="header" href="#进程崩溃">进程崩溃</a></h1>
+<hr />
+<h2 id="系统转储"><a class="header" href="#系统转储">系统转储</a></h2>
+<ul>
+<li>windows 上开启<code>Windows Error Reporting Service</code> 配置捕获特定进程的dump 数据</li>
+<li>linux 上检查 <code>ulimit -c</code> 返回的核心转储文件大小限制，使其是一个大于零的数字，使用gdb -c 恢复coredump</li>
+<li>bt 打印队长</li>
+</ul>
+<h2 id="信号打印堆栈"><a class="header" href="#信号打印堆栈">信号打印堆栈</a></h2>
+<p>SIGSEGV和SIGABRT信号</p>
+<pre><code class="language-cpp">void sigHandler(int signo) 
+{
+	LOG_ERROR_ARGS("=====recv SIGINT %d=====", signo);
+	
+	//打印错误堆栈信息
+	LOG_ERROR("----------------------------Dump Program Error Strings-------------------------");
+	int j = 0, nptrs = 0;
+ 	void* buffer[100] = { NULL };
+ 	char** strings = NULL;
+ 	nptrs = backtrace(buffer, 100);
+ 	LOG_ERROR_ARGS("backtrace() returned %d addresses", nptrs);
+ 	strings = backtrace_symbols(buffer, nptrs);
+ 	if (strings == NULL) {
+  		LOG_ERROR("backtrace_symbols null");
+  		LOG_ERROR("-------------------------------------------------------------------------------");
+  		return;
+ 	}
+ 	for (j = 0; j &lt; nptrs; j++) {
+  		LOG_ERROR_ARGS("  [%02d] %s", j, strings[j]);
+ 	}
+ 	free(strings);
+	LOG_ERROR("-------------------------------------------------------------------------------");
+	
+	//恢复默认信号操作
+	signal(signo, SIG_DFL);
+  	raise(signo);
+}
+
+</code></pre>
+<h2 id="系统日志"><a class="header" href="#系统日志">系统日志</a></h2>
+<p>journalctl 和coredumpctl 两个开日志来排查</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="矢量化扩展"><a class="header" href="#矢量化扩展">矢量化扩展</a></h1>
+<hr />
+<h2 id=""><a class="header" href="#"></a></h2>
+<pre><code class="language-cpp">#include &lt;array&gt;
+#include &lt;chrono&gt;
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include "boost/core/noncopyable.hpp"
+
+using std::chrono::duration_cast;
+using std::chrono::high_resolution_clock;
+class BenchTimer : boost::noncopyable {
+  high_resolution_clock::time_point tp;
+  std::string name;
+  std::vector&lt;std::string&gt; rd;
+  std::vector&lt;double&gt; dt;
+
+  public:
+  inline void st(const std::string &amp;name) {
+    this-&gt;name = name;
+    tp = high_resolution_clock::now();
+  }
+  inline void end() {
+    dt.emplace_back(duration_cast&lt;std::chrono::nanoseconds&gt;(high_resolution_clock::now() - tp).count());
+    rd.emplace_back(this-&gt;name);
+  }
+  void showBenchTest() {
+    for (int i = 0, size = static_cast&lt;int&gt;(rd.size()); i &lt; size; i++) {
+      std::cout &lt;&lt; rd[i] &lt;&lt; ":" &lt;&lt; dt[i] / 1000 &lt;&lt; "\n";
+    }
+  }
+};
+
+int main() {
+  std::vector&lt;int&gt; arr_a(256, 0);
+  std::vector&lt;int&gt; arr_b(256, 100);
+  typedef int int256 __attribute__((vector_size(256 * sizeof(int))));
+  int256 a;
+  int256 b;
+
+  for (int i = 0; i &lt; 256; i++) {
+    arr_a[i] = i;
+    a[i] = i;
+    arr_b[i] = 256 - i;
+    b[i] = 256 - i;
+  }
+  int t = 10000;
+  auto bench = BenchTimer();
+  #pragma clang optimize off
+  bench.st("foreach");
+  while (t &gt; 0) {
+    for (auto i = 0; i &lt; 256; i++) {
+      arr_a[i] = 2 * arr_b[i];
+    }
+    t--;
+  }
+  bench.end();
+  t = 10000;
+  bench.st("vec");
+  while (t &gt; 0) {
+    a = 2 * b;
+    t--;
+  }
+  bench.end();
+  #pragma clang optimize on
+  bench.showBenchTest();
+  std::cout &lt;&lt; "2*b[0]==" &lt;&lt; a[0] &lt;&lt; std::endl;
+}
+</code></pre>
+<h2 id="bench测试结果"><a class="header" href="#bench测试结果">bench测试结果</a></h2>
+<p>foreach:673.4
+vec:4.8<br />
+2*b[0]==512</p>
+<p>按照600/5 也有120倍的加速差距了，据我观察这种大轮次的外部循环可能对vec 的缓存hit更友好点，总之是有优化效果的</p>
 
                     </main>
 
