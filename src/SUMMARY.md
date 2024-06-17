@@ -14,5 +14,7 @@
 - [一个go风格的Range迭代器封装](./range.md)
 - [k8s集群部署脚本(docker,kubeadm)](./k8s/deployk8s.md)
 - [chatgpt 桌面工具(qt)](./openai.md)
+- [进程崩溃捕获](./debug/crash.md)
+- [clang矢量化扩展加速](./vectorizer.md)
 
 
