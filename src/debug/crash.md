@@ -3,7 +3,7 @@
 ## 系统转储
 - windows 上开启`Windows Error Reporting Service` 配置捕获特定进程的dump 数据
 - linux 上检查 `ulimit -c` 返回的核心转储文件大小限制，使其是一个大于零的数字，使用gdb -c 恢复coredump 
-- bt 打印队长
+- bt 打印堆栈
 
 ## 信号打印堆栈
 
