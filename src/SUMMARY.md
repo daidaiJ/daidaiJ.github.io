@@ -16,5 +16,6 @@
 - [chatgpt 桌面工具(qt)](./openai.md)
 - [进程崩溃捕获](./debug/crash.md)
 - [clang矢量化扩展加速](./vectorizer.md)
+- [faketcp简单demo](./faketcp.md)
 
 
