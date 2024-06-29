@@ -17,5 +17,6 @@
 - [进程崩溃捕获](./debug/crash.md)
 - [clang矢量化扩展加速](./vectorizer.md)
 - [faketcp简单demo](./faketcp.md)
+- [ebpf实现postgresql慢查询日志](./pgslow.md)
 
 
