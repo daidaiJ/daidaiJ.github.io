@@ -92,7 +92,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li><li class="chapter-item expanded "><a href="debug/crash.html"><strong aria-hidden="true">15.</strong> 进程崩溃捕获</a></li><li class="chapter-item expanded "><a href="vectorizer.html"><strong aria-hidden="true">16.</strong> clang矢量化扩展加速</a></li><li class="chapter-item expanded "><a href="faketcp.html"><strong aria-hidden="true">17.</strong> faketcp简单demo</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li><li class="chapter-item expanded "><a href="debug/crash.html"><strong aria-hidden="true">15.</strong> 进程崩溃捕获</a></li><li class="chapter-item expanded "><a href="vectorizer.html"><strong aria-hidden="true">16.</strong> clang矢量化扩展加速</a></li><li class="chapter-item expanded "><a href="faketcp.html"><strong aria-hidden="true">17.</strong> faketcp简单demo</a></li><li class="chapter-item expanded "><a href="pgslow.html"><strong aria-hidden="true">18.</strong> ebpf实现postgresql慢查询日志</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -2758,6 +2758,258 @@ func main() {
 
 </code></pre>
 <p>后期会补一些原理图上去</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ebpf-postgresql慢查询日志服务"><a class="header" href="#ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务</a></h1>
+<hr />
+<blockquote>
+<p>因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 --enable-debug</p>
+</blockquote>
+<h2 id="用户态程序"><a class="header" href="#用户态程序">用户态程序</a></h2>
+<p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的</p>
+<pre><code class="language-go">//go:build amd64
+
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/rlimit"
+	"golang.org/x/sys/unix"
+)
+// 这个是bpf2go 的生成代码
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go  -cc clang -target amd64 -type event bpf dbstats.c -- -I../headers
+
+const (
+	symbol = "exec_simple_query"
+)
+
+var binPath string
+var logPath string
+var logFile *os.File
+var pid int
+var slow int
+
+func init() {
+	flag.StringVar(&amp;binPath, "P", "", "the path of postgres")
+	flag.IntVar(&amp;pid, "p", 0, "pid")
+	flag.IntVar(&amp;slow, "t", 200, "the threshold of slow query")
+	flag.StringVar(&amp;logPath, "l", "", "the log output file path")
+}
+func Config() bool {
+	flag.Parse()
+	if binPath == "" &amp;&amp; pid == 0 {
+		fmt.Printf("invalid argument path [%s] pid %d", binPath, pid)
+		return true
+	}
+	if binPath == "" {
+		if path, err := filepath.EvalSymlinks(fmt.Sprintf("/proc/%d/exe", pid)); err != nil {
+			fmt.Printf("pid %d err %v", pid, err)
+			return true
+		} else {
+			binPath = path
+		}
+	}
+	if logPath != "" {
+		path, err := filepath.Abs(logPath)
+		if err != nil {
+			fmt.Printf("get abs path failed %v\n", path)
+		}
+		if file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
+			fmt.Printf("open log file failed %v\n", err)
+		} else {
+			logFile = file
+			log.SetOutput(file)
+		}
+	}
+	if slow &lt; 0 || slow &gt; 2000 {
+		return true
+	}
+	return false
+}
+func main() {
+	shouldReturn := Config()
+	if shouldReturn {
+		return
+	}
+	defer func(file *os.File) {
+		if file != nil {
+			file.Close()
+		}
+	}(logFile)
+	stopper := make(chan os.Signal, 1)
+	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
+
+	// Allow the current process to lock memory for eBPF resources.
+	if err := rlimit.RemoveMemlock(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Load pre-compiled programs and maps into the kernel.
+
+	objs := bpfObjects{}
+	if err := loadBpfObjects(&amp;objs, nil); err != nil {
+		log.Fatalf("loading objects: [%v]", err)
+	}
+	defer objs.Close()
+	// 200ms 是慢查询上限
+	objs.SlowMap.Put(0, slow)
+	// Open an ELF binary and read its symbols.
+	ex, err := link.OpenExecutable(binPath)
+	if err != nil {
+		log.Fatalf("opening executable: %s", err)
+	}
+
+	// Open a Uretprobe at the exit point of the symbol and attach
+	// the pre-compiled eBPF program to it.
+
+	up, err := ex.Uretprobe(symbol, objs.UretprobeExecSimpleQuery, nil)
+	if err != nil {
+		log.Fatalf("creating uretprobe: %s", err)
+	}
+	defer up.Close()
+	do, err := ex.Uprobe(symbol, objs.UprobeExecSimpleQuery, nil)
+	if err != nil {
+		log.Fatalf("creating uprobe: %s", err)
+	}
+	defer do.Close()
+	// Open a perf event reader from userspace on the PERF_EVENT_ARRAY map
+	// described in the eBPF C program.
+	rd, err := perf.NewReader(objs.Events, os.Getpagesize())
+	if err != nil {
+		log.Fatalf("creating perf event reader: %s", err)
+	}
+	defer rd.Close()
+
+	go func() {
+		// Wait for a signal and close the perf reader,
+		// which will interrupt rd.Read() and make the program exit.
+		&lt;-stopper
+		log.Println("Received signal, exiting program..")
+
+		if err := rd.Close(); err != nil {
+			log.Fatalf("closing perf event reader: %s", err)
+		}
+	}()
+
+	log.Printf("Listening for events..")
+
+	// bpfEvent is generated by bpf2go.
+	var event bpfEvent
+	for {
+		record, err := rd.Read()
+		if err != nil {
+			if errors.Is(err, perf.ErrClosed) {
+				return
+			}
+			log.Printf("reading from perf event reader: %s", err)
+			continue
+		}
+
+		if record.LostSamples != 0 {
+			log.Printf("perf event ring buffer full, dropped %d samples", record.LostSamples)
+			continue
+		}
+
+		// Parse the perf event entry into a bpfEvent structure.
+		if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &amp;event); err != nil {
+			log.Printf("parsing perf event: %s", err)
+			continue
+		}
+
+		log.Printf("%s:%f/ms\n", unix.ByteSliceToString(event.Cmd[:]), float64(event.Timestamp)/1000000.0)
+	}
+}
+</code></pre>
+<h2 id="ebpf-uprobe"><a class="header" href="#ebpf-uprobe">ebpf uprobe</a></h2>
+<p>这部分代码主要是对命令的拷贝和exec_simple_query函数执行的计时</p>
+<pre><code class="language-c">//go:build ignore
+
+#include "common.h"
+
+#include "bpf_tracing.h"
+
+char __license[] SEC("license") = "Dual MIT/GPL";
+#define MAX_DATA_LEN 256
+u32 slowThreshold=0;
+const u32 timebase = 1000000;
+struct event {
+    u64 pid;
+    u64 timestamp;
+    u8  cmd[MAX_DATA_LEN];
+    
+};
+struct bpf_map_def SEC("maps") slow_map = {
+	.type        = BPF_MAP_TYPE_ARRAY,
+	.key_size    = sizeof(u32),
+	.value_size  = sizeof(u32),
+	.max_entries = 1,
+};
+
+struct bpf_map_def SEC("maps") kprobe_map = {
+	.type        = BPF_MAP_TYPE_HASH,
+	.key_size    = sizeof(u64),
+	.value_size  = sizeof(struct event),
+	.max_entries = 256,
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+} events SEC(".maps");
+
+
+// Force emitting struct event into the ELF.
+const struct event *unused __attribute__((unused));
+
+SEC("uretprobe/exec_simple_query")
+int uretprobe_exec_simple_query(struct pt_regs *ctx) {
+
+	u64 pid = bpf_get_current_pid_tgid()&gt;&gt;32;
+        struct event * valp = bpf_map_lookup_elem(&amp;kprobe_map, &amp;pid);
+	if (valp) {
+
+	  valp-&gt;timestamp = bpf_ktime_get_ns()- (valp-&gt;timestamp);
+    if(slowThreshold&gt;0||valp-&gt;timestamp&gt;slowThreshold){
+
+          bpf_perf_event_output(ctx, &amp;events, BPF_F_CURRENT_CPU, valp, sizeof(struct event));
+    }
+          bpf_map_delete_elem(&amp;kprobe_map, &amp;pid);
+	  return 0;
+	}
+
+	return 0;
+}
+
+SEC("uprobe/exec_simple_query")
+int uprobe_exec_simple_query(struct pt_regs *ctx) {
+  if(slowThreshold==0){
+    int key =0;
+    u32 * ret = (u32*)bpf_map_lookup_elem(&amp;slow_map, &amp;key);
+    if(ret) slowThreshold = *ret*timebase;
+
+  }
+    struct event event;
+
+    u64 pid = bpf_get_current_pid_tgid()&gt;&gt;32;
+    u64 ts  = bpf_ktime_get_ns();
+    event.pid = pid;
+    event.timestamp = ts;
+    char * sql_string = (char*)PT_REGS_PARM1(ctx);
+    bpf_probe_read(&amp;event.cmd,sizeof(event.cmd),sql_string);
+    bpf_map_update_elem(&amp;kprobe_map,&amp;pid,&amp;event,BPF_ANY);
+    return 0;
+}
+</code></pre>
+<p>这里因为ebp-go 没有从go 程序处修改ebpf 中全局变量的接口，这里是通过一个map array 来间接传递这个慢查询阈值，最大支持2s 的慢查询上限，要是觉得这个上限比较低，可以将数据类型改成 u64，这里理论上只会在初次触发时进行全局变量的赋值，后续使用全局变量做快速路径</p>
 
                     </main>
 
