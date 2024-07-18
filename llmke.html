@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>clang矢量化扩展加速 - panda note :)</title>
+        <title>通过prompt 和大模型实现知识抽取管线 - panda note :)</title>
 
 
         <!-- Custom HTML head -->
@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li><li class="chapter-item expanded "><a href="debug/crash.html"><strong aria-hidden="true">15.</strong> 进程崩溃捕获</a></li><li class="chapter-item expanded "><a href="vectorizer.html" class="active"><strong aria-hidden="true">16.</strong> clang矢量化扩展加速</a></li><li class="chapter-item expanded "><a href="faketcp.html"><strong aria-hidden="true">17.</strong> faketcp简单demo</a></li><li class="chapter-item expanded "><a href="pgslow.html"><strong aria-hidden="true">18.</strong> ebpf实现postgresql慢查询日志</a></li><li class="chapter-item expanded "><a href="llmke.html"><strong aria-hidden="true">19.</strong> 通过prompt 和大模型实现知识抽取管线</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> 异步日志写设计实现</a></li><li class="chapter-item expanded "><a href="chapter_2.html"><strong aria-hidden="true">2.</strong> 分布式一致性hash实现</a></li><li class="chapter-item expanded "><a href="chapter_3.html"><strong aria-hidden="true">3.</strong> 文件多格式压缩实现</a></li><li class="chapter-item expanded "><a href="snowflake.html"><strong aria-hidden="true">4.</strong> 雪花算法go 实现</a></li><li class="chapter-item expanded "><a href="gopprof.html"><strong aria-hidden="true">5.</strong> 一个监控服务的pprof 优化流程</a></li><li class="chapter-item expanded "><a href="subpush.html"><strong aria-hidden="true">6.</strong> 消息订阅推送实现</a></li><li class="chapter-item expanded "><a href="tls_h2.html"><strong aria-hidden="true">7.</strong> tls 和 h2 使用简记</a></li><li class="chapter-item expanded "><a href="grpc.html"><strong aria-hidden="true">8.</strong> gRPC 学习笔记</a></li><li class="chapter-item expanded "><a href="etcd.html"><strong aria-hidden="true">9.</strong> etcd 学习笔记</a></li><li class="chapter-item expanded "><a href="rust/rshsum.html"><strong aria-hidden="true">10.</strong> 校验和生成工具</a></li><li class="chapter-item expanded "><a href="tailreader.html"><strong aria-hidden="true">11.</strong> 一个反向文本迭代器实现</a></li><li class="chapter-item expanded "><a href="range.html"><strong aria-hidden="true">12.</strong> 一个go风格的Range迭代器封装</a></li><li class="chapter-item expanded "><a href="k8s/deployk8s.html"><strong aria-hidden="true">13.</strong> k8s集群部署脚本(docker,kubeadm)</a></li><li class="chapter-item expanded "><a href="openai.html"><strong aria-hidden="true">14.</strong> chatgpt 桌面工具(qt)</a></li><li class="chapter-item expanded "><a href="debug/crash.html"><strong aria-hidden="true">15.</strong> 进程崩溃捕获</a></li><li class="chapter-item expanded "><a href="vectorizer.html"><strong aria-hidden="true">16.</strong> clang矢量化扩展加速</a></li><li class="chapter-item expanded "><a href="faketcp.html"><strong aria-hidden="true">17.</strong> faketcp简单demo</a></li><li class="chapter-item expanded "><a href="pgslow.html"><strong aria-hidden="true">18.</strong> ebpf实现postgresql慢查询日志</a></li><li class="chapter-item expanded "><a href="llmke.html" class="active"><strong aria-hidden="true">19.</strong> 通过prompt 和大模型实现知识抽取管线</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -176,93 +176,54 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="矢量化扩展"><a class="header" href="#矢量化扩展">矢量化扩展</a></h1>
+                        <h1 id="llm-知识抽取管线"><a class="header" href="#llm-知识抽取管线">llm 知识抽取管线</a></h1>
 <hr />
-<h2 id=""><a class="header" href="#"></a></h2>
-<pre><code class="language-cpp">#include &lt;array&gt;
-#include &lt;chrono&gt;
-#include &lt;iostream&gt;
-#include &lt;string&gt;
-#include &lt;vector&gt;
-#include "boost/core/noncopyable.hpp"
+<blockquote>
+<p>利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线</p>
+</blockquote>
+<h2 id="prompt模板"><a class="header" href="#prompt模板">prompt模板</a></h2>
+<pre><code class="language-python">KE_PROMPT= """你现在是一个用于抽取结构化信息的知识抽取模型，请按照遵守下面的步骤提取结构化的实体关系:
+- 步骤 -
+1. 识别所有在实体类型列表:{node_lists}中给出类型的实体，提取以下信息，同时保持实体一致性：
+    - name 实体名称，尽量简单明确，不要包含多余信息；
+    - type 实体类型，必须是实体类型列表中给出的类型；
+    - desc 实体描述，可以实体属性和相关活动的描述；
+    将每个实体输出为json格式，其格式如下，键值内容不要包含单双引号，格式如下：
+    {{"name":"&lt;实体名称&gt;","type":"&lt;实体类型&gt;","desc":"&lt;实体描述&gt;"}}；
+2. 针对步骤1中获取的实体，识别所有在关系类型列表:{relation_lists}中给出类型的关系，提取以下信息：
+    - src 源实体的名称，即步骤1中标识的name
+    - dst 目标实体的名称，即步骤1中标识
+    - rel 关系类型，必须是关系类型列表中给出的类型；
+    - rel_desc 说明源实体和目的实体存在实体关系的原因
+    将每个关系输出转化成以下的json格式:格式如下:
+    {{"src":"&lt;源实体名称&gt;","dst":"&lt;目标实体名称&gt;","rel":"&lt;关系类型&gt;","rel_desc":"&lt;关系描述&gt;""}}
+3. 请保证按照上述规则输出，不要输出其他内容。
+- 真实数据 -
+#############
+{text}
+#############
+输出:"""
 
-using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
-class BenchTimer : boost::noncopyable {
-  high_resolution_clock::time_point tp;
-  std::string name;
-  std::vector&lt;std::string&gt; rd;
-  std::vector&lt;double&gt; dt;
+def main():
+    node_lists = ["人物", "地点", "组织","事件"]
+    relation_lists = ["位于", "就职于","发生了","谈论"]
+    test = "昨天实验室的牛师兄带着常师哥去面馆吃了八十八碗面，然后谈论面上项目的一些筹划，准备结合从所在的大数据实验室的重点方向挖掘项目创新点"
+    print(KE_PROMPT.format(node_lists=node_lists,relation_lists=relation_lists,text=test))
 
-  public:
-  inline void st(const std::string &amp;name) {
-    this-&gt;name = name;
-    tp = high_resolution_clock::now();
-  }
-  inline void end() {
-    dt.emplace_back(duration_cast&lt;std::chrono::nanoseconds&gt;(high_resolution_clock::now() - tp).count());
-    rd.emplace_back(this-&gt;name);
-  }
-  void showBenchTest() {
-    for (int i = 0, size = static_cast&lt;int&gt;(rd.size()); i &lt; size; i++) {
-      std::cout &lt;&lt; rd[i] &lt;&lt; ":" &lt;&lt; dt[i] / 1000 &lt;&lt; "\n";
-    }
-  }
-};
-
-int main() {
-  std::vector&lt;int&gt; arr_a(256, 0);
-  std::vector&lt;int&gt; arr_b(256, 100);
-  typedef int int256 __attribute__((vector_size(256 * sizeof(int))));
-  int256 a;
-  int256 b;
-
-  for (int i = 0; i &lt; 256; i++) {
-    arr_a[i] = i;
-    a[i] = i;
-    arr_b[i] = 256 - i;
-    b[i] = 256 - i;
-  }
-  int t = 10000;
-  auto bench = BenchTimer();
-  #pragma clang optimize off
-  bench.st("foreach");
-  while (t &gt; 0) {
-    for (auto i = 0; i &lt; 256; i++) {
-      arr_a[i] = 2 * arr_b[i];
-    }
-    t--;
-  }
-  bench.end();
-  t = 10000;
-  bench.st("vec");
-  while (t &gt; 0) {
-    a = 2 * b;
-    t--;
-  }
-  bench.end();
-  #pragma clang optimize on
-  bench.showBenchTest();
-  std::cout &lt;&lt; "2*b[0]==" &lt;&lt; a[0] &lt;&lt; std::endl;
-}
+if __name__ == '__main__':
+    main()
 </code></pre>
-<h2 id="bench测试结果"><a class="header" href="#bench测试结果">bench测试结果</a></h2>
-<p>foreach:673.4
-vec:4.8<br />
-2*b[0]==512</p>
-<p>按照600/5 也有120倍的加速差距了，据我观察这种大轮次的外部循环可能对vec 的缓存hit更友好点，总之是有优化效果的</p>
+<h2 id="openai-或者gpt-大模型http-非流式调用"><a class="header" href="#openai-或者gpt-大模型http-非流式调用">openai 或者gpt 大模型http 非流式调用</a></h2>
+<p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="debug/crash.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="pgslow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="faketcp.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -270,13 +231,10 @@ vec:4.8<br />
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="debug/crash.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="pgslow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="faketcp.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
