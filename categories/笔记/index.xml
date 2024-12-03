@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>笔记 on 潘达窝</title><link>https://example.com/categories/%E7%AC%94%E8%AE%B0/</link><description>Recent content in 笔记 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/categories/%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
+&lt;hr>
+&lt;blockquote>
+&lt;p>因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 &amp;ndash;enable-debug&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="用户态程序">用户态程序&lt;/h2>
+&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>etcd go 手册</title><link>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
+&lt;h2 id="kv-操作">KV 操作&lt;/h2>
+&lt;p>WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
+WithPrevKV() 可以返回更新前的KV值
+WithIgnoreValue() 普通put 使用这个key不存在时会返回错误
+WithSort(clientv3.SortByKey, clientv3.SortDescend) 可以让在查询的时候使用特定的排序方式
+WithPrefix() 这可以可以按照key，查找前缀是key字符串的所有值；
+Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>faketcp 原理介绍</title><link>https://example.com/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
+&lt;hr>
+&lt;h2 id="背景">背景&lt;/h2>
+&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>gRPC 使用手册</title><link>https://example.com/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="grpc-使用手册">gRPC 使用手册&lt;/h1>
+&lt;hr>
+&lt;h2 id="环境准备">环境准备&lt;/h2>
+&lt;p>grpc 是使用protobuf 协议的
+需要安装对应的编译器&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl"> go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>定义好 .proto 文件之后可以使用 protoc 编译器来生成对应语言的代码&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">protoc --go_out&lt;span class="o">=&lt;/span>./proto/ --go_opt&lt;span class="o">=&lt;/span>&lt;span class="nv">paths&lt;/span>&lt;span class="o">=&lt;/span>source_relative 
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> --go-grpc_out&lt;span class="o">=&lt;/span>./proto/ --go-grpc_opt&lt;span class="o">=&lt;/span>&lt;span class="nv">paths&lt;/span>&lt;span class="o">=&lt;/span>source_relative ./proto/your.proto
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="基础的流程">基础的流程&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 单次调用
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>	&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">cancel&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">WithTimeout&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Background&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="mi">10&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Second&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="k">defer&lt;/span> &lt;span class="nf">cancel&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="nx">resp&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">UnaryEcho&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">ecpb&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">EchoRequest&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">Message&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">message&lt;/span>&lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">log&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fatalf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;client.UnaryEcho(_) = _, %v: &amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 流接收
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="nf">recvMessage&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">stream&lt;/span> &lt;span class="nx">pb&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Echo_BidirectionalStreamingEchoClient&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">wantErrCode&lt;/span> &lt;span class="nx">codes&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Code&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="nx">res&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">stream&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Recv&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="k">if&lt;/span> &lt;span class="nx">status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Code&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="nx">wantErrCode&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">log&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fatalf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;stream.Recv() = %v, %v; want _, status.Code(err)=%v&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">res&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">wantErrCode&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;stream.Recv() returned expected error %v\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;received message %q\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">res&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetMessage&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 在接受流的时候要验证 err 是不是EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">for&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">in&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">stream&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Recv&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">			&lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;server: error receiving from stream: %v\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">			&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="nx">io&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">EOF&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">				&lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">			&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">			&lt;span class="k">return&lt;/span> &lt;span class="nx">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;echoing message %q\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">in&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Message&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">		&lt;span class="nx">stream&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Send&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">pb&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">EchoResponse&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">Message&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">in&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Message&lt;/span>&lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">	&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="oauth-token-验证">OAuth token 验证&lt;/h2>
+&lt;p>因为有两种rpc 调用 一种是 单次调用 一种是流式调用；
+在客户端 client 建立连接时使用的opts 中使用&lt;/p></description></item><item><title>llm 知识抽取管线</title><link>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
+&lt;hr>
+&lt;blockquote>
+&lt;p>利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="prompt模板">prompt模板&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">KE_PROMPT&lt;/span>&lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&amp;#34;你现在是一个用于抽取结构化信息的知识抽取模型，请按照遵守下面的步骤提取结构化的实体关系:
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">- 步骤 -
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">1. 识别所有在实体类型列表:&lt;/span>&lt;span class="si">{node_lists}&lt;/span>&lt;span class="s2">中给出类型的实体，提取以下信息，同时保持实体一致性：
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - name 实体名称，尽量简单明确，不要包含多余信息；
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - type 实体类型，必须是实体类型列表中给出的类型；
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - desc 实体描述，可以实体属性和相关活动的描述；
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 将每个实体输出为json格式，其格式如下，键值内容不要包含单双引号，格式如下：
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> {{&amp;#34;name&amp;#34;:&amp;#34;&amp;lt;实体名称&amp;gt;&amp;#34;,&amp;#34;type&amp;#34;:&amp;#34;&amp;lt;实体类型&amp;gt;&amp;#34;,&amp;#34;desc&amp;#34;:&amp;#34;&amp;lt;实体描述&amp;gt;&amp;#34;}}；
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">2. 针对步骤1中获取的实体，识别所有在关系类型列表:&lt;/span>&lt;span class="si">{relation_lists}&lt;/span>&lt;span class="s2">中给出类型的关系，提取以下信息：
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - src 源实体的名称，即步骤1中标识的name
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - dst 目标实体的名称，即步骤1中标识
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - rel 关系类型，必须是关系类型列表中给出的类型；
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - rel_desc 说明源实体和目的实体存在实体关系的原因
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 将每个关系输出转化成以下的json格式:格式如下:
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> {{&amp;#34;src&amp;#34;:&amp;#34;&amp;lt;源实体名称&amp;gt;&amp;#34;,&amp;#34;dst&amp;#34;:&amp;#34;&amp;lt;目标实体名称&amp;gt;&amp;#34;,&amp;#34;rel&amp;#34;:&amp;#34;&amp;lt;关系类型&amp;gt;&amp;#34;,&amp;#34;rel_desc&amp;#34;:&amp;#34;&amp;lt;关系描述&amp;gt;&amp;#34;&amp;#34;}}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">3. 请保证按照上述规则输出，不要输出其他内容。
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">- 真实数据 -
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">#############
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&lt;/span>&lt;span class="si">{text}&lt;/span>&lt;span class="s2">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">#############
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">输出:&amp;#34;&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">main&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">node_lists&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;人物&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;地点&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;组织&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;事件&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">relation_lists&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;位于&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;就职于&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;发生了&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;谈论&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">test&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;昨天实验室的牛师兄带着常师哥去面馆吃了八十八碗面，然后谈论面上项目的一些筹划，准备结合从所在的大数据实验室的重点方向挖掘项目创新点&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">KE_PROMPT&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">format&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">node_lists&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">node_lists&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">relation_lists&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">relation_lists&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">text&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="vm">__name__&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s1">&amp;#39;__main__&amp;#39;&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">main&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="openai-或者gpt-大模型http-非流式调用">openai 或者gpt 大模型http 非流式调用&lt;/h2>
+&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
+&lt;hr>
+&lt;blockquote>
+&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://example.com/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
+&lt;hr>
+&lt;h2 id="tls-证书签发流程">TLS 证书签发流程&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 下面是 v3.ext 的内容&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># authorityKeyIdentifier=keyid,issuer&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># basicConstraints=CA:FALSE&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># extendedKeyUsage = serverAuth&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># subjectAltName = @alt_names&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># [alt_names]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># DNS.1=localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># DNS.2=10.110.8.36&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl genrsa &amp;gt; serve.key 
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl req -new -key serve.key -out serve.csr -subj &lt;span class="s2">&amp;#34;/C=GB/L=China/O=hx/CN=localhost&amp;#34;&lt;/span> -days &lt;span class="m">365&lt;/span> -addext &lt;span class="s2">&amp;#34;subjectAltName = DNS:localhost&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 个人感觉 这边加个 -addext &amp;#34;subjectAltName = DNS:localhost&amp;#34; 也可以替代 extfile&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -sha512 -days &lt;span class="m">365&lt;/span> -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>三个文件：&lt;/p></description></item><item><title>矢量化扩展</title><link>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="矢量化扩展">矢量化扩展&lt;/h1>
+&lt;hr>
+&lt;h2 id="heading">&lt;/h2>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;array&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;chrono&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;iostream&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;string&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;vector&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;boost/core/noncopyable.hpp&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">chrono&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">duration_cast&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">chrono&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">high_resolution_clock&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">BenchTimer&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">boost&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">noncopyable&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">high_resolution_clock&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">time_point&lt;/span> &lt;span class="n">tp&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">vector&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">rd&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">vector&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">double&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">dt&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">inline&lt;/span> &lt;span class="kt">void&lt;/span> &lt;span class="n">st&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">const&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">name&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">tp&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">high_resolution_clock&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">inline&lt;/span> &lt;span class="kt">void&lt;/span> &lt;span class="nf">end&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">dt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">emplace_back&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">duration_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">chrono&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">nanoseconds&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">high_resolution_clock&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">tp&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">rd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">emplace_back&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">showBenchTest&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">int&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">size&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">static_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">rd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="p">());&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="n">size&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">cout&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">rd&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="s">&amp;#34;:&amp;#34;&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">dt&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="mi">1000&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="s">&amp;#34;&lt;/span>&lt;span class="se">\n&lt;/span>&lt;span class="s">&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">int&lt;/span> &lt;span class="nf">main&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">vector&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">arr_a&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">256&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">vector&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">arr_b&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">256&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">100&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">typedef&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">int256&lt;/span> &lt;span class="n">__attribute__&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="n">vector_size&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">256&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="k">sizeof&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="p">))));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">int256&lt;/span> &lt;span class="n">a&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">int256&lt;/span> &lt;span class="n">b&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">int&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">256&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">arr_a&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">a&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">arr_b&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">256&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">b&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">256&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">int&lt;/span> &lt;span class="n">t&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">10000&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">bench&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">BenchTimer&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cp">#pragma clang optimize off
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span> &lt;span class="n">bench&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">st&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;foreach&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">auto&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">256&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">arr_a&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">arr_b&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">t&lt;/span>&lt;span class="o">--&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bench&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">end&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">t&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">10000&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bench&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">st&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;vec&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">a&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="n">b&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">t&lt;/span>&lt;span class="o">--&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bench&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">end&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cp">#pragma clang optimize on
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span> &lt;span class="n">bench&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">showBenchTest&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">cout&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="s">&amp;#34;2*b[0]==&amp;#34;&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">a&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">endl&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="bench测试结果">bench测试结果&lt;/h2>
+&lt;p>foreach:673.4
+vec:4.8 &lt;br>
+2*b[0]==512&lt;/p></description></item><item><title>雪花算法实现</title><link>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
+&lt;h2 id="雪花算法">雪花算法&lt;/h2>
+&lt;p>0 - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p>
+&lt;p>符号位 时间戳 机器码 序列号&lt;/p>
+&lt;p>41位毫秒级时间戳，10位机器id 12位序列号
+这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内&lt;/p></description></item></channel></rss>

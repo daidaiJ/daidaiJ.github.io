@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Prometheus exporter pprof 优化\r这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题\n">
+<title>Prometheus exporter pprof 优化</title>
+
+<link rel='canonical' href='http://localhost:1313/gopprof/'>
+
+<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="Prometheus exporter pprof 优化">
+<meta property='og:description' content="Prometheus exporter pprof 优化\r这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题\n">
+<meta property='og:url' content='http://localhost:1313/gopprof/'>
+<meta property='og:site_name' content='潘达窝'>
+<meta property='og:type' content='article'><meta property='article:section' content='' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
+<meta name="twitter:title" content="Prometheus exporter pprof 优化">
+<meta name="twitter:description" content="Prometheus exporter pprof 优化\r这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/panda_hu120629243187970115.png" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🥤</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">潘达窝</a></h1>
+            <h2 class="site-description">潘达张的个人博客</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://daidaij.github.io/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="http://localhost:1313/en/" >English</option>
+                                
+                                    <option value="http://localhost:1313/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#怎么采集后台运行进程性能数据">怎么采集后台运行进程性能数据</a></li>
+    <li><a href="#问题追踪">问题追踪</a></li>
+    <li><a href="#终极优化方案">终极优化方案</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/gopprof/">Prometheus exporter pprof 优化</a>
+        </h2>
+
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+            <time class="article-time--published">Dec 02, 2024</time>
+        </div>
+        
+
+        
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+            <time class="article-time--reading">
+                阅读时长: 4 分钟
+            </time>
+        </div>
+        <div>
+            <time class="article-words">
+                1682 字
+            </time>
+        </div>
+        
+    </footer>
+    
+
+    
+</div>
+</header>
+
+    <section class="article-content">
+    
+    
+    
+    
+    
+<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86
+    src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
+</iframe>
+    
+    <h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化
+</h1><hr>
+<blockquote>
+<p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题</p>
+</blockquote>
+<h2 id="怎么采集后台运行进程性能数据">怎么采集后台运行进程性能数据
+</h2><ol>
+<li>使用<code>ps -ef | grep xxx</code> 来获取进程号pid
+<ol>
+<li><code> pidstat -u -p pid  15 4</code> 来采集进程的cpu 占用率</li>
+</ol>
+</li>
+<li>top 按t 和m 来切换 cpu 和 内存排序</li>
+<li>go 使用  _ &ldquo;net/http/pprof&rdquo; 然后非http 网络服务就再增加一个拉起http 服务的几行代码
+<ol>
+<li>使用curl -o cpupgo.out http://your_address:your_port/debug/pprof/profile?seconds=60 来采样一分钟的运行数据</li>
+<li><code>go tool pprof -http=:9000 cpupgo.out </code> 使用 pprof 工具开启一个网络服务在web网页上查看性能采样</li>
+</ol>
+</li>
+<li>使用 perf 工具来采样 基本上会用到 record 和 report 这些，然后转成火山图来分析</li>
+</ol>
+<h2 id="问题追踪">问题追踪
+</h2><p><strong>问题1.</strong> 缓存为什么没有生效(降低延迟减少耗时操作)
+通过go 的pprof 对后台运行的服务采样后发现大部分cpu 时间在生成Metric 相关的结构体上，同时缓存的数据格式是json，取json 数据会用到仿射，这使得组装Metric 的过程中充斥着大量的耗时操作，于是选择将json 数据缓存改成 Metric 数据缓冲，和时效时间戳一起封装成一个抽象的容器，在未过期时会将，slice 里面所有的Metric 通过管道发送出去，过期时会将slice 长度重置，发送Metric 的同时将其append 到slice 里面缓存，总结来说，缓存生效了，但是又没完全覆盖到所有耗时操作上。</p>
+<p>改进后的缓存实现，在应用中遇到了新的问题，缓存应用后没被触发？</p>
+<p><strong>问题2</strong>.  缓存为什么没被触发？
+复盘对比了两种缓存机制和Collect 方法被调用的过程时发现，Collect 中声明的对象在每次调用时重新创建的，之前json 缓存是用的全局变量，所以创建前后用的都是一个缓存；这里将新的缓存实现也没大改，给新建的这些对象实例也做个全局缓存，没过期失效前这些实例就不会被重新创建，减少了一些再分配构建的过程，通过预留的 cache stat handler 可以看到缓存除了初次和过期时未命中外，其余时刻缓存全命中，符合预期</p>
+<p>新的全局缓冲实现生效了，将cpu 占用率降低到原先的30%，同时内存占用差别不大，但剩下的30%还能不能继续优化呢？</p>
+<h2 id="终极优化方案">终极优化方案
+</h2><p>通过对 Prometheus client go 的源码阅读，确定了相应http 响应的整个构造流程，脑中浮现了一个比较极端的想法，缓冲响应；</p>
+<p>这个适合用来缓存响应内容在一段时间内不会发生改动的 http handler 接口对象</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span><span class="lnt">78
+</span><span class="lnt">79
+</span><span class="lnt">80
+</span><span class="lnt">81
+</span><span class="lnt">82
+</span><span class="lnt">83
+</span><span class="lnt">84
+</span><span class="lnt">85
+</span><span class="lnt">86
+</span><span class="lnt">87
+</span><span class="lnt">88
+</span><span class="lnt">89
+</span><span class="lnt">90
+</span><span class="lnt">91
+</span><span class="lnt">92
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="cm">/* get resp cache code  start  */</span>
+</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">respCacheWriter</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">header</span>     <span class="nx">http</span><span class="p">.</span><span class="nx">Header</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">expireat</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">statuscode</span> <span class="kt">int</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">buf</span>        <span class="p">[]</span><span class="kt">byte</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">update</span>     <span class="kt">bool</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">newRespCacheWriter</span><span class="p">()</span> <span class="o">*</span><span class="nx">respCacheWriter</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="o">&amp;</span><span class="nx">respCacheWriter</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">header</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Header</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">buf</span><span class="p">:</span>    <span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1024</span><span class="o">*</span><span class="mi">4</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">NotExpire</span><span class="p">()</span> <span class="kt">bool</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Now</span><span class="p">().</span><span class="nf">Before</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">expireat</span><span class="p">)</span><span class="o">&amp;&amp;</span><span class="p">!</span><span class="nx">r</span><span class="p">.</span><span class="nx">update</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">Update</span><span class="p">(</span><span class="nx">interval</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="nx">r</span><span class="p">.</span><span class="nx">expireat</span> <span class="p">=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Now</span><span class="p">().</span><span class="nf">Add</span><span class="p">(</span><span class="nx">interval</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="nx">r</span><span class="p">.</span><span class="nx">update</span> <span class="p">=</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">Header</span><span class="p">()</span> <span class="nx">http</span><span class="p">.</span><span class="nx">Header</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nx">header</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">SetUpdate</span><span class="p">()</span> <span class="nx">http</span><span class="p">.</span><span class="nx">Header</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nx">update</span> <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">WriteHeader</span><span class="p">(</span><span class="nx">statusCode</span> <span class="kt">int</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nx">statuscode</span> <span class="p">=</span> <span class="nx">statusCode</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="nf">Write</span><span class="p">(</span><span class="nx">p</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">p</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;Write []byte length should not be zero&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nx">buf</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">buf</span><span class="p">,</span> <span class="nx">p</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">buf</span><span class="p">),</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">GetRespCache</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="nx">interval</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cache</span>    <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">respCacheWriter</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">next</span>     <span class="nx">http</span><span class="p">.</span><span class="nx">Handler</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">NewGetRespCache</span><span class="p">(</span><span class="nx">i</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span><span class="p">,</span><span class="nx">next</span> <span class="nx">http</span><span class="p">.</span><span class="nx">Handler</span><span class="p">)</span><span class="nx">GetRespCache</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">GetRespCache</span><span class="p">{</span> 
+</span></span><span class="line"><span class="cl">		<span class="nx">interval</span><span class="p">:</span> <span class="nx">i</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">cache</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">next</span><span class="p">:</span> <span class="nx">next</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 这个方法其实也可以 转成私有的，但是不会修改cache 状态所以无所谓
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">g</span> <span class="o">*</span><span class="nx">GetRespCache</span><span class="p">)</span><span class="nf">UpdateCache</span><span class="p">()</span><span class="kt">bool</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">key</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;key%v&#34;</span><span class="p">,</span> <span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nf">Query</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">c</span><span class="p">,</span><span class="nx">ok</span><span class="o">:=</span><span class="nx">g</span><span class="p">.</span><span class="nx">cache</span><span class="p">[</span><span class="nx">key</span><span class="p">];</span><span class="nx">key</span><span class="o">&amp;&amp;</span><span class="nx">c</span><span class="o">!=</span><span class="kc">nil</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">c</span><span class="p">.</span><span class="nf">SetUpdate</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">g</span> <span class="o">*</span><span class="nx">GetRespCache</span><span class="p">)</span> <span class="nf">ServeHTTP</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">key</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;key%v&#34;</span><span class="p">,</span> <span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nf">Query</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">val</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">g</span><span class="p">.</span><span class="nx">cache</span><span class="p">[</span><span class="nx">key</span><span class="p">];</span> <span class="nx">ok</span>  <span class="o">&amp;&amp;</span> <span class="nx">val</span> <span class="o">!=</span> <span class="kc">nil</span><span class="o">&amp;&amp;</span><span class="nx">val</span><span class="p">.</span><span class="nf">NotExpire</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">g</span><span class="p">.</span><span class="nf">generateResp</span><span class="p">(</span><span class="nx">val</span><span class="p">,</span> <span class="nx">w</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// 调用 write 方法时 缓存响应的 header
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">resp</span> <span class="o">:=</span> <span class="nf">newRespCacheWriter</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">g</span><span class="p">.</span><span class="nx">next</span><span class="p">.</span><span class="nf">ServeHTTP</span><span class="p">(</span><span class="nx">resp</span><span class="p">,</span> <span class="nx">r</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">g</span><span class="p">.</span><span class="nf">generateResp</span><span class="p">(</span><span class="nx">resp</span><span class="p">,</span> <span class="nx">w</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">g</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="nx">key</span><span class="p">,</span> <span class="nx">resp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">g</span> <span class="o">*</span><span class="nx">GetRespCache</span><span class="p">)</span> <span class="nf">update</span><span class="p">(</span><span class="nx">key</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">resp</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 这里会更新过期时间和下一个响应状态
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">resp</span><span class="p">.</span><span class="nf">Update</span><span class="p">(</span><span class="nx">g</span><span class="p">.</span><span class="nx">interval</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">g</span><span class="p">.</span><span class="nx">cache</span><span class="p">[</span><span class="nx">key</span><span class="p">]</span> <span class="p">=</span> <span class="nx">resp</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="o">*</span><span class="nx">GetRespCache</span><span class="p">)</span> <span class="nf">generateResp</span><span class="p">(</span><span class="nx">val</span> <span class="o">*</span><span class="nx">respCacheWriter</span><span class="p">,</span> <span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="nx">k</span><span class="p">,</span> <span class="nx">s</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">val</span><span class="p">.</span><span class="nx">header</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">v</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">s</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">w</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="nx">k</span><span class="p">,</span> <span class="nx">v</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">w</span><span class="p">.</span><span class="nf">WriteHeader</span><span class="p">(</span><span class="nx">val</span><span class="p">.</span><span class="nx">statuscode</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">w</span><span class="p">.</span><span class="nf">Write</span><span class="p">(</span><span class="nx">val</span><span class="p">.</span><span class="nx">buf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="cm">/* get resp cache code  end  */</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以看到其实就是通过中间的代理接口，将被代理的handler 函数的修改缓存起来，根据get 请求的query值来做hash 返回响应的；
+过期的时效间隔这里倒是比较粗，用的是同一个过期间隔；</p>
+<p>这个get 缓存方案是我最看好的:</p>
+<ul>
+<li>第一点基本上是即插即用，迁移性好兼容性好，</li>
+<li>第二点是性能更好，缓存占用少，还剩去了内部handler 处理的时间</li>
+</ul>
+<p>这个之所以能用在这个场景上，其实是需求造成的，抓取端不改动，数据供应端又允许缓存；所以这个getcache 的方案理论上有奇效，但是最终还是没应用上这个，确定是按照问题2解决后的实现方案来。</p>
+
+</section>
+
+    <footer class="article-footer">
+    
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    </footer>
+
+
+    
+        <link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI&#43;WdtXRGWt2kTvGFasHpSy3SV"crossorigin="anonymous"
+            ><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG&#43;vnGctmUb0ZY0l8"crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"integrity="sha384-&#43;VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4&#43;/RRE05"crossorigin="anonymous"
+                defer
+                >
+            </script><script>
+    window.addEventListener("DOMContentLoaded", () => {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false },
+                { left: "\\[", right: "\\]", display: true }
+            ],
+            ignoredClasses: ["gist"]
+        });})
+</script>
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2020 - 
+        
+        2024 pandazhangs
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.29.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.a8592fdff59695ad5d2f7e77049318ed6ba7bd9a61c82c8660828b0bb366978f.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
