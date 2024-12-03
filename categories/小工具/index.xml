@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>小工具 on 潘达窝</title><link>https://example.com/categories/%E5%B0%8F%E5%B7%A5%E5%85%B7/</link><description>Recent content in 小工具 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/categories/%E5%B0%8F%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>TailReader 一个反向迭代器</title><link>https://example.com/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>小工具 on 潘达窝</title><link>https://daidaiJ.github.io/categories/%E5%B0%8F%E5%B7%A5%E5%85%B7/</link><description>Recent content in 小工具 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaiJ.github.io/categories/%E5%B0%8F%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>TailReader 一个反向迭代器</title><link>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>面对大文本获取最后的消息，向前遍历go 目前没有现成的接口&lt;/p>
@@ -348,7 +348,7 @@
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>文件多格式压缩工具rust实现</title><link>https://example.com/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="文件多格式压缩">文件多格式压缩&lt;/h1>
+&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>文件多格式压缩工具rust实现</title><link>https://daidaiJ.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="文件多格式压缩">文件多格式压缩&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>使用了一个压缩集合库来实现的这部分功能
@@ -631,7 +631,7 @@
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>这部分主要是通过枚举加分支逻辑来处理不同压缩格式的处理，通过io.Copy 来做数据管道&lt;/p></description></item><item><title>一个gptapi 桌面套件</title><link>https://example.com/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://example.com/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid><description>&lt;h1 id="一个gptapi-桌面套件">一个gptapi 桌面套件&lt;/h1>
+&lt;/div>&lt;p>这部分主要是通过枚举加分支逻辑来处理不同压缩格式的处理，通过io.Copy 来做数据管道&lt;/p></description></item><item><title>一个gptapi 桌面套件</title><link>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid><description>&lt;h1 id="一个gptapi-桌面套件">一个gptapi 桌面套件&lt;/h1>
 &lt;hr>
 &lt;p>使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。
 &lt;a href="https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk">chatdesk 桌面套件连接&lt;/a>
