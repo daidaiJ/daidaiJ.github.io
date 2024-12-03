@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaiJ.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaiJ.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>etcd go 手册</title><link>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>etcd go 手册</title><link>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
 &lt;h2 id="kv-操作">KV 操作&lt;/h2>
 &lt;p>WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
 WithPrevKV() 可以返回更新前的KV值
 WithIgnoreValue() 普通put 使用这个key不存在时会返回错误
 WithSort(clientv3.SortByKey, clientv3.SortDescend) 可以让在查询的时候使用特定的排序方式
 WithPrefix() 这可以可以按照key，查找前缀是key字符串的所有值；
-Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>TailReader 一个反向迭代器</title><link>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
+Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>TailReader 一个反向迭代器</title><link>https://daidaij.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>面对大文本获取最后的消息，向前遍历go 目前没有现成的接口&lt;/p>
@@ -355,7 +355,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>分布式一致性hash golang 实现</title><link>https://daidaiJ.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="分布式一致性哈希-golang-实现">分布式一致性哈希 Golang 实现&lt;/h1>
+&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>分布式一致性hash golang 实现</title><link>https://daidaij.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="分布式一致性哈希-golang-实现">分布式一致性哈希 Golang 实现&lt;/h1>
 &lt;h2 id="哈希环定义">哈希环定义&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
@@ -540,13 +540,13 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;li>Add() 方法是用来创建节点环的,在一些节点退出后，可能需要reset 哈希环来再次重构哈希环&lt;/li>
 &lt;li>Reset() 是用来重置hash环信息的&lt;/li>
 &lt;li>Get() 就是用来获取 一致性哈希映射到的 节点的字符串上&lt;/li>
-&lt;/ul></description></item><item><title>消息订阅实现</title><link>https://daidaiJ.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="消息订阅实现">消息订阅实现&lt;/h1>
+&lt;/ul></description></item><item><title>消息订阅实现</title><link>https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="消息订阅实现">消息订阅实现&lt;/h1>
 &lt;h2 id="原理">原理&lt;/h2>
-&lt;p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code>map[string]chan&lt;/code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
+&lt;p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code>map[string]chan&lt;/code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
 &lt;h2 id="雪花算法">雪花算法&lt;/h2>
 &lt;p>0 - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p>
 &lt;p>符号位 时间戳 机器码 序列号&lt;/p>
 &lt;p>41位毫秒级时间戳，10位机器id 12位序列号
-这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内&lt;/p></description></item><item><title>异步日志写实现</title><link>https://daidaiJ.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="异步日志写实现">异步日志写实现&lt;/h1>
+这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内&lt;/p></description></item><item><title>异步日志写实现</title><link>https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="异步日志写实现">异步日志写实现&lt;/h1>
 &lt;h2 id="设计逻辑">设计逻辑&lt;/h2>
 &lt;p>内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：&lt;/p></description></item></channel></rss>

@@ -1,20 +1,20 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaiJ.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaiJ.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://daidaiJ.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 &amp;ndash;enable-debug&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="用户态程序">用户态程序&lt;/h2>
-&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>etcd go 手册</title><link>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
+&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>etcd go 手册</title><link>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
 &lt;h2 id="kv-操作">KV 操作&lt;/h2>
 &lt;p>WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
 WithPrevKV() 可以返回更新前的KV值
 WithIgnoreValue() 普通put 使用这个key不存在时会返回错误
 WithSort(clientv3.SortByKey, clientv3.SortDescend) 可以让在查询的时候使用特定的排序方式
 WithPrefix() 这可以可以按照key，查找前缀是key字符串的所有值；
-Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>faketcp 原理介绍</title><link>https://daidaiJ.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
+Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>faketcp 原理介绍</title><link>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
 &lt;hr>
 &lt;h2 id="背景">背景&lt;/h2>
-&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>gRPC 使用手册</title><link>https://daidaiJ.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="grpc-使用手册">gRPC 使用手册&lt;/h1>
+&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>gRPC 使用手册</title><link>https://daidaij.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="grpc-使用手册">gRPC 使用手册&lt;/h1>
 &lt;hr>
 &lt;h2 id="环境准备">环境准备&lt;/h2>
 &lt;p>grpc 是使用protobuf 协议的
@@ -117,7 +117,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/div>
 &lt;/div>&lt;h2 id="oauth-token-验证">OAuth token 验证&lt;/h2>
 &lt;p>因为有两种rpc 调用 一种是 单次调用 一种是流式调用；
-在客户端 client 建立连接时使用的opts 中使用&lt;/p></description></item><item><title>llm 知识抽取管线</title><link>https://daidaiJ.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
+在客户端 client 建立连接时使用的opts 中使用&lt;/p></description></item><item><title>llm 知识抽取管线</title><link>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线&lt;/p>
@@ -190,10 +190,10 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;h2 id="openai-或者gpt-大模型http-非流式调用">openai 或者gpt 大模型http 非流式调用&lt;/h2>
-&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://daidaiJ.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
+&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
 &lt;hr>
 &lt;blockquote>
-&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item><item><title>TailReader 一个反向迭代器</title><link>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
+&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item><item><title>TailReader 一个反向迭代器</title><link>https://daidaij.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid><description>&lt;h1 id="tailreader-一个反向迭代器">TailReader 一个反向迭代器&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>面对大文本获取最后的消息，向前遍历go 目前没有现成的接口&lt;/p>
@@ -543,7 +543,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://daidaiJ.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
+&lt;/div>&lt;p>&lt;a href="./BingSiteAuth.xml">1&lt;/a>&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
 &lt;hr>
 &lt;h2 id="tls-证书签发流程">TLS 证书签发流程&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
@@ -580,7 +580,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -sha512 -days &lt;span class="m">365&lt;/span> -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>三个文件：&lt;/p></description></item><item><title>分布式一致性hash golang 实现</title><link>https://daidaiJ.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="分布式一致性哈希-golang-实现">分布式一致性哈希 Golang 实现&lt;/h1>
+&lt;/div>&lt;p>三个文件：&lt;/p></description></item><item><title>分布式一致性hash golang 实现</title><link>https://daidaij.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="分布式一致性哈希-golang-实现">分布式一致性哈希 Golang 实现&lt;/h1>
 &lt;h2 id="哈希环定义">哈希环定义&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
@@ -765,7 +765,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;li>Add() 方法是用来创建节点环的,在一些节点退出后，可能需要reset 哈希环来再次重构哈希环&lt;/li>
 &lt;li>Reset() 是用来重置hash环信息的&lt;/li>
 &lt;li>Get() 就是用来获取 一致性哈希映射到的 节点的字符串上&lt;/li>
-&lt;/ul></description></item><item><title>矢量化扩展</title><link>https://daidaiJ.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="矢量化扩展">矢量化扩展&lt;/h1>
+&lt;/ul></description></item><item><title>矢量化扩展</title><link>https://daidaij.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="矢量化扩展">矢量化扩展&lt;/h1>
 &lt;hr>
 &lt;h2 id="heading">&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
@@ -909,7 +909,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/div>&lt;h2 id="bench测试结果">bench测试结果&lt;/h2>
 &lt;p>foreach:673.4
 vec:4.8 &lt;br>
-2*b[0]==512&lt;/p></description></item><item><title>文件多格式压缩工具rust实现</title><link>https://daidaiJ.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="文件多格式压缩">文件多格式压缩&lt;/h1>
+2*b[0]==512&lt;/p></description></item><item><title>文件多格式压缩工具rust实现</title><link>https://daidaij.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="文件多格式压缩">文件多格式压缩&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>使用了一个压缩集合库来实现的这部分功能
@@ -1192,20 +1192,20 @@ vec:4.8 &lt;br>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>这部分主要是通过枚举加分支逻辑来处理不同压缩格式的处理，通过io.Copy 来做数据管道&lt;/p></description></item><item><title>消息订阅实现</title><link>https://daidaiJ.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="消息订阅实现">消息订阅实现&lt;/h1>
+&lt;/div>&lt;p>这部分主要是通过枚举加分支逻辑来处理不同压缩格式的处理，通过io.Copy 来做数据管道&lt;/p></description></item><item><title>消息订阅实现</title><link>https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="消息订阅实现">消息订阅实现&lt;/h1>
 &lt;h2 id="原理">原理&lt;/h2>
-&lt;p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code>map[string]chan&lt;/code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
+&lt;p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code>map[string]chan&lt;/code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
 &lt;h2 id="雪花算法">雪花算法&lt;/h2>
 &lt;p>0 - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p>
 &lt;p>符号位 时间戳 机器码 序列号&lt;/p>
 &lt;p>41位毫秒级时间戳，10位机器id 12位序列号
-这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内&lt;/p></description></item><item><title>一个gptapi 桌面套件</title><link>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid><description>&lt;h1 id="一个gptapi-桌面套件">一个gptapi 桌面套件&lt;/h1>
+这个起始时间sEpoch其实不太重要，因为一般业务不会超过10年，这个69-(10~20)总还有50年的余量的，比较重要的一点就是如果一个毫秒内生产的序列id 过多就得等待到下一个毫秒窗口内&lt;/p></description></item><item><title>一个gptapi 桌面套件</title><link>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid><description>&lt;h1 id="一个gptapi-桌面套件">一个gptapi 桌面套件&lt;/h1>
 &lt;hr>
 &lt;p>使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。
 &lt;a href="https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk">chatdesk 桌面套件连接&lt;/a>
-&lt;img alt="alt text" src="asset/chatdesk.png">&lt;/p></description></item><item><title>一个range 风格的范围迭代器封装实现</title><link>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="一个range-风格的范围迭代器封装实现">一个range 风格的范围迭代器封装实现&lt;/h1>
+&lt;img alt="alt text" src="asset/chatdesk.png">&lt;/p></description></item><item><title>一个range 风格的范围迭代器封装实现</title><link>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="一个range-风格的范围迭代器封装实现">一个range 风格的范围迭代器封装实现&lt;/h1>
 &lt;hr>
-&lt;p>go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；&lt;/p></description></item><item><title>异步日志写实现</title><link>https://daidaiJ.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="异步日志写实现">异步日志写实现&lt;/h1>
+&lt;p>go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；&lt;/p></description></item><item><title>异步日志写实现</title><link>https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="异步日志写实现">异步日志写实现&lt;/h1>
 &lt;h2 id="设计逻辑">设计逻辑&lt;/h2>
-&lt;p>内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：&lt;/p></description></item><item><title>Archives</title><link>https://daidaiJ.github.io/archives/</link><pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate><guid>https://daidaiJ.github.io/archives/</guid><description/></item><item><title>Search</title><link>https://daidaiJ.github.io/search/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaiJ.github.io/search/</guid><description/></item><item><title>关于</title><link>https://daidaiJ.github.io/%E5%85%B3%E4%BA%8E/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaiJ.github.io/%E5%85%B3%E4%BA%8E/</guid><description>&lt;p>这是潘达张的个人博客：&lt;br>
+&lt;p>内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：&lt;/p></description></item><item><title>Archives</title><link>https://daidaij.github.io/archives/</link><pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/archives/</guid><description/></item><item><title>Search</title><link>https://daidaij.github.io/search/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/search/</guid><description/></item><item><title>关于</title><link>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</guid><description>&lt;p>这是潘达张的个人博客：&lt;br>
 收录知识，记述人生&lt;/p></description></item></channel></rss>

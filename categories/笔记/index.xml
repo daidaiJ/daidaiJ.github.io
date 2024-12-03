@@ -1,20 +1,20 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>笔记 on 潘达窝</title><link>https://daidaiJ.github.io/categories/%E7%AC%94%E8%AE%B0/</link><description>Recent content in 笔记 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaiJ.github.io/categories/%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://daidaiJ.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>笔记 on 潘达窝</title><link>https://daidaij.github.io/categories/%E7%AC%94%E8%AE%B0/</link><description>Recent content in 笔记 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 &amp;ndash;enable-debug&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="用户态程序">用户态程序&lt;/h2>
-&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>etcd go 手册</title><link>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
+&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>etcd go 手册</title><link>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="etcd-手册">ETCD 手册&lt;/h1>
 &lt;h2 id="kv-操作">KV 操作&lt;/h2>
 &lt;p>WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
 WithPrevKV() 可以返回更新前的KV值
 WithIgnoreValue() 普通put 使用这个key不存在时会返回错误
 WithSort(clientv3.SortByKey, clientv3.SortDescend) 可以让在查询的时候使用特定的排序方式
 WithPrefix() 这可以可以按照key，查找前缀是key字符串的所有值；
-Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>faketcp 原理介绍</title><link>https://daidaiJ.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
+Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次put操作返回的版本号，我觉得get的其实也是可以的；&lt;/p></description></item><item><title>faketcp 原理介绍</title><link>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
 &lt;hr>
 &lt;h2 id="背景">背景&lt;/h2>
-&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>gRPC 使用手册</title><link>https://daidaiJ.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="grpc-使用手册">gRPC 使用手册&lt;/h1>
+&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>gRPC 使用手册</title><link>https://daidaij.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid><description>&lt;h1 id="grpc-使用手册">gRPC 使用手册&lt;/h1>
 &lt;hr>
 &lt;h2 id="环境准备">环境准备&lt;/h2>
 &lt;p>grpc 是使用protobuf 协议的
@@ -117,7 +117,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/div>
 &lt;/div>&lt;h2 id="oauth-token-验证">OAuth token 验证&lt;/h2>
 &lt;p>因为有两种rpc 调用 一种是 单次调用 一种是流式调用；
-在客户端 client 建立连接时使用的opts 中使用&lt;/p></description></item><item><title>llm 知识抽取管线</title><link>https://daidaiJ.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
+在客户端 client 建立连接时使用的opts 中使用&lt;/p></description></item><item><title>llm 知识抽取管线</title><link>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
 &lt;hr>
 &lt;blockquote>
 &lt;p>利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线&lt;/p>
@@ -190,10 +190,10 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;h2 id="openai-或者gpt-大模型http-非流式调用">openai 或者gpt 大模型http 非流式调用&lt;/h2>
-&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://daidaiJ.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
+&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
 &lt;hr>
 &lt;blockquote>
-&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://daidaiJ.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
+&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
 &lt;hr>
 &lt;h2 id="tls-证书签发流程">TLS 证书签发流程&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
@@ -230,7 +230,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -sha512 -days &lt;span class="m">365&lt;/span> -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>三个文件：&lt;/p></description></item><item><title>矢量化扩展</title><link>https://daidaiJ.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="矢量化扩展">矢量化扩展&lt;/h1>
+&lt;/div>&lt;p>三个文件：&lt;/p></description></item><item><title>矢量化扩展</title><link>https://daidaij.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="矢量化扩展">矢量化扩展&lt;/h1>
 &lt;hr>
 &lt;h2 id="heading">&lt;/h2>
 &lt;div class="highlight">&lt;div class="chroma">
@@ -374,7 +374,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 &lt;/div>&lt;h2 id="bench测试结果">bench测试结果&lt;/h2>
 &lt;p>foreach:673.4
 vec:4.8 &lt;br>
-2*b[0]==512&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaiJ.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
+2*b[0]==512&lt;/p></description></item><item><title>雪花算法实现</title><link>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid><description>&lt;h1 id="雪花算法实现">雪花算法实现&lt;/h1>
 &lt;h2 id="雪花算法">雪花算法&lt;/h2>
 &lt;p>0 - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p>
 &lt;p>符号位 时间戳 机器码 序列号&lt;/p>
