@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
-    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="一个range 风格的范围迭代器封装实现\rgo 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="一个range 风格的范围迭代器封装实现 go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
 <title>一个range 风格的范围迭代器封装实现</title>
 
-<link rel='canonical' href='http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/'>
+<link rel='canonical' href='https://daidaij.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/'>
 
-<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="一个range 风格的范围迭代器封装实现">
-<meta property='og:description' content="一个range 风格的范围迭代器封装实现\rgo 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
-<meta property='og:url' content='http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/'>
+<link rel="stylesheet" href="/scss/style.min.663803bebe609202d5b39d848f2d7c2dc8b598a2d879efa079fa88893d29c49c.css"><meta property='og:title' content="一个range 风格的范围迭代器封装实现">
+<meta property='og:description' content="一个range 风格的范围迭代器封装实现 go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
+<meta property='og:url' content='https://daidaij.github.io/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/'>
 <meta property='og:site_name' content='潘达窝'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='cpp' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
 <meta name="twitter:title" content="一个range 风格的范围迭代器封装实现">
-<meta name="twitter:description" content="一个range 风格的范围迭代器封装实现\rgo 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
+<meta name="twitter:description" content="一个range 风格的范围迭代器封装实现 go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -174,9 +174,9 @@
 
                             <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
                                 
-                                    <option value="http://localhost:1313/en/" >English</option>
+                                    <option value="https://daidaij.github.io/en/" >English</option>
                                 
-                                    <option value="http://localhost:1313/" selected>中文</option>
+                                    <option value="https://daidaij.github.io/" selected>中文</option>
                                 
                             </select>
                         </li>
@@ -732,7 +732,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/ts/main.a8592fdff59695ad5d2f7e77049318ed6ba7bd9a61c82c8660828b0bb366978f.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');

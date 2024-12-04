@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
-    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="TLS 和 H2 配置\rTLS 证书签发流程\r1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="TLS 和 H2 配置 TLS 证书签发流程 1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
 <title>TLS 和 H2 配置</title>
 
-<link rel='canonical' href='http://localhost:1313/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
+<link rel='canonical' href='https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
 
-<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="TLS 和 H2 配置">
-<meta property='og:description' content="TLS 和 H2 配置\rTLS 证书签发流程\r1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
-<meta property='og:url' content='http://localhost:1313/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
+<link rel="stylesheet" href="/scss/style.min.663803bebe609202d5b39d848f2d7c2dc8b598a2d879efa079fa88893d29c49c.css"><meta property='og:title' content="TLS 和 H2 配置">
+<meta property='og:description' content="TLS 和 H2 配置 TLS 证书签发流程 1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
+<meta property='og:url' content='https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
 <meta property='og:site_name' content='潘达窝'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='网络' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
 <meta name="twitter:title" content="TLS 和 H2 配置">
-<meta name="twitter:description" content="TLS 和 H2 配置\rTLS 证书签发流程\r1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
+<meta name="twitter:description" content="TLS 和 H2 配置 TLS 证书签发流程 1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -174,9 +174,9 @@
 
                             <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
                                 
-                                    <option value="http://localhost:1313/en/" >English</option>
+                                    <option value="https://daidaij.github.io/en/" >English</option>
                                 
-                                    <option value="http://localhost:1313/" selected>中文</option>
+                                    <option value="https://daidaij.github.io/" selected>中文</option>
                                 
                             </select>
                         </li>
@@ -726,7 +726,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/ts/main.a8592fdff59695ad5d2f7e77049318ed6ba7bd9a61c82c8660828b0bb366978f.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
