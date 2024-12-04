@@ -1,10 +1,27 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>观测 on 潘达窝</title><link>https://daidaij.github.io/tags/%E8%A7%82%E6%B5%8B/</link><description>Recent content in 观测 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E8%A7%82%E6%B5%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>ebpf postgresql慢查询日志服务</title><link>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="ebpf-postgresql慢查询日志服务">ebpf postgresql慢查询日志服务&lt;/h1>
-&lt;hr>
-&lt;blockquote>
-&lt;p>因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 &amp;ndash;enable-debug&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="用户态程序">用户态程序&lt;/h2>
-&lt;p>这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p></description></item><item><title>Prometheus exporter pprof 优化</title><link>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="prometheus-exporter-pprof-优化">Prometheus exporter pprof 优化&lt;/h1>
-&lt;hr>
-&lt;blockquote>
-&lt;p>这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p></description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>观测 on 潘达窝</title>
+    <link>https://daidaij.github.io/tags/%E8%A7%82%E6%B5%8B/</link>
+    <description>Recent content in 观测 on 潘达窝</description>
+    <generator>Hugo</generator>
+    <language>zh-cn</language>
+    <copyright>pandazhangs</copyright>
+    <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate>
+    <atom:link href="https://daidaij.github.io/tags/%E8%A7%82%E6%B5%8B/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>ebpf postgresql慢查询日志服务</title>
+      <link>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid>
+      <description>&lt;h1 id=&#34;ebpf-postgresql慢查询日志服务&#34;&gt;ebpf postgresql慢查询日志服务&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;因为需要使用用户控件探针来做绑定，需要可执行文件有符号信息，所以需要在编译pg 时启用 &amp;ndash;enable-debug&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;h2 id=&#34;用户态程序&#34;&gt;用户态程序&lt;/h2&gt;&#xA;&lt;p&gt;这里主要是实现一个日志，可以通过systemd 来管理这个慢查询日志，目前没给这个程序做配置文件管理的部分，但是实现起来也是很简单的&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Prometheus exporter pprof 优化</title>
+      <link>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
+      <description>&lt;h1 id=&#34;prometheus-exporter-pprof-优化&#34;&gt;Prometheus exporter pprof 优化&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

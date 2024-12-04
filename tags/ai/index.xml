@@ -1,78 +1,27 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai on 潘达窝</title><link>https://daidaij.github.io/tags/ai/</link><description>Recent content in Ai on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml"/><item><title>llm 知识抽取管线</title><link>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid><description>&lt;h1 id="llm-知识抽取管线">llm 知识抽取管线&lt;/h1>
-&lt;hr>
-&lt;blockquote>
-&lt;p>利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="prompt模板">prompt模板&lt;/h2>
-&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
-&lt;/span>&lt;span class="lnt"> 2
-&lt;/span>&lt;span class="lnt"> 3
-&lt;/span>&lt;span class="lnt"> 4
-&lt;/span>&lt;span class="lnt"> 5
-&lt;/span>&lt;span class="lnt"> 6
-&lt;/span>&lt;span class="lnt"> 7
-&lt;/span>&lt;span class="lnt"> 8
-&lt;/span>&lt;span class="lnt"> 9
-&lt;/span>&lt;span class="lnt">10
-&lt;/span>&lt;span class="lnt">11
-&lt;/span>&lt;span class="lnt">12
-&lt;/span>&lt;span class="lnt">13
-&lt;/span>&lt;span class="lnt">14
-&lt;/span>&lt;span class="lnt">15
-&lt;/span>&lt;span class="lnt">16
-&lt;/span>&lt;span class="lnt">17
-&lt;/span>&lt;span class="lnt">18
-&lt;/span>&lt;span class="lnt">19
-&lt;/span>&lt;span class="lnt">20
-&lt;/span>&lt;span class="lnt">21
-&lt;/span>&lt;span class="lnt">22
-&lt;/span>&lt;span class="lnt">23
-&lt;/span>&lt;span class="lnt">24
-&lt;/span>&lt;span class="lnt">25
-&lt;/span>&lt;span class="lnt">26
-&lt;/span>&lt;span class="lnt">27
-&lt;/span>&lt;span class="lnt">28
-&lt;/span>&lt;span class="lnt">29
-&lt;/span>&lt;span class="lnt">30
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">KE_PROMPT&lt;/span>&lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&amp;#34;你现在是一个用于抽取结构化信息的知识抽取模型，请按照遵守下面的步骤提取结构化的实体关系:
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">- 步骤 -
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">1. 识别所有在实体类型列表:&lt;/span>&lt;span class="si">{node_lists}&lt;/span>&lt;span class="s2">中给出类型的实体，提取以下信息，同时保持实体一致性：
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - name 实体名称，尽量简单明确，不要包含多余信息；
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - type 实体类型，必须是实体类型列表中给出的类型；
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - desc 实体描述，可以实体属性和相关活动的描述；
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 将每个实体输出为json格式，其格式如下，键值内容不要包含单双引号，格式如下：
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> {{&amp;#34;name&amp;#34;:&amp;#34;&amp;lt;实体名称&amp;gt;&amp;#34;,&amp;#34;type&amp;#34;:&amp;#34;&amp;lt;实体类型&amp;gt;&amp;#34;,&amp;#34;desc&amp;#34;:&amp;#34;&amp;lt;实体描述&amp;gt;&amp;#34;}}；
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">2. 针对步骤1中获取的实体，识别所有在关系类型列表:&lt;/span>&lt;span class="si">{relation_lists}&lt;/span>&lt;span class="s2">中给出类型的关系，提取以下信息：
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - src 源实体的名称，即步骤1中标识的name
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - dst 目标实体的名称，即步骤1中标识
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - rel 关系类型，必须是关系类型列表中给出的类型；
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> - rel_desc 说明源实体和目的实体存在实体关系的原因
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 将每个关系输出转化成以下的json格式:格式如下:
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> {{&amp;#34;src&amp;#34;:&amp;#34;&amp;lt;源实体名称&amp;gt;&amp;#34;,&amp;#34;dst&amp;#34;:&amp;#34;&amp;lt;目标实体名称&amp;gt;&amp;#34;,&amp;#34;rel&amp;#34;:&amp;#34;&amp;lt;关系类型&amp;gt;&amp;#34;,&amp;#34;rel_desc&amp;#34;:&amp;#34;&amp;lt;关系描述&amp;gt;&amp;#34;&amp;#34;}}
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">3. 请保证按照上述规则输出，不要输出其他内容。
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">- 真实数据 -
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">#############
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&lt;/span>&lt;span class="si">{text}&lt;/span>&lt;span class="s2">
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">#############
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">输出:&amp;#34;&amp;#34;&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">main&lt;/span>&lt;span class="p">():&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">node_lists&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;人物&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;地点&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;组织&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;事件&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">relation_lists&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;位于&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;就职于&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;发生了&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;谈论&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">test&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;昨天实验室的牛师兄带着常师哥去面馆吃了八十八碗面，然后谈论面上项目的一些筹划，准备结合从所在的大数据实验室的重点方向挖掘项目创新点&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">KE_PROMPT&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">format&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">node_lists&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">node_lists&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">relation_lists&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">relation_lists&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">text&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">))&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="vm">__name__&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s1">&amp;#39;__main__&amp;#39;&lt;/span>&lt;span class="p">:&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">main&lt;/span>&lt;span class="p">()&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;h2 id="openai-或者gpt-大模型http-非流式调用">openai 或者gpt 大模型http 非流式调用&lt;/h2>
-&lt;p>这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p></description></item><item><title>一个gptapi 桌面套件</title><link>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid><description>&lt;h1 id="一个gptapi-桌面套件">一个gptapi 桌面套件&lt;/h1>
-&lt;hr>
-&lt;p>使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。
-&lt;a href="https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk">chatdesk 桌面套件连接&lt;/a>
-&lt;img alt="alt text" src="asset/chatdesk.png">&lt;/p></description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Ai on 潘达窝</title>
+    <link>https://daidaij.github.io/tags/ai/</link>
+    <description>Recent content in Ai on 潘达窝</description>
+    <generator>Hugo</generator>
+    <language>zh-cn</language>
+    <copyright>pandazhangs</copyright>
+    <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate>
+    <atom:link href="https://daidaij.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>llm 知识抽取管线</title>
+      <link>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid>
+      <description>&lt;h1 id=&#34;llm-知识抽取管线&#34;&gt;llm 知识抽取管线&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;利用prompt模板，从文档中抽取出知识，并控制输出格式，完成知识抽取管线&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;h2 id=&#34;prompt模板&#34;&gt;prompt模板&lt;/h2&gt;&#xA;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;&#xA;&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;&#xA;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;12&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;13&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;14&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;15&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;16&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;17&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;18&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;19&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;20&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;21&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;22&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;23&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;24&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;25&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;26&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;27&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;28&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;29&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;30&#xA;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&#xA;&lt;td class=&#34;lntd&#34;&gt;&#xA;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;n&#34;&gt;KE_PROMPT&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;&amp;#34;&amp;#34;你现在是一个用于抽取结构化信息的知识抽取模型，请按照遵守下面的步骤提取结构化的实体关系:&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;- 步骤 -&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;1. 识别所有在实体类型列表:&lt;/span&gt;&lt;span class=&#34;si&#34;&gt;{node_lists}&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;中给出类型的实体，提取以下信息，同时保持实体一致性：&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - name 实体名称，尽量简单明确，不要包含多余信息；&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - type 实体类型，必须是实体类型列表中给出的类型；&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - desc 实体描述，可以实体属性和相关活动的描述；&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    将每个实体输出为json格式，其格式如下，键值内容不要包含单双引号，格式如下：&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    {{&amp;#34;name&amp;#34;:&amp;#34;&amp;lt;实体名称&amp;gt;&amp;#34;,&amp;#34;type&amp;#34;:&amp;#34;&amp;lt;实体类型&amp;gt;&amp;#34;,&amp;#34;desc&amp;#34;:&amp;#34;&amp;lt;实体描述&amp;gt;&amp;#34;}}；&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;2. 针对步骤1中获取的实体，识别所有在关系类型列表:&lt;/span&gt;&lt;span class=&#34;si&#34;&gt;{relation_lists}&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;中给出类型的关系，提取以下信息：&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - src 源实体的名称，即步骤1中标识的name&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - dst 目标实体的名称，即步骤1中标识&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - rel 关系类型，必须是关系类型列表中给出的类型；&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    - rel_desc 说明源实体和目的实体存在实体关系的原因&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    将每个关系输出转化成以下的json格式:格式如下:&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;    {{&amp;#34;src&amp;#34;:&amp;#34;&amp;lt;源实体名称&amp;gt;&amp;#34;,&amp;#34;dst&amp;#34;:&amp;#34;&amp;lt;目标实体名称&amp;gt;&amp;#34;,&amp;#34;rel&amp;#34;:&amp;#34;&amp;lt;关系类型&amp;gt;&amp;#34;,&amp;#34;rel_desc&amp;#34;:&amp;#34;&amp;lt;关系描述&amp;gt;&amp;#34;&amp;#34;}}&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;3. 请保证按照上述规则输出，不要输出其他内容。&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;- 真实数据 -&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;#############&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;&lt;/span&gt;&lt;span class=&#34;si&#34;&gt;{text}&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;#############&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;输出:&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;def&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;main&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;():&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;n&#34;&gt;node_lists&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;人物&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;地点&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;组织&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;事件&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;n&#34;&gt;relation_lists&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;位于&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;就职于&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;发生了&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;谈论&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;n&#34;&gt;test&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;昨天实验室的牛师兄带着常师哥去面馆吃了八十八碗面，然后谈论面上项目的一些筹划，准备结合从所在的大数据实验室的重点方向挖掘项目创新点&amp;#34;&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nb&#34;&gt;print&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;KE_PROMPT&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;format&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;node_lists&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;node_lists&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;relation_lists&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;relation_lists&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;text&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;test&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;))&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;if&lt;/span&gt; &lt;span class=&#34;vm&#34;&gt;__name__&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;==&lt;/span&gt; &lt;span class=&#34;s1&#34;&gt;&amp;#39;__main__&amp;#39;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;n&#34;&gt;main&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&#xA;&lt;/div&gt;&#xA;&lt;/div&gt;&lt;h2 id=&#34;openai-或者gpt-大模型http-非流式调用&#34;&gt;openai 或者gpt 大模型http 非流式调用&lt;/h2&gt;&#xA;&lt;p&gt;这部分可以参照之前的那个chatgpt 桌面版调用不同厂商的sdk 接口，用来组装成流水线&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>一个gptapi 桌面套件</title>
+      <link>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/%E4%B8%80%E4%B8%AAgptapi-%E6%A1%8C%E9%9D%A2%E5%A5%97%E4%BB%B6/</guid>
+      <description>&lt;h1 id=&#34;一个gptapi-桌面套件&#34;&gt;一个gptapi 桌面套件&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;p&gt;使用了pyside6 和qfluentwidget 做的界面，qfluent 主要是用了侧边导航栏，后期考虑去掉这个依赖进一步减少编译后执行文件大小。&#xA;&lt;a href=&#34;https://gitee.com/adamszhang/panda-technology-stack/tree/master/python/chatdesk&#34;&gt;chatdesk 桌面套件连接&lt;/a&gt;&#xA;&lt;img alt=&#34;alt text&#34; src=&#34;asset/chatdesk.png&#34;&gt;&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

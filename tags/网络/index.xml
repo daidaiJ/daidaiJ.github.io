@@ -1,41 +1,27 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>网络 on 潘达窝</title><link>https://daidaij.github.io/tags/%E7%BD%91%E7%BB%9C/</link><description>Recent content in 网络 on 潘达窝</description><generator>Hugo</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E7%BD%91%E7%BB%9C/index.xml" rel="self" type="application/rss+xml"/><item><title>faketcp 原理介绍</title><link>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="faketcp-原理简介">faketcp 原理简介&lt;/h1>
-&lt;hr>
-&lt;h2 id="背景">背景&lt;/h2>
-&lt;p>通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p></description></item><item><title>TLS 和 H2 配置</title><link>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate><guid>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid><description>&lt;h1 id="tls-和-h2-配置">TLS 和 H2 配置&lt;/h1>
-&lt;hr>
-&lt;h2 id="tls-证书签发流程">TLS 证书签发流程&lt;/h2>
-&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
-&lt;/span>&lt;span class="lnt"> 2
-&lt;/span>&lt;span class="lnt"> 3
-&lt;/span>&lt;span class="lnt"> 4
-&lt;/span>&lt;span class="lnt"> 5
-&lt;/span>&lt;span class="lnt"> 6
-&lt;/span>&lt;span class="lnt"> 7
-&lt;/span>&lt;span class="lnt"> 8
-&lt;/span>&lt;span class="lnt"> 9
-&lt;/span>&lt;span class="lnt">10
-&lt;/span>&lt;span class="lnt">11
-&lt;/span>&lt;span class="lnt">12
-&lt;/span>&lt;span class="lnt">13
-&lt;/span>&lt;span class="lnt">14
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 下面是 v3.ext 的内容&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># authorityKeyIdentifier=keyid,issuer&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># basicConstraints=CA:FALSE&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># extendedKeyUsage = serverAuth&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># subjectAltName = @alt_names&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># [alt_names]&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># DNS.1=localhost&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># DNS.2=10.110.8.36&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl genrsa &amp;gt; serve.key 
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl req -new -key serve.key -out serve.csr -subj &lt;span class="s2">&amp;#34;/C=GB/L=China/O=hx/CN=localhost&amp;#34;&lt;/span> -days &lt;span class="m">365&lt;/span> -addext &lt;span class="s2">&amp;#34;subjectAltName = DNS:localhost&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 个人感觉 这边加个 -addext &amp;#34;subjectAltName = DNS:localhost&amp;#34; 也可以替代 extfile&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">openssl x509 -req -sha512 -days &lt;span class="m">365&lt;/span> -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;p>三个文件：&lt;/p></description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>网络 on 潘达窝</title>
+    <link>https://daidaij.github.io/tags/%E7%BD%91%E7%BB%9C/</link>
+    <description>Recent content in 网络 on 潘达窝</description>
+    <generator>Hugo</generator>
+    <language>zh-cn</language>
+    <copyright>pandazhangs</copyright>
+    <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate>
+    <atom:link href="https://daidaij.github.io/tags/%E7%BD%91%E7%BB%9C/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>faketcp 原理介绍</title>
+      <link>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid>
+      <description>&lt;h1 id=&#34;faketcp-原理简介&#34;&gt;faketcp 原理简介&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;背景&#34;&gt;背景&lt;/h2&gt;&#xA;&lt;p&gt;通过udp 实现多路传输时，可能会被运营商通过qos策略给丢掉；通过rawsocket 机制在udp报文上增加tcp 头来伪装成tcp包，通过增加一部封拆包头的代价来换取udp通信的可用性&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>TLS 和 H2 配置</title>
+      <link>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link>
+      <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
+      <guid>https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid>
+      <description>&lt;h1 id=&#34;tls-和-h2-配置&#34;&gt;TLS 和 H2 配置&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;tls-证书签发流程&#34;&gt;TLS 证书签发流程&lt;/h2&gt;&#xA;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;&#xA;&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;&#xA;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;12&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;13&#xA;&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;14&#xA;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&#xA;&lt;td class=&#34;lntd&#34;&gt;&#xA;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-shell&#34; data-lang=&#34;shell&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# 下面是 v3.ext 的内容&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# authorityKeyIdentifier=keyid,issuer&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# basicConstraints=CA:FALSE&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# extendedKeyUsage = serverAuth&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# subjectAltName = @alt_names&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# [alt_names]&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# DNS.1=localhost&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# DNS.2=10.110.8.36&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;openssl genrsa &amp;gt; serve.key &#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;openssl req -new -key serve.key -out serve.csr -subj &lt;span class=&#34;s2&#34;&gt;&amp;#34;/C=GB/L=China/O=hx/CN=localhost&amp;#34;&lt;/span&gt; -days &lt;span class=&#34;m&#34;&gt;365&lt;/span&gt; -addext &lt;span class=&#34;s2&#34;&gt;&amp;#34;subjectAltName = DNS:localhost&amp;#34;&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# 个人感觉 这边加个  -addext &amp;#34;subjectAltName = DNS:localhost&amp;#34; 也可以替代 extfile&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;openssl x509 -req -sha512 -days &lt;span class=&#34;m&#34;&gt;365&lt;/span&gt; -extfile v3.ext -signkey serve.key  -in serve.csr -out serve.crt&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&#xA;&lt;/div&gt;&#xA;&lt;/div&gt;&lt;p&gt;三个文件：&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>
