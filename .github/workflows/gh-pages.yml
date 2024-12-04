@@ -18,7 +18,8 @@ jobs:
         with:
           hugo-version: '0.139.3' # 注意修改成你的hugo版本，以防兼容性错误
           extended: true # 是否启用hugo extended
-
+      - name: see workdir
+        run: pwd && ls -a
       - name: Build
         run: cd .. && hugo --baseURL https://daidaij.github.io/
         working-directory: ./pandawo # 注意修改成你使用hugo创建的项目名称
