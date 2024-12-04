@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Golang on 潘达窝</title>
-        <link>https://example.com/tags/golang/</link>
+        <link>http://localhost:1313/tags/golang/</link>
         <description>Recent content in Golang on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/tags/golang/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/golang/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>etcd go 手册</title>
-        <link>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</link>
+        <link>http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</guid>
+        <guid>http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/</guid>
         <description>&lt;h1 id=&#34;etcd-手册&#34;&gt;ETCD 手册
 &lt;/h1&gt;&lt;h2 id=&#34;kv-操作&#34;&gt;KV 操作
 &lt;/h2&gt;&lt;p&gt;WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
@@ -956,10 +956,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>TailReader 一个反向迭代器</title>
-        <link>https://example.com/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link>
+        <link>http://localhost:1313/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid>
+        <guid>http://localhost:1313/p/tailreader-%E4%B8%80%E4%B8%AA%E5%8F%8D%E5%90%91%E8%BF%AD%E4%BB%A3%E5%99%A8/</guid>
         <description>&lt;h1 id=&#34;tailreader-一个反向迭代器&#34;&gt;TailReader 一个反向迭代器
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -1315,10 +1315,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>分布式一致性hash golang 实现</title>
-        <link>https://example.com/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%80%E8%87%B4%E6%80%A7hash-golang-%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;分布式一致性哈希-golang-实现&#34;&gt;分布式一致性哈希 Golang 实现
 &lt;/h1&gt;&lt;h2 id=&#34;哈希环定义&#34;&gt;哈希环定义
 &lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
@@ -1509,10 +1509,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>消息订阅实现</title>
-        <link>https://example.com/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;消息订阅实现&#34;&gt;消息订阅实现
 &lt;/h1&gt;&lt;h2 id=&#34;原理&#34;&gt;原理
 &lt;/h2&gt;&lt;p&gt;go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code&gt;map[string]chan&lt;/code&gt; 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p&gt;
@@ -1649,10 +1649,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>雪花算法实现</title>
-        <link>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;雪花算法实现&#34;&gt;雪花算法实现
 &lt;/h1&gt;&lt;h2 id=&#34;雪花算法&#34;&gt;雪花算法
 &lt;/h2&gt;&lt;p&gt;0     - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p&gt;
@@ -1808,10 +1808,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>异步日志写实现</title>
-        <link>https://example.com/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;异步日志写实现&#34;&gt;异步日志写实现
 &lt;/h1&gt;&lt;h2 id=&#34;设计逻辑&#34;&gt;设计逻辑
 &lt;/h2&gt;&lt;p&gt;内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：&lt;/p&gt;
@@ -2083,7 +2083,7 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 &lt;/div&gt;&lt;h2 id=&#34;基准测试&#34;&gt;基准测试
 &lt;/h2&gt;&lt;p&gt;使用 &lt;a class=&#34;link&#34; href=&#34;https://gitee.com/link?target=https%3A%2F%2Fgithub.com%2Fshengyanli1982%2Flaw&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;law&lt;/a&gt; 的 benckmark 测试并给 BlackHoleWriter 类的 Writer 增加了时延模拟真实的落盘耗时，使用随机预先生成的字节数组队列来模拟真实负载填充，下面是 benckmark 测试的耗时&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://example.com/asset/alog.png&#34;
+&lt;p&gt;&lt;img src=&#34;http://localhost:1313/asset/alog.png&#34;
 	
 	
 	

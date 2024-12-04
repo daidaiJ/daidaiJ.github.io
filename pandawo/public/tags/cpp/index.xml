@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Cpp on 潘达窝</title>
-        <link>https://example.com/tags/cpp/</link>
+        <link>http://localhost:1313/tags/cpp/</link>
         <description>Recent content in Cpp on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/tags/cpp/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/cpp/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>矢量化扩展</title>
-        <link>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link>
+        <link>http://localhost:1313/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid>
+        <guid>http://localhost:1313/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid>
         <description>&lt;h1 id=&#34;矢量化扩展&#34;&gt;矢量化扩展
 &lt;/h1&gt;&lt;hr&gt;
 &lt;h2 id=&#34;heading&#34;&gt;
@@ -163,10 +163,10 @@ vec:4.8   &lt;br&gt;
         </item>
         <item>
         <title>一个range 风格的范围迭代器封装实现</title>
-        <link>https://example.com/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;一个range-风格的范围迭代器封装实现&#34;&gt;一个range 风格的范围迭代器封装实现
 &lt;/h1&gt;&lt;hr&gt;
 &lt;p&gt;go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；&lt;/p&gt;

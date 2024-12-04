@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>实践 on 潘达窝</title>
-        <link>https://example.com/categories/%E5%AE%9E%E8%B7%B5/</link>
+        <link>http://localhost:1313/categories/%E5%AE%9E%E8%B7%B5/</link>
         <description>Recent content in 实践 on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/categories/%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/categories/%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Prometheus exporter pprof 优化</title>
-        <link>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
+        <link>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
+        <guid>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
         <description>&lt;h1 id=&#34;prometheus-exporter-pprof-优化&#34;&gt;Prometheus exporter pprof 优化
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;

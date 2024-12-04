@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>观测 on 潘达窝</title>
-        <link>https://example.com/tags/%E8%A7%82%E6%B5%8B/</link>
+        <link>http://localhost:1313/tags/%E8%A7%82%E6%B5%8B/</link>
         <description>Recent content in 观测 on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/tags/%E8%A7%82%E6%B5%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/%E8%A7%82%E6%B5%8B/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>ebpf postgresql慢查询日志服务</title>
-        <link>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link>
+        <link>http://localhost:1313/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid>
+        <guid>http://localhost:1313/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid>
         <description>&lt;h1 id=&#34;ebpf-postgresql慢查询日志服务&#34;&gt;ebpf postgresql慢查询日志服务
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -519,10 +519,10 @@
         </item>
         <item>
         <title>Prometheus exporter pprof 优化</title>
-        <link>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
+        <link>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
+        <guid>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
         <description>&lt;h1 id=&#34;prometheus-exporter-pprof-优化&#34;&gt;Prometheus exporter pprof 优化
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;

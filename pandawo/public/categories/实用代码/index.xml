@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>实用代码 on 潘达窝</title>
-        <link>https://example.com/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</link>
+        <link>http://localhost:1313/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</link>
         <description>Recent content in 实用代码 on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>llm 知识抽取管线</title>
-        <link>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link>
+        <link>http://localhost:1313/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid>
+        <guid>http://localhost:1313/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid>
         <description>&lt;h1 id=&#34;llm-知识抽取管线&#34;&gt;llm 知识抽取管线
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -91,10 +91,10 @@
         </item>
         <item>
         <title>消息订阅实现</title>
-        <link>https://example.com/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;消息订阅实现&#34;&gt;消息订阅实现
 &lt;/h1&gt;&lt;h2 id=&#34;原理&#34;&gt;原理
 &lt;/h2&gt;&lt;p&gt;go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 &lt;code&gt;map[string]chan&lt;/code&gt; 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息&lt;/p&gt;
@@ -231,10 +231,10 @@
         </item>
         <item>
         <title>一个range 风格的范围迭代器封装实现</title>
-        <link>https://example.com/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;一个range-风格的范围迭代器封装实现&#34;&gt;一个range 风格的范围迭代器封装实现
 &lt;/h1&gt;&lt;hr&gt;
 &lt;p&gt;go 里面有个range 的表达式可以遍历很多容器，最近应该是1.21支持range int,这看起来很像 python的 range 了，很舒服，想着很久没用cpp 写东西了就准备按照迭代器整一个，做小点，也不用什么模板；&lt;/p&gt;
@@ -434,10 +434,10 @@
         </item>
         <item>
         <title>异步日志写实现</title>
-        <link>https://example.com/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;异步日志写实现&#34;&gt;异步日志写实现
 &lt;/h1&gt;&lt;h2 id=&#34;设计逻辑&#34;&gt;设计逻辑
 &lt;/h2&gt;&lt;p&gt;内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：&lt;/p&gt;
@@ -709,7 +709,7 @@
 &lt;/div&gt;&lt;h2 id=&#34;基准测试&#34;&gt;基准测试
 &lt;/h2&gt;&lt;p&gt;使用 &lt;a class=&#34;link&#34; href=&#34;https://gitee.com/link?target=https%3A%2F%2Fgithub.com%2Fshengyanli1982%2Flaw&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;law&lt;/a&gt; 的 benckmark 测试并给 BlackHoleWriter 类的 Writer 增加了时延模拟真实的落盘耗时，使用随机预先生成的字节数组队列来模拟真实负载填充，下面是 benckmark 测试的耗时&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://example.com/asset/alog.png&#34;
+&lt;p&gt;&lt;img src=&#34;http://localhost:1313/asset/alog.png&#34;
 	
 	
 	

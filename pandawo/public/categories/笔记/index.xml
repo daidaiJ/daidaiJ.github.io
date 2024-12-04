@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>笔记 on 潘达窝</title>
-        <link>https://example.com/categories/%E7%AC%94%E8%AE%B0/</link>
+        <link>http://localhost:1313/categories/%E7%AC%94%E8%AE%B0/</link>
         <description>Recent content in 笔记 on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://example.com/categories/%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="http://localhost:1313/categories/%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>ebpf postgresql慢查询日志服务</title>
-        <link>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link>
+        <link>http://localhost:1313/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid>
+        <guid>http://localhost:1313/p/ebpf-postgresql%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E6%9C%8D%E5%8A%A1/</guid>
         <description>&lt;h1 id=&#34;ebpf-postgresql慢查询日志服务&#34;&gt;ebpf postgresql慢查询日志服务
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -519,10 +519,10 @@
         </item>
         <item>
         <title>etcd go 手册</title>
-        <link>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</link>
+        <link>http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/etcd-go-%E6%89%8B%E5%86%8C/</guid>
+        <guid>http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/</guid>
         <description>&lt;h1 id=&#34;etcd-手册&#34;&gt;ETCD 手册
 &lt;/h1&gt;&lt;h2 id=&#34;kv-操作&#34;&gt;KV 操作
 &lt;/h2&gt;&lt;p&gt;WithIgnoreLease() 使用租约时可以用这个，当key 不存在时会返回错误
@@ -1466,10 +1466,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>faketcp 原理介绍</title>
-        <link>https://example.com/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link>
+        <link>http://localhost:1313/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid>
+        <guid>http://localhost:1313/p/faketcp-%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D/</guid>
         <description>&lt;h1 id=&#34;faketcp-原理简介&#34;&gt;faketcp 原理简介
 &lt;/h1&gt;&lt;hr&gt;
 &lt;h2 id=&#34;背景&#34;&gt;背景
@@ -1837,10 +1837,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>gRPC 使用手册</title>
-        <link>https://example.com/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link>
+        <link>http://localhost:1313/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid>
+        <guid>http://localhost:1313/p/grpc-%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C/</guid>
         <description>&lt;h1 id=&#34;grpc-使用手册&#34;&gt;gRPC 使用手册
 &lt;/h1&gt;&lt;hr&gt;
 &lt;h2 id=&#34;环境准备&#34;&gt;环境准备
@@ -2215,10 +2215,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>llm 知识抽取管线</title>
-        <link>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link>
+        <link>http://localhost:1313/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid>
+        <guid>http://localhost:1313/p/llm-%E7%9F%A5%E8%AF%86%E6%8A%BD%E5%8F%96%E7%AE%A1%E7%BA%BF/</guid>
         <description>&lt;h1 id=&#34;llm-知识抽取管线&#34;&gt;llm 知识抽取管线
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -2297,10 +2297,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>Prometheus exporter pprof 优化</title>
-        <link>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
+        <link>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
+        <guid>http://localhost:1313/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</guid>
         <description>&lt;h1 id=&#34;prometheus-exporter-pprof-优化&#34;&gt;Prometheus exporter pprof 优化
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
@@ -2534,10 +2534,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>TLS 和 H2 配置</title>
-        <link>https://example.com/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link>
+        <link>http://localhost:1313/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid>
+        <guid>http://localhost:1313/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/</guid>
         <description>&lt;h1 id=&#34;tls-和-h2-配置&#34;&gt;TLS 和 H2 配置
 &lt;/h1&gt;&lt;hr&gt;
 &lt;h2 id=&#34;tls-证书签发流程&#34;&gt;TLS 证书签发流程
@@ -2706,10 +2706,10 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         </item>
         <item>
         <title>矢量化扩展</title>
-        <link>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link>
+        <link>http://localhost:1313/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid>
+        <guid>http://localhost:1313/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</guid>
         <description>&lt;h1 id=&#34;矢量化扩展&#34;&gt;矢量化扩展
 &lt;/h1&gt;&lt;hr&gt;
 &lt;h2 id=&#34;heading&#34;&gt;
@@ -2860,10 +2860,10 @@ vec:4.8   &lt;br&gt;
         </item>
         <item>
         <title>雪花算法实现</title>
-        <link>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link>
+        <link>http://localhost:1313/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
-        <guid>https://example.com/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid>
+        <guid>http://localhost:1313/p/%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0/</guid>
         <description>&lt;h1 id=&#34;雪花算法实现&#34;&gt;雪花算法实现
 &lt;/h1&gt;&lt;h2 id=&#34;雪花算法&#34;&gt;雪花算法
 &lt;/h2&gt;&lt;p&gt;0     - 0000000000 0000000000 0000000000 0000000000 0 - 0000000000 - 000000000000&lt;/p&gt;

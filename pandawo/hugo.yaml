@@ -1,4 +1,5 @@
 baseurl: https://daidaij.github.io/
+baseUrl: https://daidaij.github.io/
 languageCode: zh-cn
 theme: hugo-theme-stack
 title: PandaWOW
@@ -37,7 +38,7 @@ services:
         id:
 
 pagination:
-    pagerSize: 5
+    pagerSize: 3
 
 permalinks:
     post: /p/:slug/
