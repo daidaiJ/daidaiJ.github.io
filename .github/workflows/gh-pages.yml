@@ -24,7 +24,7 @@ jobs:
           extended: true # 是否启用hugo extended
 
       - name: Build
-        run: hugo --minify
+        run: hugo --baseURL https://daidaij.github.io/
         working-directory: ./pandawo # 注意修改成你使用hugo创建的项目名称
 
       - name: Deploy
