@@ -8,7 +8,7 @@ draft: false
 toc: true
 weight: false
 musicid: 5264842
-categories: [""]
+categories: ["实用代码"]
 tags: ["golang"]
 image: https://picsum.photos/800/600.webp?random=d0ba0f6f
 ---
