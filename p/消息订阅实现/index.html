@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
 
-<link rel="stylesheet" href="/scss/style.min.d88737d4589fa9933a187442e4c5f408ff12eec74645fba3268d0c92386c3e0d.css"><meta property='og:title' content="消息订阅实现">
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="消息订阅实现">
 <meta property='og:description' content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
 <meta property='og:url' content='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
 <meta property='og:site_name' content='潘达窝'>

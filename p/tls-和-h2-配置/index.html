@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
 
-<link rel="stylesheet" href="/scss/style.min.d88737d4589fa9933a187442e4c5f408ff12eec74645fba3268d0c92386c3e0d.css"><meta property='og:title' content="TLS 和 H2 配置">
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="TLS 和 H2 配置">
 <meta property='og:description' content="TLS 和 H2 配置 TLS 证书签发流程 1 2 3 4 5 6 7 8 9 10 11 12 13 14 # 下面是 v3.ext 的内容 # authorityKeyIdentifier=keyid,issuer # basicConstraints=CA:FALSE # keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment # extendedKeyUsage = serverAuth # subjectAltName = @alt_names # [alt_names] # DNS.1=localhost # DNS.2=10.110.8.36 openssl genrsa &gt; serve.key openssl req -new -key serve.key -out serve.csr -subj &#34;/C=GB/L=China/O=hx/CN=localhost&#34; -days 365 -addext &#34;subjectAltName = DNS:localhost&#34; # 个人感觉 这边加个 -addext &#34;subjectAltName = DNS:localhost&#34; 也可以替代 extfile openssl x509 -req -sha512 -days 365 -extfile v3.ext -signkey serve.key -in serve.csr -out serve.crt 三个文件：\n">
 <meta property='og:url' content='https://daidaij.github.io/p/tls-%E5%92%8C-h2-%E9%85%8D%E7%BD%AE/'>
 <meta property='og:site_name' content='潘达窝'>
