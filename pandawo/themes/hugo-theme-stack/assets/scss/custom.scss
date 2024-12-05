@@ -304,7 +304,7 @@
 
   // macOS 风格代码块
 .article-content {
-    .highlight:before {
+    .highlight::before {
       content: '';
       display: block;
       background: url(/code-header.svg);

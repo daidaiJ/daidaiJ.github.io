@@ -4,12 +4,14 @@
 
     .left-sidebar {
         order: -3;
-        max-width: var(--left-sidebar-max-width);
+        // max-width: var(--left-sidebar-max-width);
+        max-width: 10%;
     }
 
     .right-sidebar {
         order: -1;
-        max-width: var(--right-sidebar-max-width);
+        // max-width: var(--right-sidebar-max-width);
+        max-width: 10%;
 
         /// Display right sidebar when min-width: lg
         @include respond(lg) {
