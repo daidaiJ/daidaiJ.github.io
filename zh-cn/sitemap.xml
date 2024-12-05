@@ -2,6 +2,19 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://daidaij.github.io/categories/</loc>
+    <lastmod>2024-12-05T14:42:14+08:00</lastmod>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en"
+                href="https://daidaij.github.io/en/categories/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="zh-cn"
+                href="https://daidaij.github.io/categories/"
+                />
+  </url><url>
     <loc>https://daidaij.github.io/tags/golang/</loc>
     <lastmod>2024-12-05T14:42:14+08:00</lastmod>
   </url><url>
@@ -37,21 +50,11 @@
                 href="https://daidaij.github.io/"
                 />
   </url><url>
+    <loc>https://daidaij.github.io/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</loc>
+    <lastmod>2024-12-05T14:42:14+08:00</lastmod>
+  </url><url>
     <loc>https://daidaij.github.io/tags/ai/</loc>
     <lastmod>2024-12-02T22:36:03+08:00</lastmod>
-  </url><url>
-    <loc>https://daidaij.github.io/categories/</loc>
-    <lastmod>2024-12-02T22:36:03+08:00</lastmod>
-    <xhtml:link
-                rel="alternate"
-                hreflang="en"
-                href="https://daidaij.github.io/en/categories/"
-                />
-    <xhtml:link
-                rel="alternate"
-                hreflang="zh-cn"
-                href="https://daidaij.github.io/categories/"
-                />
   </url><url>
     <loc>https://daidaij.github.io/tags/cpp/</loc>
     <lastmod>2024-12-02T22:36:03+08:00</lastmod>
@@ -111,9 +114,6 @@
     <lastmod>2024-12-02T22:36:03+08:00</lastmod>
   </url><url>
     <loc>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5/</loc>
-    <lastmod>2024-12-02T22:36:03+08:00</lastmod>
-  </url><url>
-    <loc>https://daidaij.github.io/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</loc>
     <lastmod>2024-12-02T22:36:03+08:00</lastmod>
   </url><url>
     <loc>https://daidaij.github.io/p/%E7%9F%A2%E9%87%8F%E5%8C%96%E6%89%A9%E5%B1%95/</loc>
