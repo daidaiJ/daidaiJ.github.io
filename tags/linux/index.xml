@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-        <title>工具 on 潘达窝</title>
-        <link>https://daidaij.github.io/categories/%E5%B7%A5%E5%85%B7/</link>
-        <description>Recent content in 工具 on 潘达窝</description>
+        <title>Linux on 潘达窝</title>
+        <link>https://daidaij.github.io/tags/linux/</link>
+        <description>Recent content in Linux on 潘达窝</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Fri, 06 Dec 2024 15:32:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Fri, 06 Dec 2024 15:32:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Linux 工具集合</title>
         <link>https://daidaij.github.io/p/linux-%E5%B7%A5%E5%85%B7%E9%9B%86%E5%90%88/</link>
         <pubDate>Fri, 06 Dec 2024 15:32:49 +0800</pubDate>
