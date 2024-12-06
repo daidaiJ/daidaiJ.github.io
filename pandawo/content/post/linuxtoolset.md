@@ -10,7 +10,7 @@ weight: false
 musicid: 5264842
 categories: ["工具"]
 tags: ["linux"]
-image: https://picsum.photos/800/600.webp?random=9fc93c63
+image: https://picsum.photos/seed/9fc93c63/800/600
 ---
 # Linux 工具集合
 ## cli类
