@@ -10,5 +10,5 @@ weight: false
 musicid: 5264842
 categories: [""]
 tags: ["golang"]
-image: https://picsum.photos/800/600.webp?random={{ substr (md5 (.Date)) 4 8 }}
+image: https://picsum.photos/seed/{{ substr (md5 (.Date)) 4 8 }}/800/600
 ---
