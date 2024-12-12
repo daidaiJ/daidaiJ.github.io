@@ -7,7 +7,31 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Fri, 06 Dec 2024 15:32:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 12 Dec 2024 11:47:28 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Gui</title>
+        <link>https://daidaij.github.io/categories/gui/</link>
+        <pubDate>Thu, 12 Dec 2024 11:47:28 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/categories/gui/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>实践经验</title>
+        <link>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%BB%8F%E9%AA%8C/</link>
+        <pubDate>Thu, 12 Dec 2024 11:47:28 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%BB%8F%E9%AA%8C/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Elasticsearch</title>
+        <link>https://daidaij.github.io/categories/elasticsearch/</link>
+        <pubDate>Wed, 11 Dec 2024 17:02:52 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/categories/elasticsearch/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>工具</title>
         <link>https://daidaij.github.io/categories/%E5%B7%A5%E5%85%B7/</link>
         <pubDate>Fri, 06 Dec 2024 15:32:49 +0800</pubDate>

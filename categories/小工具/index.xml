@@ -363,7 +363,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;   &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;./BingSiteAuth.xml&#34; &gt;1&lt;/a&gt;&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;一般用来读取尾部行，不太适合对日志这种增长文件去重复读取&lt;/p&gt;
 </description>
         </item>
         <item>
@@ -372,11 +372,13 @@
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
         <guid>https://daidaij.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid>
-        <description>&lt;h1 id=&#34;文件多格式压缩&#34;&gt;文件多格式压缩
+        <description>&lt;p&gt;https://&lt;/p&gt;
+&lt;h1 id=&#34;文件多格式压缩&#34;&gt;文件多格式压缩
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
 &lt;p&gt;使用了一个压缩集合库来实现的这部分功能
-&lt;a class=&#34;link&#34; href=&#34;github.com/klauspost/compress&#34; &gt;compress&lt;/a&gt;&lt;/p&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://github.com/klauspost/compress&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;compress&lt;/a&gt;&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;h2 id=&#34;代码实现&#34;&gt;代码实现
 &lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
@@ -675,7 +677,7 @@
 	
 	loading=&#34;lazy&#34;
 	
-		alt=&#34;alt text&#34;
+		alt=&#34;桌面套件ui&#34;
 	
 	
 &gt;&lt;/p&gt;

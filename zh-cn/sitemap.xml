@@ -3,7 +3,7 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://daidaij.github.io/categories/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
     <xhtml:link
                 rel="alternate"
                 hreflang="en"
@@ -15,17 +15,17 @@
                 href="https://daidaij.github.io/categories/"
                 />
   </url><url>
-    <loc>https://daidaij.github.io/tags/linux/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <loc>https://daidaij.github.io/tags/golang/</loc>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
   </url><url>
-    <loc>https://daidaij.github.io/p/linux-%E5%B7%A5%E5%85%B7%E9%9B%86%E5%90%88/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <loc>https://daidaij.github.io/categories/gui/</loc>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
   </url><url>
     <loc>https://daidaij.github.io/post/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
   </url><url>
     <loc>https://daidaij.github.io/tags/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
     <xhtml:link
                 rel="alternate"
                 hreflang="en"
@@ -37,11 +37,8 @@
                 href="https://daidaij.github.io/tags/"
                 />
   </url><url>
-    <loc>https://daidaij.github.io/categories/%E5%B7%A5%E5%85%B7/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
-  </url><url>
     <loc>https://daidaij.github.io/</loc>
-    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
     <xhtml:link
                 rel="alternate"
                 hreflang="en"
@@ -53,8 +50,29 @@
                 href="https://daidaij.github.io/"
                 />
   </url><url>
-    <loc>https://daidaij.github.io/tags/golang/</loc>
-    <lastmod>2024-12-05T14:42:14+08:00</lastmod>
+    <loc>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%BB%8F%E9%AA%8C/</loc>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/p/wails-build/</loc>
+    <lastmod>2024-12-12T11:47:28+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/categories/elasticsearch/</loc>
+    <lastmod>2024-12-11T17:02:52+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/p/elasticsearch/</loc>
+    <lastmod>2024-12-11T17:02:52+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/tags/%E7%AC%94%E8%AE%B0/</loc>
+    <lastmod>2024-12-11T17:02:52+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/tags/linux/</loc>
+    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/p/linux-%E5%B7%A5%E5%85%B7%E9%9B%86%E5%90%88/</loc>
+    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
+  </url><url>
+    <loc>https://daidaij.github.io/categories/%E5%B7%A5%E5%85%B7/</loc>
+    <lastmod>2024-12-06T15:32:49+08:00</lastmod>
   </url><url>
     <loc>https://daidaij.github.io/p/luascript/</loc>
     <lastmod>2024-12-05T14:42:14+08:00</lastmod>

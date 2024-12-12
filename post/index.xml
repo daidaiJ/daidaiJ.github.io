@@ -7,7 +7,180 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Fri, 06 Dec 2024 15:32:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 12 Dec 2024 11:47:28 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>使用wails 构建桌面程序实操</title>
+        <link>https://daidaij.github.io/p/wails-build/</link>
+        <pubDate>Thu, 12 Dec 2024 11:47:28 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/p/wails-build/</guid>
+        <description>&lt;img src="https://picsum.photos/seed/2e89fdd0/800/600" alt="Featured image of post 使用wails 构建桌面程序实操" /&gt;&lt;h1 id=&#34;wails-构建桌面程序实操&#34;&gt;Wails 构建桌面程序实操
+&lt;/h1&gt;&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Wails 是一个用于构建桌面应用程序的 Go 框架。官网如下 &lt;a class=&#34;link&#34; href=&#34;https://wails.io/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;wails&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;简单前端项目封装&#34;&gt;简单前端项目封装
+&lt;/h2&gt;&lt;p&gt;首先在 go install github.com/wailsapp/wails/v2/cmd/wails@latest 安装完wails 后用 wails doctor 来检查下依赖环境&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用 wails init -n name -t  -t vanilla[-ts]
+&lt;ul&gt;
+&lt;li&gt;带-ts 会从js 切换到ts&lt;/li&gt;
+&lt;li&gt;可以将 t 参数后面的模板换成其他 例如 vue react svelte&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;将前端项目迁移到frontend 目录下&lt;/li&gt;
+&lt;li&gt;将项目根目录下的wails.json 和 frontend 目录下的package.json 里面的构建命令对应起来&lt;/li&gt;
+&lt;li&gt;将builid/appicon.png 替换成你想要的图标图片，最好是无背景1024*1024 大小的&lt;/li&gt;
+&lt;li&gt;下载upx 放到 path 变量所在的路径&lt;/li&gt;
+&lt;li&gt;wails build  -upx -upxflags  &amp;ndash;lzma -platform windows/amd64
+&lt;ul&gt;
+&lt;li&gt;构建过程中 加 -nsis 会生成安装程序（需要另外安装），&lt;/li&gt;
+&lt;li&gt;加-devtools 可以在软件右键开发者模式查看&lt;/li&gt;
+&lt;li&gt;加-webview2 指定webview 依赖处理方式
+&lt;ul&gt;
+&lt;li&gt;Download（下载）&lt;/li&gt;
+&lt;li&gt;Embed（内嵌）&lt;/li&gt;
+&lt;li&gt;Browser（浏览器）&lt;/li&gt;
+&lt;li&gt;Error（报错）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;wails json 里面 有个 info 可以给执行文件的信息里面添加你的版权信息，而且不可以被别人修改&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;Info&amp;#34;&lt;/span&gt;&lt;span class=&#34;err&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;companyName&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;My Company Name&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;productName&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;Wails Vite&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;productVersion&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;1.0.0&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;copyright&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;Copyright©2024TigerJuice&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;comments&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;Built using Wails (https://wails.io)&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;span class=&#34;err&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;顺便推广下我用wails 封装的PokeRogue 桌面程序  &lt;a class=&#34;link&#34; href=&#34;https://github.com/daidaiJ/PokeRogueWinDesk&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;PokeRogueWinDesk&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;涉及到后端的一些数据交互&#34;&gt;涉及到后端的一些数据交互
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;用本地网络套接字去传输，纯web 这套逻辑&lt;/li&gt;
+&lt;li&gt;使用wails 的go 函数bind，可以通过运行时js 库导入到js 当中&lt;/li&gt;
+&lt;li&gt;使用wails 提供的运行时管道，应用起来，示例如下&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;kd&#34;&gt;func&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;a&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;App&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;syncWriter&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;str&lt;/span&gt; &lt;span class=&#34;kt&#34;&gt;string&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;kd&#34;&gt;var&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;tmp&lt;/span&gt; &lt;span class=&#34;kt&#34;&gt;string&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;k&#34;&gt;if&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;strings&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;HasSuffix&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;str&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s&#34;&gt;&amp;#34;\n&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nx&#34;&gt;tmp&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;fmt&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Sprintf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;%s: %s&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;time&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Now&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;().&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Local&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;().&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Format&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;time&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;RFC3339&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;),&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;str&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt; &lt;span class=&#34;k&#34;&gt;else&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nx&#34;&gt;tmp&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;fmt&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Sprintf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;%s: %s\n&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;time&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Now&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;().&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Local&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;().&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Format&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;time&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;RFC3339&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;),&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;str&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;nx&#34;&gt;fmt&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Fprintf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;a&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;fw&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;tmp&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;nx&#34;&gt;runtime&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;EventsEmit&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;a&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;ctx&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;s&#34;&gt;&amp;#34;sse&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;tmp&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;上面这个是一个函数用来将日志消息通过管道同步到前端，前端订阅如下，&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-js&#34; data-lang=&#34;js&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt; &lt;span class=&#34;nx&#34;&gt;EventsOn&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;sse&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;data&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nx&#34;&gt;printlog&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;data&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;});&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;其实整套逻辑就是pub sub 的一种实现，这个反过来前端js 去推送，后端去订阅也是一样的&lt;/p&gt;
+&lt;h2 id=&#34;项目组织结构&#34;&gt;项目组织结构
+&lt;/h2&gt;&lt;p&gt;-project
+&amp;ndash;/build
+&amp;ndash;/frontend
+&amp;ndash;/pkg
+&amp;ndash;/wailsjs
+&amp;ndash;app.go
+&amp;ndash;main.go
+&amp;ndash;wails.json&lt;/p&gt;
+&lt;p&gt;可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 &lt;code&gt;replace pkg v0.0.0=&amp;gt; ../pkg&lt;/code&gt; 来关联&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>elasticsearch learing note</title>
+        <link>https://daidaij.github.io/p/elasticsearch/</link>
+        <pubDate>Wed, 11 Dec 2024 17:02:52 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/p/elasticsearch/</guid>
+        <description>&lt;img src="https://picsum.photos/seed/d0b120fd/800/600" alt="Featured image of post elasticsearch learing note" /&gt;&lt;h1 id=&#34;elasticsearch-菜鸟查询手册&#34;&gt;elasticsearch 菜鸟查询手册
+&lt;/h1&gt;&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;正如你所知道的那样，本人由于不擅长elk 组件，出于学习的目的对用途更加广泛的 elasticsearch 这个核心技术栈的检索api 做了初步的了解和学习&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;索引--文档&#34;&gt;索引 &amp;amp; 文档
+&lt;/h2&gt;&lt;p&gt;es 的文档和索引的结构如下：
+&lt;code&gt;/&amp;lt;索引:_index&amp;gt;/&amp;lt;文档类型:_type&amp;gt;/&amp;lt;ID:_id&amp;gt;&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&#34;基本操作&#34;&gt;基本操作
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;新增&lt;/strong&gt;文档
+可以通过 PUT 方法去自动创建索引，在请求体body 中通过携带多组键值形式的字段，单个文档的提交就是这样简单
+&lt;strong&gt;查询&lt;/strong&gt;对应文档
+就是对同一个路由调用 GET 方法，在响应的json 中 &lt;code&gt;_source._key&lt;/code&gt; 的json 路径来获取键对应的字段
+&lt;strong&gt;删除&lt;/strong&gt; 对应文档
+也是调用同路由的DELETE 方法，指定执行删除操作的主分区可能会不可用，可以通过 timeout 参数来控制这个不可用的时间范围，删除时可以通过&lt;code&gt;if_seq_no&lt;/code&gt;和 &lt;code&gt;if_primary_term&lt;/code&gt; ，另外删除的时候如果路由分片指定错误，删除操作不会发生
+根据查询删除匹配的文档，&lt;code&gt;POST /_index/_delete_by_query&lt;/code&gt;
+&lt;strong&gt;更新&lt;/strong&gt;文档也是一个套路，&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;nt&#34;&gt;&amp;#34;script&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;source&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;ctx._source.counter += params.count&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;lang&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;painless&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;			&lt;span class=&#34;nt&#34;&gt;&amp;#34;count&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;4&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以看到 是通过 script 中对应 source 字段中对的简单表达式 和 params 中的参数来更新数据的&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Linux 工具集合</title>
         <link>https://daidaij.github.io/p/linux-%E5%B7%A5%E5%85%B7%E9%9B%86%E5%90%88/</link>
         <pubDate>Fri, 06 Dec 2024 15:32:49 +0800</pubDate>
@@ -3222,7 +3395,7 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;   &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;./BingSiteAuth.xml&#34; &gt;1&lt;/a&gt;&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;一般用来读取尾部行，不太适合对日志这种增长文件去重复读取&lt;/p&gt;
 </description>
         </item>
         <item>
@@ -3751,11 +3924,13 @@ vec:4.8   &lt;br&gt;
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>
         
         <guid>https://daidaij.github.io/p/%E6%96%87%E4%BB%B6%E5%A4%9A%E6%A0%BC%E5%BC%8F%E5%8E%8B%E7%BC%A9%E5%B7%A5%E5%85%B7rust%E5%AE%9E%E7%8E%B0/</guid>
-        <description>&lt;h1 id=&#34;文件多格式压缩&#34;&gt;文件多格式压缩
+        <description>&lt;p&gt;https://&lt;/p&gt;
+&lt;h1 id=&#34;文件多格式压缩&#34;&gt;文件多格式压缩
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
 &lt;p&gt;使用了一个压缩集合库来实现的这部分功能
-&lt;a class=&#34;link&#34; href=&#34;github.com/klauspost/compress&#34; &gt;compress&lt;/a&gt;&lt;/p&gt;
+&lt;a class=&#34;link&#34; href=&#34;https://github.com/klauspost/compress&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;compress&lt;/a&gt;&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;h2 id=&#34;代码实现&#34;&gt;代码实现
 &lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
@@ -4353,7 +4528,7 @@ vec:4.8   &lt;br&gt;
 	
 	loading=&#34;lazy&#34;
 	
-		alt=&#34;alt text&#34;
+		alt=&#34;桌面套件ui&#34;
 	
 	
 &gt;&lt;/p&gt;

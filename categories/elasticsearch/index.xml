@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Elasticsearch on 潘达窝</title>
+        <link>https://daidaij.github.io/categories/elasticsearch/</link>
+        <description>Recent content in Elasticsearch on 潘达窝</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>pandazhangs</copyright>
+        <lastBuildDate>Wed, 11 Dec 2024 17:02:52 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/elasticsearch/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>elasticsearch learing note</title>
+        <link>https://daidaij.github.io/p/elasticsearch/</link>
+        <pubDate>Wed, 11 Dec 2024 17:02:52 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/p/elasticsearch/</guid>
+        <description>&lt;img src="https://picsum.photos/seed/d0b120fd/800/600" alt="Featured image of post elasticsearch learing note" /&gt;&lt;h1 id=&#34;elasticsearch-菜鸟查询手册&#34;&gt;elasticsearch 菜鸟查询手册
+&lt;/h1&gt;&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;正如你所知道的那样，本人由于不擅长elk 组件，出于学习的目的对用途更加广泛的 elasticsearch 这个核心技术栈的检索api 做了初步的了解和学习&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;索引--文档&#34;&gt;索引 &amp;amp; 文档
+&lt;/h2&gt;&lt;p&gt;es 的文档和索引的结构如下：
+&lt;code&gt;/&amp;lt;索引:_index&amp;gt;/&amp;lt;文档类型:_type&amp;gt;/&amp;lt;ID:_id&amp;gt;&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&#34;基本操作&#34;&gt;基本操作
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;新增&lt;/strong&gt;文档
+可以通过 PUT 方法去自动创建索引，在请求体body 中通过携带多组键值形式的字段，单个文档的提交就是这样简单
+&lt;strong&gt;查询&lt;/strong&gt;对应文档
+就是对同一个路由调用 GET 方法，在响应的json 中 &lt;code&gt;_source._key&lt;/code&gt; 的json 路径来获取键对应的字段
+&lt;strong&gt;删除&lt;/strong&gt; 对应文档
+也是调用同路由的DELETE 方法，指定执行删除操作的主分区可能会不可用，可以通过 timeout 参数来控制这个不可用的时间范围，删除时可以通过&lt;code&gt;if_seq_no&lt;/code&gt;和 &lt;code&gt;if_primary_term&lt;/code&gt; ，另外删除的时候如果路由分片指定错误，删除操作不会发生
+根据查询删除匹配的文档，&lt;code&gt;POST /_index/_delete_by_query&lt;/code&gt;
+&lt;strong&gt;更新&lt;/strong&gt;文档也是一个套路，&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;nt&#34;&gt;&amp;#34;script&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;source&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;ctx._source.counter += params.count&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;lang&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;painless&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nt&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;			&lt;span class=&#34;nt&#34;&gt;&amp;#34;count&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;4&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;	&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以看到 是通过 script 中对应 source 字段中对的简单表达式 和 params 中的参数来更新数据的&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>
