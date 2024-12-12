@@ -8,7 +8,7 @@ draft: false
 toc: true
 weight: false
 musicid: 5264842
-categories: ["gui"，"实践经验"]
+categories: ["gui","实践经验"]
 tags: ["golang"]
 image: https://picsum.photos/seed/2e89fdd0/800/600
 ---
