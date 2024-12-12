@@ -70,6 +70,7 @@ image: https://picsum.photos/seed/2e89fdd0/800/600
 ```
 其实整套逻辑就是pub sub 的一种实现，这个反过来前端js 去推送，后端去订阅也是一样的
 ## 项目组织结构
+```text
 -project
 --/build
 --/frontend
@@ -78,5 +79,6 @@ image: https://picsum.photos/seed/2e89fdd0/800/600
 --app.go
 --main.go
 --wails.json
+```
 
 可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 `replace pkg v0.0.0=> ../pkg` 来关联
