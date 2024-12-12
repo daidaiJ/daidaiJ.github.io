@@ -44,6 +44,7 @@ image: https://picsum.photos/seed/2e89fdd0/800/600
     "comments": "Built using Wails (https://wails.io)"
   },
 ```
+**顺便推广下我用wails 封装的PokeRogue 桌面程序  [PokeRogueWinDesk](https://github.com/daidaiJ/PokeRogueWinDesk)**
 ## 涉及到后端的一些数据交互
 1. 用本地网络套接字去传输，纯web 这套逻辑
 2. 使用wails 的go 函数bind，可以通过运行时js 库导入到js 当中 
