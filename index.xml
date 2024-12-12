@@ -119,15 +119,29 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;其实整套逻辑就是pub sub 的一种实现，这个反过来前端js 去推送，后端去订阅也是一样的&lt;/p&gt;
 &lt;h2 id=&#34;项目组织结构&#34;&gt;项目组织结构
-&lt;/h2&gt;&lt;p&gt;-project
-&amp;ndash;/build
-&amp;ndash;/frontend
-&amp;ndash;/pkg
-&amp;ndash;/wailsjs
-&amp;ndash;app.go
-&amp;ndash;main.go
-&amp;ndash;wails.json&lt;/p&gt;
-&lt;p&gt;可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 &lt;code&gt;replace pkg v0.0.0=&amp;gt; ../pkg&lt;/code&gt; 来关联&lt;/p&gt;
+&lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;-project
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--/build
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--/frontend
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--/pkg 
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--/wailsjs
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--app.go
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--main.go
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;--wails.json
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 &lt;code&gt;replace pkg v0.0.0=&amp;gt; ../pkg&lt;/code&gt; 来关联&lt;/p&gt;
 </description>
         </item>
         <item>

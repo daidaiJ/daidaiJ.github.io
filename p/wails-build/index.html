@@ -320,7 +320,7 @@
         </div>
         <div>
             <time class="article-words">
-                790 字
+                798 字
             </time>
         </div>
         
@@ -447,15 +447,29 @@
 </div>
 </div><p>其实整套逻辑就是pub sub 的一种实现，这个反过来前端js 去推送，后端去订阅也是一样的</p>
 <h2 id="项目组织结构">项目组织结构
-</h2><p>-project
-&ndash;/build
-&ndash;/frontend
-&ndash;/pkg
-&ndash;/wailsjs
-&ndash;app.go
-&ndash;main.go
-&ndash;wails.json</p>
-<p>可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 <code>replace pkg v0.0.0=&gt; ../pkg</code> 来关联</p>
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">-project
+</span></span><span class="line"><span class="cl">--/build
+</span></span><span class="line"><span class="cl">--/frontend
+</span></span><span class="line"><span class="cl">--/pkg 
+</span></span><span class="line"><span class="cl">--/wailsjs
+</span></span><span class="line"><span class="cl">--app.go
+</span></span><span class="line"><span class="cl">--main.go
+</span></span><span class="line"><span class="cl">--wails.json
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以通过增加 /pkg 目录来管理go 的后端逻辑，要是已经有一个后端的代码包，也可以提升到和project 同级目录下，然后通过 go mod 里面用 <code>replace pkg v0.0.0=&gt; ../pkg</code> 来关联</p>
 
 </section>
 
