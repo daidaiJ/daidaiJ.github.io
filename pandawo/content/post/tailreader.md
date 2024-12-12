@@ -195,4 +195,4 @@ func (t *TailReader) move(delta int) error {
    }
 
 ```
-[1](./BingSiteAuth.xml)
+一般用来读取尾部行，不太适合对日志这种增长文件去重复读取

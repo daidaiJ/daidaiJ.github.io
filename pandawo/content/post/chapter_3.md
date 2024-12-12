@@ -12,11 +12,11 @@ categories:
     - 小工具
 tags : 
     - rust
----
+---https://
 # 文件多格式压缩
 ----
 > 使用了一个压缩集合库来实现的这部分功能
-> [compress](github.com/klauspost/compress)
+> [compress](https://github.com/klauspost/compress)
 ## 代码实现
 ```go
 package kit
