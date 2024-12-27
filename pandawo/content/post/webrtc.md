@@ -9,7 +9,7 @@ toc: true
 weight: false
 musicid: 5264842
 categories: ["go","学习笔记"]
-tags: ["golang"，"webrtc"]
+tags: ["golang","webrtc"]
 image: https://picsum.photos/seed/26399c1f/800/600
 ---
 
