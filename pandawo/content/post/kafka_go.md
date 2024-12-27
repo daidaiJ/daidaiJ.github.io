@@ -186,7 +186,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(quit, os.Interrupt,syscall.SIGINT, syscall.SIGTERM)
 	wg.Add(1)
 	go Producer("test", ctx)
 	go Consumer("test", ctx)
