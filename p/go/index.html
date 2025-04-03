@@ -4,13 +4,13 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="a simple restful go http client package which is easy to use ">
 <title>简单的restful http client 包实现 </title>
 
-<link rel='canonical' href='https://daidaij.github.io/go/'>
+<link rel='canonical' href='https://daidaij.github.io/p/go/'>
 
 <link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="简单的restful http client 包实现 ">
 <meta property='og:description' content="a simple restful go http client package which is easy to use ">
-<meta property='og:url' content='https://daidaij.github.io/go/'>
+<meta property='og:url' content='https://daidaij.github.io/p/go/'>
 <meta property='og:site_name' content='潘达窝'>
-<meta property='og:type' content='article'><meta property='article:section' content='' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2025-04-03T18:13:44&#43;08:00'/><meta property='article:modified_time' content='2025-04-03T18:13:44&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/c73dd60a/800/600' />
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2025-04-03T18:13:44&#43;08:00'/><meta property='article:modified_time' content='2025-04-03T18:13:44&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/c73dd60a/800/600' />
 <meta name="twitter:title" content="简单的restful http client 包实现 ">
 <meta name="twitter:description" content="a simple restful go http client package which is easy to use "><meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content='https://picsum.photos/seed/c73dd60a/800/600' />
@@ -59,7 +59,7 @@
                     
                     
                         
-                        <img src="/panda_hu_6f01fa95ad64e0d1.png" width="300"
+                        <img src="/panda_hu120629243187970115.png" width="300"
                             height="300" class="site-logo" loading="lazy" alt="Avatar">
                     
                 
@@ -251,7 +251,7 @@
     <article class="has-image main-article">
     <header class="article-header">
         <div class="article-image">
-            <a href="/go/">
+            <a href="/p/go/">
                 
                     <img src="https://picsum.photos/seed/c73dd60a/800/600" loading="lazy" alt="Featured image of post 简单的restful http client 包实现 " />
                 
@@ -276,7 +276,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/go/">简单的restful http client 包实现 </a>
+            <a href="/p/go/">简单的restful http client 包实现 </a>
         </h2>
 
         
@@ -351,7 +351,8 @@
 <li>响应处理</li>
 <li>原始响应缓存</li>
 <li>易于复用</li>
-</ul></blockquote>
+</ul>
+</blockquote>
 <h2 id="代码实现">代码实现
 </h2><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
@@ -578,7 +579,7 @@
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Post</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="kt">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Post</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="nx">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span><span class="p">.</span><span class="nf">request</span><span class="p">(</span><span class="s">&#34;Post&#34;</span><span class="p">,</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">obj</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
@@ -586,15 +587,15 @@
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span><span class="p">.</span><span class="nf">request</span><span class="p">(</span><span class="s">&#34;Get&#34;</span><span class="p">,</span> <span class="nx">url</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Put</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="kt">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Put</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="nx">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span><span class="p">.</span><span class="nf">request</span><span class="p">(</span><span class="s">&#34;Put&#34;</span><span class="p">,</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">obj</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Delete</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="kt">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Delete</span><span class="p">(</span><span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="nx">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span><span class="p">.</span><span class="nf">request</span><span class="p">(</span><span class="s">&#34;Delete&#34;</span><span class="p">,</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">obj</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">request</span><span class="p">(</span><span class="nx">method</span><span class="p">,</span> <span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="kt">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">request</span><span class="p">(</span><span class="nx">method</span><span class="p">,</span> <span class="nx">url</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">obj</span> <span class="nx">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">body</span> <span class="nx">io</span><span class="p">.</span><span class="nx">Reader</span>
 </span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">obj</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">h</span><span class="p">.</span><span class="nx">tmpBody</span><span class="p">.</span><span class="nf">Reset</span><span class="p">()</span>
@@ -648,8 +649,8 @@
 </span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// 应该是用指针对象</span>
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Then</span><span class="p">(</span><span class="nx">obj</span> <span class="kt">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 应该是用指针对象
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HttpClientX</span><span class="p">)</span> <span class="nf">Then</span><span class="p">(</span><span class="nx">obj</span> <span class="nx">any</span><span class="p">)</span> <span class="o">*</span><span class="nx">HttpClientX</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">h</span><span class="p">.</span><span class="nx">respErr</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">h</span>
 </span></span><span class="line"><span class="cl">	<span class="p">}</span>
