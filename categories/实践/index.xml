@@ -7,7 +7,21 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 02 Dec 2024 22:36:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 10 Mar 2025 15:42:14 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>GRPCIssue</title>
+        <link>https://daidaij.github.io/p/grpcissue/</link>
+        <pubDate>Mon, 10 Mar 2025 15:42:14 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/p/grpcissue/</guid>
+        <description>&lt;img src="https://picsum.photos/seed/26afe642/800/600" alt="Featured image of post GRPCIssue" /&gt;&lt;h1 id=&#34;近期grpc使用中遇到的一些问题&#34;&gt;近期gRPC使用中遇到的一些问题
+&lt;/h1&gt;&lt;h2 id=&#34;kitex-框架&#34;&gt;kitex 框架
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;字节开源的kitex RPC 框架是一个go 开发中比较常用的RPC 工具，通过 proto 生成对应的go 数据结构和 服务端代码&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;问题&lt;/strong&gt;： gRPCCurl 和 BloomRPC 的两种调试工具用的短链接Unary 形式&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Prometheus exporter pprof 优化</title>
         <link>https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/</link>
         <pubDate>Mon, 02 Dec 2024 22:36:03 +0800</pubDate>

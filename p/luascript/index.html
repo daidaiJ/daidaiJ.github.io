@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) -- redis.call(&#39;SETEX&#39;, key,86400 ,newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n">
 <title>Luascript</title>
 
 <link rel='canonical' href='https://daidaij.github.io/p/luascript/'>
 
 <link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="Luascript">
-<meta property='og:description' content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n">
+<meta property='og:description' content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) -- redis.call(&#39;SETEX&#39;, key,86400 ,newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n">
 <meta property='og:url' content='https://daidaij.github.io/p/luascript/'>
 <meta property='og:site_name' content='潘达窝'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2024-12-05T14:42:14&#43;08:00'/><meta property='article:modified_time' content='2024-12-05T14:42:14&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/d0ba0f6f/800/600' />
 <meta name="twitter:title" content="Luascript">
-<meta name="twitter:description" content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:description" content="redis Lua 实用脚本 计数器 1 2 3 4 5 6 7 8 9 10 11 local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) -- redis.call(&#39;SETEX&#39;, key,86400 ,newValue) return newValue end 对应的复用操作\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 import redis import hashlib r = redis.Redis() # 定义 Lua 脚本 lua_script = &#34;&#34;&#34; local key = &#34;daily_data:&#34;.. tostring(ARGV[1]) local increment = tonumber(ARGV[2]) local currentValue = redis.call(&#39;GET&#39;, key) if currentValue == false then redis.call(&#39;SET&#39;, key, increment) return increment else local newValue = tonumber(currentValue) + increment redis.call(&#39;SET&#39;, key, newValue) return newValue end &#34;&#34;&#34; # 加载脚本并获取 SHA1 校验和 sha = r.script_load(lua_script) # 使用已加载的脚本执行操作 date = &#39;20241106&#39; increment_value = 10 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;更新后的单日累加数据：{new_value}&#34;) # 再次使用已加载的脚本执行操作 new_value = r.evalsha(sha, 2, date, increment_value) print(f&#34;再次更新后的单日累加数据：{new_value}&#34;) 对应的go 代码\n"><meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content='https://picsum.photos/seed/d0ba0f6f/800/600' />
     <link rel="shortcut icon" href="/favicon.ico" />
 
@@ -315,7 +315,7 @@
         </div>
         <div>
             <time class="article-words">
-                587 字
+                591 字
             </time>
         </div>
         
@@ -361,7 +361,7 @@
 </span></span><span class="line"><span class="cl">	<span class="kr">return</span> <span class="n">increment</span> 
 </span></span><span class="line"><span class="cl"><span class="kr">else</span> 
 </span></span><span class="line"><span class="cl">	<span class="kd">local</span> <span class="n">newValue</span> <span class="o">=</span> <span class="n">tonumber</span><span class="p">(</span><span class="n">currentValue</span><span class="p">)</span> <span class="o">+</span> <span class="n">increment</span> 
-</span></span><span class="line"><span class="cl">	<span class="n">redis.call</span><span class="p">(</span><span class="s1">&#39;SET&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">newValue</span><span class="p">)</span> 
+</span></span><span class="line"><span class="cl">	<span class="n">redis.call</span><span class="p">(</span><span class="s1">&#39;SET&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">newValue</span><span class="p">)</span> <span class="c1">-- redis.call(&#39;SETEX&#39;, key,86400 ,newValue)</span>
 </span></span><span class="line"><span class="cl">	<span class="kr">return</span> <span class="n">newValue</span> 
 </span></span><span class="line"><span class="cl"><span class="kr">end</span>
 </span></span></code></pre></td></tr></table>
@@ -635,6 +635,25 @@
             
                 
 <article class="has-image">
+    <a href="/go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/c73dd60a/800/600" loading="lazy" data-key="go" data-hash="https://picsum.photos/seed/c73dd60a/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">简单的restful http client 包实现 </h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="has-image">
     <a href="/p/kafka_go/">
         
         
@@ -691,19 +710,6 @@
 </article>
 
             
-                
-<article class="">
-    <a href="/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">一个range 风格的范围迭代器封装实现</h2>
-        </div>
-    </a>
-</article>
-
-            
         </div>
     </div>
 </aside>
@@ -719,7 +725,7 @@
         
             2020 - 
         
-        2024 pandazhangs
+        2025 pandazhangs
     </section>
     
     <section class="powerby">
