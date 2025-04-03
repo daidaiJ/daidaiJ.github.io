@@ -6,6 +6,7 @@ date: {{ .Date }}
 lastmod: {{ .Date }}
 draft: false
 toc: true
+hidden: false
 weight: false
 musicid: 5264842
 categories: [""]
