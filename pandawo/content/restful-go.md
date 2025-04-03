@@ -7,7 +7,7 @@ lastmod: 2025-04-03T18:13:44+08:00
 draft: false
 toc: true
 hidden: false
-weight: false
+comments: true
 musicid: 109539
 categories: ["go","实用代码"]
 tags: ["golang"]
@@ -15,7 +15,6 @@ image: https://picsum.photos/seed/c73dd60a/800/600
 ---
 
 # 一个restful http client 实现
-------
 > 主要是基于日常开发中遇到的常见http 请求需求，做了简单的封装，不做过度设计, 特点是：
 > - 链式调用
 > - 响应处理
