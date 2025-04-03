@@ -14,8 +14,7 @@
         
         <guid>https://daidaij.github.io/go/</guid>
         <description>&lt;img src="https://picsum.photos/seed/c73dd60a/800/600" alt="Featured image of post 简单的restful http client 包实现 " /&gt;&lt;h1 id=&#34;一个restful-http-client-实现&#34;&gt;一个restful http client 实现
-&lt;/h1&gt;&lt;hr&gt;
-&lt;blockquote&gt;
+&lt;/h1&gt;&lt;blockquote&gt;
 &lt;p&gt;主要是基于日常开发中遇到的常见http 请求需求，做了简单的封装，不做过度设计, 特点是：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;链式调用&lt;/li&gt;
