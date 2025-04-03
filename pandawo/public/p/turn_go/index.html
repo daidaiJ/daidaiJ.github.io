@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="主要是介绍Pion Turn 库的使用方法">
+<title>Webrtc_go Turn 服务器相关</title>
+
+<link rel='canonical' href='https://daidaij.github.io/p/turn_go/'>
+
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="Webrtc_go Turn 服务器相关">
+<meta property='og:description' content="主要是介绍Pion Turn 库的使用方法">
+<meta property='og:url' content='https://daidaij.github.io/p/turn_go/'>
+<meta property='og:site_name' content='潘达窝'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:tag' content='webrtc' /><meta property='article:published_time' content='2024-12-27T14:10:10&#43;08:00'/><meta property='article:modified_time' content='2024-12-27T14:10:10&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/26399c1f/800/600' />
+<meta name="twitter:title" content="Webrtc_go Turn 服务器相关">
+<meta name="twitter:description" content="主要是介绍Pion Turn 库的使用方法"><meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content='https://picsum.photos/seed/26399c1f/800/600' />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/panda_hu_6f01fa95ad64e0d1.png" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🥤</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">潘达窝</a></h1>
+            <h2 class="site-description">潘达张的个人博客</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://daidaij.github.io/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>Search</span>
+            </a>
+        </li>
+        
+        <script src="https://l2dwidget.js.org/lib/L2Dwidget.min.js"></script>
+        <script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"debug":false,"model":{"jsonPath":"/live2dw/assets/wanko.model.json"},"display":{"position":"left","width":150,"height":200},"mobile":{"show":true},"log":false});</script>
+        <canvas class="live2d" id="live2d" width="300" height="800"></canvas>
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://daidaij.github.io/en/" >English</option>
+                                
+                                    <option value="https://daidaij.github.io/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#credentials-长期凭证">Credentials 长期凭证</a></li>
+    <li><a href="#简单的stun">简单的STUN</a></li>
+    <li><a href="#鉴权机制">鉴权机制</a></li>
+    <li><a href="#传输层">传输层</a></li>
+    <li><a href="#实现黑名单">实现黑名单</a></li>
+    <li><a href="#使用多线程">使用多线程</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="has-image main-article">
+    <header class="article-header">
+        <div class="article-image">
+            <a href="/p/turn_go/">
+                
+                    <img src="https://picsum.photos/seed/26399c1f/800/600" loading="lazy" alt="Featured image of post Webrtc_go Turn 服务器相关" />
+                
+            </a>
+        </div>
+    
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+        <a href="/categories/go/" >
+            Go
+        </a>
+        
+        <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" >
+            学习笔记
+        </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/turn_go/">Webrtc_go Turn 服务器相关</a>
+        </h2>
+
+        
+        <h3 class="article-subtitle">
+            主要是介绍Pion Turn 库的使用方法
+        </h3>
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+            <time class="article-time--published">Dec 27, 2024</time>
+        </div>
+        
+
+        
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+            <time class="article-time--reading">
+                阅读时长: 3 分钟
+            </time>
+        </div>
+        <div>
+            <time class="article-words">
+                1487 字
+            </time>
+        </div>
+        
+    </footer>
+    
+
+    
+</div>
+</header>
+
+    <section class="article-content">
+    
+    
+    
+    
+    
+<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86
+    src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
+</iframe>
+    
+    <h1 id="turn-服务">Turn 服务
+</h1><p>在常用的 Webrtc 教程中通常会为ICE 引入Stun 或者Turn 服务，一般可以用谷歌或者Cloudflare 提供的 stun 服务，也有用开源项目自行搭建的，这里主要是介绍Pion Turn 库的使用方法。</p>
+<h2 id="credentials-长期凭证">Credentials 长期凭证
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">	<span class="nx">u</span><span class="p">,</span> <span class="nx">p</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">turn</span><span class="p">.</span><span class="nf">GenerateLongTermCredentials</span><span class="p">(</span><span class="o">*</span><span class="nx">authSecret</span><span class="p">,</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Minute</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stdout</span><span class="p">.</span><span class="nf">WriteString</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">u</span><span class="p">,</span> <span class="nx">p</span><span class="p">));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span> <span class="c1">// For use with xargs</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Panicf</span><span class="p">(</span><span class="s">&#34;Failed to write to stdout: %s&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>核心就是根据 鉴权secret 生成长期凭证</p>
+<h2 id="简单的stun">简单的STUN
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">main</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;flag&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;net&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;os&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;os/signal&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;strconv&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;syscall&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/pion/turn/v4&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">publicIP</span> <span class="o">:=</span> <span class="nx">flag</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;public-ip&#34;</span><span class="p">,</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="s">&#34;IP Address that STUN can be contacted by.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">port</span> <span class="o">:=</span> <span class="nx">flag</span><span class="p">.</span><span class="nf">Int</span><span class="p">(</span><span class="s">&#34;port&#34;</span><span class="p">,</span> <span class="mi">3478</span><span class="p">,</span> <span class="s">&#34;Listening port.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">flag</span><span class="p">.</span><span class="nf">Parse</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="o">*</span><span class="nx">publicIP</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;&#39;public-ip&#39; is required&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Create a UDP listener to pass into pion/turn</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// pion/turn itself doesn&#39;t allocate any UDP sockets, but lets the user pass them in</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// this allows us to add logging, storage or modify inbound/outbound traffic</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">udpListener</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">net</span><span class="p">.</span><span class="nf">ListenPacket</span><span class="p">(</span><span class="s">&#34;udp4&#34;</span><span class="p">,</span> <span class="s">&#34;0.0.0.0:&#34;</span><span class="o">+</span><span class="nx">strconv</span><span class="p">.</span><span class="nf">Itoa</span><span class="p">(</span><span class="o">*</span><span class="nx">port</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Panicf</span><span class="p">(</span><span class="s">&#34;Failed to create STUN server listener: %s&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">s</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">turn</span><span class="p">.</span><span class="nf">NewServer</span><span class="p">(</span><span class="nx">turn</span><span class="p">.</span><span class="nx">ServerConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// PacketConnConfigs is a list of UDP Listeners and the configuration around them</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">PacketConnConfigs</span><span class="p">:</span> <span class="p">[]</span><span class="nx">turn</span><span class="p">.</span><span class="nx">PacketConnConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">PacketConn</span><span class="p">:</span> <span class="nx">udpListener</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// RelayAddressGenerator: &amp;turn.RelayAddressGeneratorPortRange{</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// 	RelayAddress: net.ParseIP(*publicIP), </span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// 	Address:      &#34;0.0.0.0&#34;,              // But actually be listening on every interface</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// 	MinPort:      50000,</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// 	MaxPort:      55000,</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// },</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Block until user sends SIGINT or SIGTERM</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">sigs</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">signal</span><span class="p">.</span><span class="nf">Notify</span><span class="p">(</span><span class="nx">sigs</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGINT</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGTERM</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="o">&lt;-</span><span class="nx">sigs</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Close</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里需要的公网IP 应该用于做中继的，通过<code>RelayAddressGenerator</code> 系列函数来实现一个动态负载均衡？
+上述turn.NewServer 函数的参数中，可以添加鉴权hanlder</p>
+<h2 id="鉴权机制">鉴权机制
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="nx">AuthHandler</span><span class="p">:</span> <span class="kd">func</span><span class="p">(</span><span class="nx">username</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">realm</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">srcAddr</span> <span class="nx">net</span><span class="p">.</span><span class="nx">Addr</span><span class="p">)</span> <span class="p">([]</span><span class="kt">byte</span><span class="p">,</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// nolint: revive</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">key</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">usersMap</span><span class="p">[</span><span class="nx">username</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">key</span><span class="p">,</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个可以和内置的两种<code>LongTermTURNRESTAuthHandler</code>处理时间:用户名对应的验证 对应<code>GenerateLongTermTURNRESTCredentials</code>;   <code>NewLongTermAuthHandler</code> 处理长期凭证的验证,对应<code>GenerateLongTermCredentials</code>
+可以先过滤对应鉴权的用户是否存在，再进行下一步的验证
+中间注释的<code>RelayAddressGenerator</code> 中继地址生成器的配置，可以用于控制中继端口的分配范围，配合防火墙来使用</p>
+<h2 id="传输层">传输层
+</h2><p>Turn 支持udp、tcp、tls，配置起来也很简单，直接在turn.NewServer 函数中添加<code>ListenerConfigs.Listener</code>,例如使用TLS 的tcp 协议</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 这里两个 File 参数指向的是文件路径</span>
+</span></span><span class="line"><span class="cl"><span class="nx">cer</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">tls</span><span class="p">.</span><span class="nf">LoadX509KeyPair</span><span class="p">(</span><span class="o">*</span><span class="nx">certFile</span><span class="p">,</span> <span class="o">*</span><span class="nx">keyFile</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Create a TLS listener to pass into pion/turn</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// pion/turn itself doesn&#39;t allocate any TLS listeners, but lets the user pass them in</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// this allows us to add logging, storage or modify inbound/outbound traffic</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">tlsListener</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">tls</span><span class="p">.</span><span class="nf">Listen</span><span class="p">(</span><span class="s">&#34;tcp4&#34;</span><span class="p">,</span> <span class="s">&#34;0.0.0.0:&#34;</span><span class="o">+</span><span class="nx">strconv</span><span class="p">.</span><span class="nf">Itoa</span><span class="p">(</span><span class="o">*</span><span class="nx">port</span><span class="p">),</span> <span class="o">&amp;</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">MinVersion</span><span class="p">:</span>   <span class="nx">tls</span><span class="p">.</span><span class="nx">VersionTLS12</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Certificates</span><span class="p">:</span> <span class="p">[]</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Certificate</span><span class="p">{</span><span class="nx">cer</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="nx">s</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">turn</span><span class="p">.</span><span class="nf">NewServer</span><span class="p">(</span><span class="nx">turn</span><span class="p">.</span><span class="nx">ServerConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Realm</span><span class="p">:</span> <span class="o">*</span><span class="nx">realm</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// Set AuthHandler callback</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// This is called every time a user tries to authenticate with the TURN server</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// Return the key for that user, or false when no user is found</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">AuthHandler</span><span class="p">:</span> <span class="kd">func</span><span class="p">(</span><span class="nx">username</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">realm</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">srcAddr</span> <span class="nx">net</span><span class="p">.</span><span class="nx">Addr</span><span class="p">)</span> <span class="p">([]</span><span class="kt">byte</span><span class="p">,</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// nolint: revive</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">key</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">usersMap</span><span class="p">[</span><span class="nx">username</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">key</span><span class="p">,</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// ListenerConfig is a list of Listeners and the configuration around them</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ListenerConfigs</span><span class="p">:</span> <span class="p">[]</span><span class="nx">turn</span><span class="p">.</span><span class="nx">ListenerConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Listener</span><span class="p">:</span> <span class="nx">tlsListener</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">RelayAddressGenerator</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">turn</span><span class="p">.</span><span class="nx">RelayAddressGeneratorStatic</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">RelayAddress</span><span class="p">:</span> <span class="nx">net</span><span class="p">.</span><span class="nf">ParseIP</span><span class="p">(</span><span class="o">*</span><span class="nx">publicIP</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Address</span><span class="p">:</span>      <span class="s">&#34;0.0.0.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                    <span class="nx">MinPort</span><span class="p">:</span>      <span class="mi">50000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">MaxPort</span><span class="p">:</span>      <span class="mi">55000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="实现黑名单">实现黑名单
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">permissions</span> <span class="nx">turn</span><span class="p">.</span><span class="nx">PermissionHandler</span> <span class="p">=</span> <span class="kd">func</span><span class="p">(</span><span class="nx">clientAddr</span> <span class="nx">net</span><span class="p">.</span><span class="nx">Addr</span><span class="p">,</span> <span class="nx">peerIP</span> <span class="nx">net</span><span class="p">.</span><span class="nx">IP</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">cidr</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">conf</span><span class="p">.</span><span class="nx">TurnDenyPeersParsed</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">cidr</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">peerIP</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="kc">false</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">turn</span><span class="p">.</span><span class="nf">NewServer</span><span class="p">(</span><span class="nx">turn</span><span class="p">.</span><span class="nx">ServerConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Realm</span><span class="p">:</span>       <span class="nx">Realm</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">AuthHandler</span><span class="p">:</span> <span class="nx">svr</span><span class="p">.</span><span class="nx">authenticate</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// TCP 连接</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ListenerConfigs</span><span class="p">:</span> <span class="p">[]</span><span class="nx">turn</span><span class="p">.</span><span class="nx">ListenerConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="p">{</span><span class="nx">Listener</span><span class="p">:</span> <span class="nx">tcpListener</span><span class="p">,</span> <span class="nx">RelayAddressGenerator</span><span class="p">:</span> <span class="nx">gen</span><span class="p">,</span> <span class="nx">PermissionHandler</span><span class="p">:</span> <span class="nx">permissions</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// UDP 连接</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">PacketConnConfigs</span><span class="p">:</span> <span class="p">[]</span><span class="nx">turn</span><span class="p">.</span><span class="nx">PacketConnConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="p">{</span><span class="nx">PacketConn</span><span class="p">:</span> <span class="nx">udpListener</span><span class="p">,</span> <span class="nx">RelayAddressGenerator</span><span class="p">:</span> <span class="nx">gen</span><span class="p">,</span> <span class="nx">PermissionHandler</span><span class="p">:</span> <span class="nx">permissions</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="使用多线程">使用多线程
+</h2><p>使用多线程，看着更像是多个监听线程，所以会有端口重用的需要</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">    <span class="nx">addr</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">net</span><span class="p">.</span><span class="nf">ResolveUDPAddr</span><span class="p">(</span><span class="s">&#34;udp&#34;</span><span class="p">,</span> <span class="s">&#34;0.0.0.0:&#34;</span><span class="o">+</span><span class="nx">strconv</span><span class="p">.</span><span class="nf">Itoa</span><span class="p">(</span><span class="o">*</span><span class="nx">port</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Create `numThreads` UDP listeners to pass into pion/turn</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// pion/turn itself doesn&#39;t allocate any UDP sockets, but lets the user pass them in</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// this allows us to add logging, storage or modify inbound/outbound traffic</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// UDP listeners share the same local address:port with setting SO_REUSEPORT and the kernel</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// will load-balance received packets per the IP 5-tuple</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">listenerConfig</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">net</span><span class="p">.</span><span class="nx">ListenConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Control</span><span class="p">:</span> <span class="kd">func</span><span class="p">(</span><span class="nx">network</span><span class="p">,</span> <span class="nx">address</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">conn</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">RawConn</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span> <span class="c1">// nolint: revive</span>
+</span></span><span class="line"><span class="cl">			<span class="kd">var</span> <span class="nx">operr</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">conn</span><span class="p">.</span><span class="nf">Control</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">fd</span> <span class="kt">uintptr</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// 将socket 关联的fd 描述符配置成  通用套接字配置  地址和端口重用  </span>
+</span></span><span class="line"><span class="cl">				<span class="nx">operr</span> <span class="p">=</span> <span class="nx">syscall</span><span class="p">.</span><span class="nf">SetsockoptInt</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nx">fd</span><span class="p">),</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SOL_SOCKET</span><span class="p">,</span> <span class="nx">unix</span><span class="p">.</span><span class="nx">SO_REUSEPORT</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="p">});</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">operr</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">relayAddressGenerator</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">turn</span><span class="p">.</span><span class="nx">RelayAddressGeneratorStatic</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">RelayAddress</span><span class="p">:</span> <span class="nx">net</span><span class="p">.</span><span class="nf">ParseIP</span><span class="p">(</span><span class="o">*</span><span class="nx">publicIP</span><span class="p">),</span> <span class="c1">// Claim that we are listening on IP passed by user</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Address</span><span class="p">:</span>      <span class="s">&#34;0.0.0.0&#34;</span><span class="p">,</span>              <span class="c1">// But actually be listening on every interface</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">packetConnConfigs</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="nx">turn</span><span class="p">.</span><span class="nx">PacketConnConfig</span><span class="p">,</span> <span class="o">*</span><span class="nx">threadNum</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="o">*</span><span class="nx">threadNum</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 创建一个可以用的本地UDP 监听器</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 要用net.Listen </span>
+</span></span><span class="line"><span class="cl">		<span class="nx">conn</span><span class="p">,</span> <span class="nx">listErr</span> <span class="o">:=</span> <span class="nx">listenerConfig</span><span class="p">.</span><span class="nf">ListenPacket</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">addr</span><span class="p">.</span><span class="nf">Network</span><span class="p">(),</span> <span class="nx">addr</span><span class="p">.</span><span class="nf">String</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">listErr</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;Failed to allocate UDP listener at %s:%s&#34;</span><span class="p">,</span> <span class="nx">addr</span><span class="p">.</span><span class="nf">Network</span><span class="p">(),</span> <span class="nx">addr</span><span class="p">.</span><span class="nf">String</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">packetConnConfigs</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="p">=</span> <span class="nx">turn</span><span class="p">.</span><span class="nx">PacketConnConfig</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">PacketConn</span><span class="p">:</span>            <span class="nx">conn</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">RelayAddressGenerator</span><span class="p">:</span> <span class="nx">relayAddressGenerator</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;Server %d listening on %s\n&#34;</span><span class="p">,</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">conn</span><span class="p">.</span><span class="nf">LocalAddr</span><span class="p">().</span><span class="nf">String</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>总体来说Pione/turn 还是挺简单易用的；</p>
+
+</section>
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/golang/">Golang</a>
+        
+            <a href="/tags/webrtc/">Webrtc</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    </footer>
+
+
+    
+        <link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI&#43;WdtXRGWt2kTvGFasHpSy3SV"crossorigin="anonymous"
+            ><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG&#43;vnGctmUb0ZY0l8"crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"integrity="sha384-&#43;VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4&#43;/RRE05"crossorigin="anonymous"
+                defer
+                >
+            </script><script>
+    window.addEventListener("DOMContentLoaded", () => {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false },
+                { left: "\\[", right: "\\]", display: true }
+            ],
+            ignoredClasses: ["gist"]
+        });})
+</script>
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="has-image">
+    <a href="/go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/c73dd60a/800/600" loading="lazy" data-key="go" data-hash="https://picsum.photos/seed/c73dd60a/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">简单的restful http client 包实现 </h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="has-image">
+    <a href="/p/kafka_go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/8391ff80/800/600" loading="lazy" data-key="kafka_go" data-hash="https://picsum.photos/seed/8391ff80/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Kafka_go</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2020 - 
+        
+        2025 pandazhangs
+    </section>
+    
+    <section class="powerby">
+        
+            往日已经不在，未来尚未开始 <br/>
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.29.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

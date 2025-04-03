@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
-    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="异步日志写实现\r设计逻辑\r内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="异步日志写实现 设计逻辑 内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
 <title>异步日志写实现</title>
 
-<link rel='canonical' href='http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/'>
+<link rel='canonical' href='https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/'>
 
-<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="异步日志写实现">
-<meta property='og:description' content="异步日志写实现\r设计逻辑\r内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
-<meta property='og:url' content='http://localhost:1313/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/'>
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="异步日志写实现">
+<meta property='og:description' content="异步日志写实现 设计逻辑 内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
+<meta property='og:url' content='https://daidaij.github.io/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/'>
 <meta property='og:site_name' content='潘达窝'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:tag' content='异步io' /><meta property='article:tag' content='日志' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
 <meta name="twitter:title" content="异步日志写实现">
-<meta name="twitter:description" content="异步日志写实现\r设计逻辑\r内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
+<meta name="twitter:description" content="异步日志写实现 设计逻辑 内置 sync.pool 获取缓存，将 p 写入 bytes.Buffer，写入成功就将 buff 入队，然后使用轮询函数在循环中一直取队列里面的 buffer，使用刷写将缓存内容落盘，同时将缓存返回池中。在进程做优雅退出的时候，关联到异步写者，让其 for range 剩余的缓存，连续落盘； 落盘写函数逻辑：\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -58,7 +58,7 @@
                     
                     
                         
-                        <img src="/panda_hu120629243187970115.png" width="300"
+                        <img src="/panda_hu_6f01fa95ad64e0d1.png" width="300"
                             height="300" class="site-logo" loading="lazy" alt="Avatar">
                     
                 
@@ -157,6 +157,9 @@
             </a>
         </li>
         
+        <script src="https://l2dwidget.js.org/lib/L2Dwidget.min.js"></script>
+        <script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"debug":false,"model":{"jsonPath":"/live2dw/assets/wanko.model.json"},"display":{"position":"left","width":150,"height":200},"mobile":{"show":true},"log":false});</script>
+        <canvas class="live2d" id="live2d" width="300" height="800"></canvas>
         <li class="menu-bottom-section">
             <ol class="menu">
                     
@@ -174,9 +177,9 @@
 
                             <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
                                 
-                                    <option value="http://localhost:1313/en/" >English</option>
+                                    <option value="https://daidaij.github.io/en/" >English</option>
                                 
-                                    <option value="http://localhost:1313/" selected>中文</option>
+                                    <option value="https://daidaij.github.io/" selected>中文</option>
                                 
                             </select>
                         </li>
@@ -504,7 +507,7 @@
 </span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">NewSimpleAsyncWriter</span><span class="p">(</span><span class="nx">w</span> <span class="nx">io</span><span class="p">.</span><span class="nx">Writer</span><span class="p">,</span> <span class="nx">limit</span> <span class="kt">int</span><span class="p">)</span> <span class="o">*</span><span class="nx">SimpleAsyncWriter</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="nx">ret</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">SimpleAsyncWriter</span><span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">data</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="o">*</span><span class="nx">FixSizeLargeBuff</span><span class="p">,</span> <span class="nx">limit</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">		<span class="nx">buffpool</span><span class="p">:</span> <span class="nx">sync</span><span class="p">.</span><span class="nx">Pool</span><span class="p">{</span><span class="nx">New</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">any</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">buffpool</span><span class="p">:</span> <span class="nx">sync</span><span class="p">.</span><span class="nx">Pool</span><span class="p">{</span><span class="nx">New</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="kt">any</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nf">NewFixSizeLargeBuff</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">		<span class="p">}},</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">wt</span><span class="p">:</span>     <span class="nx">w</span><span class="p">,</span>
@@ -681,6 +684,63 @@
         <div class="flex article-list--tile">
             
                 
+<article class="has-image">
+    <a href="/go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/c73dd60a/800/600" loading="lazy" data-key="go" data-hash="https://picsum.photos/seed/c73dd60a/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">简单的restful http client 包实现 </h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="has-image">
+    <a href="/p/kafka_go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/8391ff80/800/600" loading="lazy" data-key="kafka_go" data-hash="https://picsum.photos/seed/8391ff80/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Kafka_go</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="has-image">
+    <a href="/p/luascript/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/d0ba0f6f/800/600" loading="lazy" data-key="" data-hash="https://picsum.photos/seed/d0ba0f6f/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Luascript</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
 <article class="">
     <a href="/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/">
         
@@ -706,19 +766,6 @@
 </article>
 
             
-                
-<article class="">
-    <a href="/p/%E4%B8%80%E4%B8%AArange-%E9%A3%8E%E6%A0%BC%E7%9A%84%E8%8C%83%E5%9B%B4%E8%BF%AD%E4%BB%A3%E5%99%A8%E5%B0%81%E8%A3%85%E5%AE%9E%E7%8E%B0/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">一个range 风格的范围迭代器封装实现</h2>
-        </div>
-    </a>
-</article>
-
-            
         </div>
     </div>
 </aside>
@@ -734,7 +781,7 @@
         
             2020 - 
         
-        2024 pandazhangs
+        2025 pandazhangs
     </section>
     
     <section class="powerby">
@@ -830,7 +877,7 @@
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/ts/main.a8592fdff59695ad5d2f7e77049318ed6ba7bd9a61c82c8660828b0bb366978f.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');

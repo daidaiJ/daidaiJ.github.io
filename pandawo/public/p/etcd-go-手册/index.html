@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
-    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+    <head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="备忘录">
 <title>etcd go 手册</title>
 
-<link rel='canonical' href='http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/'>
+<link rel='canonical' href='https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/'>
 
-<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="etcd go 手册">
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="etcd go 手册">
 <meta property='og:description' content="备忘录">
-<meta property='og:url' content='http://localhost:1313/p/etcd-go-%E6%89%8B%E5%86%8C/'>
+<meta property='og:url' content='https://daidaij.github.io/p/etcd-go-%E6%89%8B%E5%86%8C/'>
 <meta property='og:site_name' content='潘达窝'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
 <meta name="twitter:title" content="etcd go 手册">
@@ -58,7 +58,7 @@
                     
                     
                         
-                        <img src="/panda_hu120629243187970115.png" width="300"
+                        <img src="/panda_hu_6f01fa95ad64e0d1.png" width="300"
                             height="300" class="site-logo" loading="lazy" alt="Avatar">
                     
                 
@@ -157,6 +157,9 @@
             </a>
         </li>
         
+        <script src="https://l2dwidget.js.org/lib/L2Dwidget.min.js"></script>
+        <script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"debug":false,"model":{"jsonPath":"/live2dw/assets/wanko.model.json"},"display":{"position":"left","width":150,"height":200},"mobile":{"show":true},"log":false});</script>
+        <canvas class="live2d" id="live2d" width="300" height="800"></canvas>
         <li class="menu-bottom-section">
             <ol class="menu">
                     
@@ -174,9 +177,9 @@
 
                             <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
                                 
-                                    <option value="http://localhost:1313/en/" >English</option>
+                                    <option value="https://daidaij.github.io/en/" >English</option>
                                 
-                                    <option value="http://localhost:1313/" selected>中文</option>
+                                    <option value="https://daidaij.github.io/" selected>中文</option>
                                 
                             </select>
                         </li>
@@ -348,8 +351,7 @@ Get() 使用的WithRev(presp.Header.Revision) ，中的版本号可以时某次p
 ClusterId 和这个消息交互的集群的id<br>
 MemberId 节点id
 Revision 消息版本
-RaftTerm 选举的周期</p>
-</blockquote>
+RaftTerm 选举的周期</p></blockquote>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -360,10 +362,10 @@ RaftTerm 选举的周期</p>
 </span><span class="lnt">6
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">    <span class="c1">// 这里获取版本后，该版本之前的历史数据存储开始进行合并压缩
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="c1">// 这里会生成快照吗？ 按照文档上说这个操作应该是要定时进行的
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">compRev</span> <span class="o">:=</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Header</span><span class="p">.</span><span class="nx">Revision</span> <span class="c1">// specify compact revision of your choice
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">    <span class="c1">// 这里获取版本后，该版本之前的历史数据存储开始进行合并压缩</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 这里会生成快照吗？ 按照文档上说这个操作应该是要定时进行的</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">compRev</span> <span class="o">:=</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Header</span><span class="p">.</span><span class="nx">Revision</span> <span class="c1">// specify compact revision of your choice</span>
+</span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">    <span class="nx">ctx</span><span class="p">,</span> <span class="nx">cancel</span> <span class="p">=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">WithTimeout</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">requestTimeout</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">Compact</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">compRev</span><span class="p">)</span>
 </span></span></code></pre></td></tr></table>
@@ -421,31 +423,31 @@ RaftTerm 选举的周期</p>
 </span><span class="lnt">45
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 这部分可以手动来进行的 
-</span></span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root role add r
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">RoleAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;r&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 这部分可以手动来进行的 </span>
+</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root role add r</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">RoleAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;r&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root role grant-permission r   foo zoo
-</span></span></span><span class="line"><span class="cl"><span class="c1">// 使用 -prefix=true 可以仅指定开头前缀
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">RoleGrantPermission</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span><span class="s">&#34;r&#34;</span><span class="p">,</span>   <span class="s">&#34;foo&#34;</span><span class="p">,</span> <span class="s">&#34;zoo&#34;</span><span class="p">,</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">PermissionType</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">PermReadWrite</span><span class="p">),);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root role grant-permission r   foo zoo</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 使用 -prefix=true 可以仅指定开头前缀</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">RoleGrantPermission</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span><span class="s">&#34;r&#34;</span><span class="p">,</span>   <span class="s">&#34;foo&#34;</span><span class="p">,</span> <span class="s">&#34;zoo&#34;</span><span class="p">,</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">PermissionType</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">PermReadWrite</span><span class="p">),);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root user add  u --new-user-password 123
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">UserAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;u&#34;</span><span class="p">,</span> <span class="s">&#34;123&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root user add  u --new-user-password 123</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">UserAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;u&#34;</span><span class="p">,</span> <span class="s">&#34;123&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root user grant-role u r
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">UserGrantRole</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;u&#34;</span><span class="p">,</span> <span class="s">&#34;r&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl --user root user grant-role u r</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">UserGrantRole</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;u&#34;</span><span class="p">,</span> <span class="s">&#34;r&#34;</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl auth enable
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">AuthEnable</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// etcdctl auth enable</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">AuthEnable</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// 这里使用 root 角色的用户来登录
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">rootCli</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 这里使用 root 角色的用户来登录</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">rootCli</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nx">Endpoints</span><span class="p">:</span>   <span class="nf">exampleEndpoints</span><span class="p">(),</span>
 </span></span><span class="line"><span class="cl">        <span class="nx">DialTimeout</span><span class="p">:</span> <span class="nx">dialTimeout</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nx">Username</span><span class="p">:</span>    <span class="s">&#34;root&#34;</span><span class="p">,</span>
@@ -455,15 +457,15 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="k">defer</span> <span class="nx">rootCli</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// root 用户可以获取别的 用户或者角色的数据 etcdctl --user root role get r
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">rootCli</span><span class="p">.</span><span class="nf">RoleGet</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;r&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// root 用户可以获取别的 用户或者角色的数据 etcdctl --user root role get r</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">rootCli</span><span class="p">.</span><span class="nf">RoleGet</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;r&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// 可以获得 角色权限的信息
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;user u permission: key %q, range end %q\n&#34;</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Perm</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Key</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Perm</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">RangeEnd</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// 这里关闭身份校验 etcdctl auth disable
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">rootCli</span><span class="p">.</span><span class="nf">AuthDisable</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 可以获得 角色权限的信息</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;user u permission: key %q, range end %q\n&#34;</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Perm</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">Key</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Perm</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">RangeEnd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 这里关闭身份校验 etcdctl auth disable</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">rootCli</span><span class="p">.</span><span class="nf">AuthDisable</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span></code></pre></td></tr></table>
@@ -506,8 +508,7 @@ RaftTerm 选举的周期</p>
 </div><h2 id="事务">事务
 </h2><blockquote>
 <p>STM is an interface for software transactional memory.
-事务使用 MVCC多版本控制，在事务执行的函数类使用 STM 来读写键值</p>
-</blockquote>
+事务使用 MVCC多版本控制，在事务执行的函数类使用 STM 来读写键值</p></blockquote>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
@@ -569,8 +570,8 @@ RaftTerm 选举的周期</p>
 </span><span class="lnt">57
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// Txn 这个简单的事务接口，还是基于客户端连接来的
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">kvc</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">NewKV</span><span class="p">(</span><span class="nx">cli</span><span class="p">)</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// Txn 这个简单的事务接口，还是基于客户端连接来的</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">kvc</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">NewKV</span><span class="p">(</span><span class="nx">cli</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">		<span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">kvc</span><span class="p">.</span><span class="nf">Put</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;xyz&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
@@ -578,41 +579,41 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">		<span class="p">}</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">    <span class="nx">ctx</span><span class="p">,</span> <span class="nx">cancel</span> <span class="o">:=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">WithTimeout</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">requestTimeout</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// if 条件成立 会执行 then 分支的修改，否则会执行else 分支的操作
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">kvc</span><span class="p">.</span><span class="nf">Txn</span><span class="p">(</span><span class="nx">ctx</span><span class="p">).</span>
-</span></span><span class="line"><span class="cl">        <span class="c1">// txn value comparisons are lexical
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">If</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">Compare</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">Value</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">),</span> <span class="s">&#34;&gt;&#34;</span><span class="p">,</span> <span class="s">&#34;abc&#34;</span><span class="p">)).</span>
-</span></span><span class="line"><span class="cl">        <span class="c1">// the &#34;Then&#34; runs, since &#34;xyz&#34; &gt; &#34;abc&#34;
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">Then</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">OpPut</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;XYZ&#34;</span><span class="p">)).</span>
-</span></span><span class="line"><span class="cl">        <span class="c1">// the &#34;Else&#34; does not run
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nf">Else</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">OpPut</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;ABC&#34;</span><span class="p">)).</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// if 条件成立 会执行 then 分支的修改，否则会执行else 分支的操作</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">kvc</span><span class="p">.</span><span class="nf">Txn</span><span class="p">(</span><span class="nx">ctx</span><span class="p">).</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// txn value comparisons are lexical</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">If</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">Compare</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">Value</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">),</span> <span class="s">&#34;&gt;&#34;</span><span class="p">,</span> <span class="s">&#34;abc&#34;</span><span class="p">)).</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// the &#34;Then&#34; runs, since &#34;xyz&#34; &gt; &#34;abc&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">Then</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">OpPut</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;XYZ&#34;</span><span class="p">)).</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// the &#34;Else&#34; does not run</span>
+</span></span><span class="line"><span class="cl">        <span class="nf">Else</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nf">OpPut</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;ABC&#34;</span><span class="p">)).</span>
 </span></span><span class="line"><span class="cl">        <span class="nf">Commit</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="c1">//
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">exchange</span> <span class="o">:=</span> <span class="kd">func</span><span class="p">(</span><span class="nx">stm</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nx">STM</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">//</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">exchange</span> <span class="o">:=</span> <span class="kd">func</span><span class="p">(</span><span class="nx">stm</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nx">STM</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">from</span><span class="p">,</span> <span class="nx">to</span> <span class="o">:=</span> <span class="nx">rand</span><span class="p">.</span><span class="nf">Intn</span><span class="p">(</span><span class="nx">totalAccounts</span><span class="p">),</span> <span class="nx">rand</span><span class="p">.</span><span class="nf">Intn</span><span class="p">(</span><span class="nx">totalAccounts</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="nx">from</span> <span class="o">==</span> <span class="nx">to</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">                <span class="c1">// nothing to do
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>                <span class="k">return</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// nothing to do</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span>
 </span></span><span class="line"><span class="cl">            <span class="p">}</span>
-</span></span><span class="line"><span class="cl">            <span class="c1">// read values
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nx">fromK</span><span class="p">,</span> <span class="nx">toK</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;accts/%d&#34;</span><span class="p">,</span> <span class="nx">from</span><span class="p">),</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;accts/%d&#34;</span><span class="p">,</span> <span class="nx">to</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// read values</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">fromK</span><span class="p">,</span> <span class="nx">toK</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;accts/%d&#34;</span><span class="p">,</span> <span class="nx">from</span><span class="p">),</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;accts/%d&#34;</span><span class="p">,</span> <span class="nx">to</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">fromV</span><span class="p">,</span> <span class="nx">toV</span> <span class="o">:=</span> <span class="nx">stm</span><span class="p">.</span><span class="nf">Get</span><span class="p">(</span><span class="nx">fromK</span><span class="p">),</span> <span class="nx">stm</span><span class="p">.</span><span class="nf">Get</span><span class="p">(</span><span class="nx">toK</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">fromInt</span><span class="p">,</span> <span class="nx">toInt</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sscanf</span><span class="p">(</span><span class="nx">fromV</span><span class="p">,</span> <span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">fromInt</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sscanf</span><span class="p">(</span><span class="nx">toV</span><span class="p">,</span> <span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">toInt</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">            <span class="c1">// transfer amount
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nx">xfer</span> <span class="o">:=</span> <span class="nx">fromInt</span> <span class="o">/</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// transfer amount</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">xfer</span> <span class="o">:=</span> <span class="nx">fromInt</span> <span class="o">/</span> <span class="mi">2</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">fromInt</span><span class="p">,</span> <span class="nx">toInt</span> <span class="p">=</span> <span class="nx">fromInt</span><span class="o">-</span><span class="nx">xfer</span><span class="p">,</span> <span class="nx">toInt</span><span class="o">+</span><span class="nx">xfer</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">            <span class="c1">// write back
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nx">stm</span><span class="p">.</span><span class="nf">Put</span><span class="p">(</span><span class="nx">fromK</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="nx">fromInt</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// write back</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">stm</span><span class="p">.</span><span class="nf">Put</span><span class="p">(</span><span class="nx">fromK</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="nx">fromInt</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">stm</span><span class="p">.</span><span class="nf">Put</span><span class="p">(</span><span class="nx">toK</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="nx">toInt</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">            <span class="k">return</span>
 </span></span><span class="line"><span class="cl">        <span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// concurrently exchange values between accounts
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kd">var</span> <span class="nx">wg</span> <span class="nx">sync</span><span class="p">.</span><span class="nx">WaitGroup</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// concurrently exchange values between accounts</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">var</span> <span class="nx">wg</span> <span class="nx">sync</span><span class="p">.</span><span class="nx">WaitGroup</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">wg</span><span class="p">.</span><span class="nf">Add</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="mi">10</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
@@ -664,8 +665,7 @@ RaftTerm 选举的周期</p>
 </div><h2 id="租约">租约
 </h2><p>租约有点像 go 里面的上下文，租约过期时会撤销掉这期间的更改；同时在<code>func (Lease).Revoke(ctx Context, id LeaseID) </code>释放租约的时候，之前修改会被视作失效了；<code>func (Lease).KeepAliveOnce(ctx Context, id LeaseID) </code> 可以手动续约，避免租约超期被取消了；</p>
 <blockquote>
-<p>key 和 Lease 是多对一的关系。一个 key 最多只能挂绑定一个 Lease ，但是一个 Lease 上能挂多个 key 。租约在申请下来后，关联的操作，我觉得全是修改，会被关联到这个租约的 map 里面，这段事件应该是独占这些个 key 的所有权，所以加进来的key修改，在租约失效的时候，反向调用Txn 来删除这些key，就能把之前的版本恢复</p>
-</blockquote>
+<p>key 和 Lease 是多对一的关系。一个 key 最多只能挂绑定一个 Lease ，但是一个 Lease 上能挂多个 key 。租约在申请下来后，关联的操作，我觉得全是修改，会被关联到这个租约的 map 里面，这段事件应该是独占这些个 key 的所有权，所以加进来的key修改，在租约失效的时候，反向调用Txn 来删除这些key，就能把之前的版本恢复</p></blockquote>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
@@ -692,8 +692,8 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// 每个会话会有一个唯一的ID 和TTL 存活时间
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">s</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">NewSession</span><span class="p">(</span><span class="nx">cli</span><span class="p">,</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">WithLease</span><span class="p">(</span><span class="nx">lease</span><span class="p">.</span><span class="nx">ID</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 每个会话会有一个唯一的ID 和TTL 存活时间</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">s</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">NewSession</span><span class="p">(</span><span class="nx">cli</span><span class="p">,</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">WithLease</span><span class="p">(</span><span class="nx">lease</span><span class="p">.</span><span class="nx">ID</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">	<span class="p">}</span>
@@ -743,8 +743,8 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">	<span class="nx">leaseID</span> <span class="o">:=</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Lease</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="c1">// TTL retrieved should be less than the set TTL, but not equal to default:60 or exprired:-1
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nx">Lease</span><span class="p">.</span><span class="nf">TimeToLive</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">leaseID</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// TTL retrieved should be less than the set TTL, but not equal to default:60 or exprired:-1</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nx">Lease</span><span class="p">.</span><span class="nf">TimeToLive</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">leaseID</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Log</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">	<span class="p">}</span>
@@ -795,8 +795,8 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">	<span class="p">}</span>
 </span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">	<span class="nx">assert</span><span class="p">.</span><span class="nf">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Lease</span><span class="p">(),</span> <span class="nx">lease</span><span class="p">.</span><span class="nx">ID</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// 主要是通过 会话的上下文的Done 来控制会话内操作的退出
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">childCtx</span><span class="p">,</span> <span class="nx">cancel</span> <span class="o">:=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">WithCancel</span><span class="p">(</span><span class="nx">s</span><span class="p">.</span><span class="nf">Ctx</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 主要是通过 会话的上下文的Done 来控制会话内操作的退出</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">childCtx</span><span class="p">,</span> <span class="nx">cancel</span> <span class="o">:=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">WithCancel</span><span class="p">(</span><span class="nx">s</span><span class="p">.</span><span class="nf">Ctx</span><span class="p">())</span>
 </span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nf">cancel</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">	<span class="k">go</span> <span class="nx">s</span><span class="p">.</span><span class="nf">Orphan</span><span class="p">()</span>
@@ -833,8 +833,8 @@ RaftTerm 选举的周期</p>
 </span><span class="lnt">14
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">   <span class="c1">// 新建会话是一个标准流程表，因为下面申请锁需要通过一个会话来进行
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>   <span class="nx">s1</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">NewSession</span><span class="p">(</span><span class="nx">cli</span><span class="p">)</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">   <span class="c1">// 新建会话是一个标准流程表，因为下面申请锁需要通过一个会话来进行</span>
+</span></span><span class="line"><span class="cl">   <span class="nx">s1</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">concurrency</span><span class="p">.</span><span class="nf">NewSession</span><span class="p">(</span><span class="nx">cli</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">   	<span class="nx">t</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">   <span class="p">}</span>
@@ -843,8 +843,8 @@ RaftTerm 选举的周期</p>
 </span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">m1</span><span class="p">.</span><span class="nf">Lock</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">   <span class="nx">t</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">   <span class="p">}</span>
-</span></span><span class="line"><span class="cl">   <span class="c1">// 这之间就是s1 获得锁的临界区
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>   <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">m1</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// 这之间就是s1 获得锁的临界区</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">m1</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">   <span class="nx">t</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">   <span class="p">}</span>
 </span></span></code></pre></td></tr></table>
@@ -856,8 +856,7 @@ RaftTerm 选举的周期</p>
 <blockquote>
 <p>采用了MVCC，以一种优雅的方式解决了锁带来的问题。执行写操作或删除操作时不会再原数据上修改而是创建一个新版本。这样并发的读取操作仍然可以读取老版本的数据，写操作也可以同时进行。这个模式的好处在于读操作不再阻塞，事实上根本就不需要锁。
 客户端读key的时候指定一个版本号，服务端保证返回比这个版本号更新的数据，但不保证返回最新的数据。
-MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常适合读多写少的场景。</p>
-</blockquote>
+MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常适合读多写少的场景。</p></blockquote>
 <p>客户端使用watch 来获取服务端地址</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
@@ -930,20 +929,20 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span></span><span class="line"><span class="cl">    <span class="k">go</span> <span class="nf">watchServiceUpdate</span><span class="p">(</span><span class="nx">etcdClient</span><span class="p">,</span> <span class="nx">service</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// 监控服务目录下的事件
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">watchServiceUpdate</span><span class="p">(</span><span class="nx">etcdClient</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nx">Client</span><span class="p">,</span> <span class="nx">service</span> <span class="o">*</span><span class="nx">remoteService</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 监控服务目录下的事件</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">watchServiceUpdate</span><span class="p">(</span><span class="nx">etcdClient</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nx">Client</span><span class="p">,</span> <span class="nx">service</span> <span class="o">*</span><span class="nx">remoteService</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">watcher</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">NewWatcher</span><span class="p">(</span><span class="nx">client</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// Watch 服务目录下的更新
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">watchChan</span> <span class="o">:=</span> <span class="nx">watcher</span><span class="p">.</span><span class="nf">Watch</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="nx">service</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">WithPrefix</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Watch 服务目录下的更新</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">watchChan</span> <span class="o">:=</span> <span class="nx">watcher</span><span class="p">.</span><span class="nf">Watch</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="nx">service</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">WithPrefix</span><span class="p">())</span>
 </span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="nx">watchResp</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">watchChan</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="c1">// 这里对增删时间的响应，会使用互斥锁来解决并发的数据修改问题
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>          <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">event</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">watchResp</span><span class="p">.</span><span class="nx">Events</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 这里对增删时间的响应，会使用互斥锁来解决并发的数据修改问题</span>
+</span></span><span class="line"><span class="cl">          <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">event</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">watchResp</span><span class="p">.</span><span class="nx">Events</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">                <span class="nx">service</span><span class="p">.</span><span class="nx">mutex</span><span class="p">.</span><span class="nf">Lock</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">                <span class="k">switch</span> <span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Type</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">                    <span class="k">case</span> <span class="nx">mvccpb</span><span class="p">.</span><span class="nx">PUT</span><span class="p">:</span><span class="c1">//PUT事件，目录下有了新key
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>                      <span class="nx">service</span><span class="p">.</span><span class="nx">nodes</span><span class="p">[</span><span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Key</span><span class="p">)]</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">                    <span class="k">case</span> <span class="nx">mvccpb</span><span class="p">.</span><span class="nx">DELETE</span><span class="p">:</span><span class="c1">//DELETE事件，目录中有key被删掉(Lease过期，key 也会被删掉)
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>                      <span class="nb">delete</span><span class="p">(</span><span class="nx">service</span><span class="p">.</span><span class="nx">nodes</span><span class="p">,</span> <span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Key</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">                    <span class="k">case</span> <span class="nx">mvccpb</span><span class="p">.</span><span class="nx">PUT</span><span class="p">:</span><span class="c1">//PUT事件，目录下有了新key</span>
+</span></span><span class="line"><span class="cl">                      <span class="nx">service</span><span class="p">.</span><span class="nx">nodes</span><span class="p">[</span><span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Key</span><span class="p">)]</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                    <span class="k">case</span> <span class="nx">mvccpb</span><span class="p">.</span><span class="nx">DELETE</span><span class="p">:</span><span class="c1">//DELETE事件，目录中有key被删掉(Lease过期，key 也会被删掉)</span>
+</span></span><span class="line"><span class="cl">                      <span class="nb">delete</span><span class="p">(</span><span class="nx">service</span><span class="p">.</span><span class="nx">nodes</span><span class="p">,</span> <span class="nb">string</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">Kv</span><span class="p">.</span><span class="nx">Key</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">                <span class="p">}</span>
 </span></span><span class="line"><span class="cl">                <span class="nx">service</span><span class="p">.</span><span class="nx">mutex</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">          <span class="p">}</span>
@@ -994,8 +993,8 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span><span class="lnt">38
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 将服务注册到etcd上
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">RegisterServiceToETCD</span><span class="p">(</span><span class="nx">ServiceTarget</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">value</span> <span class="kt">string</span><span class="p">)</span> <span class="p">{</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 将服务注册到etcd上</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">RegisterServiceToETCD</span><span class="p">(</span><span class="nx">ServiceTarget</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">value</span> <span class="kt">string</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">dir</span> <span class="p">=</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">TrimRight</span><span class="p">(</span><span class="nx">ServiceTarget</span><span class="p">,</span> <span class="s">&#34;/&#34;</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#34;/&#34;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">    <span class="nx">client</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
@@ -1023,8 +1022,8 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span></span><span class="line"><span class="cl">            <span class="p">}</span>
 </span></span><span class="line"><span class="cl">            <span class="nx">curLeaseId</span> <span class="p">=</span> <span class="nx">leaseResp</span><span class="p">.</span><span class="nx">ID</span>
 </span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="c1">// 续约租约，如果租约已经过期将curLeaseId复位到0重新走创建租约的逻辑
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">lease</span><span class="p">.</span><span class="nf">KeepAliveOnce</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="nx">curLeaseId</span><span class="p">);</span> <span class="nx">err</span> <span class="o">==</span> <span class="nx">rpctypes</span><span class="p">.</span><span class="nx">ErrLeaseNotFound</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="c1">// 续约租约，如果租约已经过期将curLeaseId复位到0重新走创建租约的逻辑</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">lease</span><span class="p">.</span><span class="nf">KeepAliveOnce</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">TODO</span><span class="p">(),</span> <span class="nx">curLeaseId</span><span class="p">);</span> <span class="nx">err</span> <span class="o">==</span> <span class="nx">rpctypes</span><span class="p">.</span><span class="nx">ErrLeaseNotFound</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">                <span class="nx">curLeaseId</span> <span class="p">=</span> <span class="mi">0</span>
 </span></span><span class="line"><span class="cl">                <span class="k">continue</span>
 </span></span><span class="line"><span class="cl">            <span class="p">}</span>
@@ -1066,8 +1065,8 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 <td class="lntd">
 <pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="k">select</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nx">ws</span> <span class="o">:=</span> <span class="o">&lt;-</span><span class="nx">wch</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">		<span class="c1">// 没启用分页的时候，因为对应的 key 的值太大了，旧没接收到
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="p">!</span><span class="nx">fragment</span> <span class="o">&amp;&amp;</span> <span class="nx">exceedRecvLimit</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// 没启用分页的时候，因为对应的 key 的值太大了，旧没接收到</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="p">!</span><span class="nx">fragment</span> <span class="o">&amp;&amp;</span> <span class="nx">exceedRecvLimit</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">ws</span><span class="p">.</span><span class="nx">Events</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">				<span class="nx">t</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;expected 0 events with watch fragmentation, got %d&#34;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">ws</span><span class="p">.</span><span class="nx">Events</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">			<span class="p">}</span>
@@ -1078,8 +1077,8 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span></span><span class="line"><span class="cl">			<span class="k">return</span>
 </span></span><span class="line"><span class="cl">		<span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c1">// 启用分页将每次发送的数据分成限制内大小后，拿到的分页数，这个事件本身是键值对的一个切片，里面的元素是类似CPP 的 pair 这种键值二元组
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">ws</span><span class="p">.</span><span class="nx">Events</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">10</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// 启用分页将每次发送的数据分成限制内大小后，拿到的分页数，这个事件本身是键值对的一个切片，里面的元素是类似CPP 的 pair 这种键值二元组</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">ws</span><span class="p">.</span><span class="nx">Events</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">10</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">			<span class="nx">t</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;expected 10 events with watch fragmentation, got %d&#34;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">ws</span><span class="p">.</span><span class="nx">Events</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">		<span class="p">}</span>
 </span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">ws</span><span class="p">.</span><span class="nf">Err</span><span class="p">()</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
@@ -1124,8 +1123,8 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span></span><span class="line"><span class="cl">	<span class="nx">grpcprom</span> <span class="s">&#34;github.com/grpc-ecosystem/go-grpc-prometheus&#34;</span>
 </span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/prometheus/client_golang/prometheus/promhttp&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1">// 这样在客户端的 grpc 连接里面塞两个Prometheus的中间件进去
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">cli</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 这样在客户端的 grpc 连接里面塞两个Prometheus的中间件进去</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">cli</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">clientv3</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">clientv3</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
 </span></span><span class="line"><span class="cl">			<span class="nx">Endpoints</span><span class="p">:</span> <span class="nf">exampleEndpoints</span><span class="p">(),</span>
 </span></span><span class="line"><span class="cl">			<span class="nx">DialOptions</span><span class="p">:</span> <span class="p">[]</span><span class="nx">grpc</span><span class="p">.</span><span class="nx">DialOption</span><span class="p">{</span>
 </span></span><span class="line"><span class="cl">				<span class="nx">grpc</span><span class="p">.</span><span class="nf">WithUnaryInterceptor</span><span class="p">(</span><span class="nx">grpcprom</span><span class="p">.</span><span class="nx">UnaryClientInterceptor</span><span class="p">),</span>
@@ -1136,14 +1135,14 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">        <span class="p">}</span>
 </span></span><span class="line"><span class="cl">        <span class="k">defer</span> <span class="nx">cli</span><span class="p">.</span><span class="nb">close</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">        <span class="c1">// 开个 http 服务端
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nx">ln</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">net</span><span class="p">.</span><span class="nf">Listen</span><span class="p">(</span><span class="s">&#34;tcp&#34;</span><span class="p">,</span> <span class="s">&#34;:0&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 开个 http 服务端</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">ln</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">net</span><span class="p">.</span><span class="nf">Listen</span><span class="p">(</span><span class="s">&#34;tcp&#34;</span><span class="p">,</span> <span class="s">&#34;:0&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">			<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">		<span class="p">}</span>
 </span></span><span class="line"><span class="cl">        <span class="k">defer</span> <span class="nx">ln</span><span class="p">.</span><span class="nb">close</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">http</span><span class="p">.</span><span class="nf">Serve</span><span class="p">(</span><span class="nx">ln</span><span class="p">,</span> <span class="nx">promhttp</span><span class="p">.</span><span class="nf">Handler</span><span class="p">())</span> <span class="c1">// 现在就可以被监听到了
-</span></span></span></code></pre></td></tr></table>
+</span></span><span class="line"><span class="cl">        <span class="nx">http</span><span class="p">.</span><span class="nf">Serve</span><span class="p">(</span><span class="nx">ln</span><span class="p">,</span> <span class="nx">promhttp</span><span class="p">.</span><span class="nf">Handler</span><span class="p">())</span> <span class="c1">// 现在就可以被监听到了</span>
+</span></span></code></pre></td></tr></table>
 </div>
 </div><h2 id="调优">调优
 </h2><p><strong>io优先级</strong></p>
@@ -1241,31 +1240,31 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
 </span><span class="lnt">29
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 添加一个 节点进来   2380 一般是这个端口，用来做集群间通信的，那个2379的是用监听客户端的
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">mresp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:32380&#34;</span><span class="p">})</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 添加一个 节点进来   2380 一般是这个端口，用来做集群间通信的，那个2379的是用监听客户端的</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">mresp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberAdd</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:32380&#34;</span><span class="p">})</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">fmt</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;added member.PeerURLs:&#34;</span><span class="p">,</span> <span class="nx">mresp</span><span class="p">.</span><span class="nx">Member</span><span class="p">.</span><span class="nx">PeerURLs</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">fmt</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;members count:&#34;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">mresp</span><span class="p">.</span><span class="nx">Members</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Restore original cluster state
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberRemove</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">mresp</span><span class="p">.</span><span class="nx">Member</span><span class="p">.</span><span class="nx">ID</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Restore original cluster state</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberRemove</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">mresp</span><span class="p">.</span><span class="nx">Member</span><span class="p">.</span><span class="nx">ID</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">          <span class="c1">// 这个添加进来做从节点？
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>       <span class="nx">mresp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberAddAsLearner</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:32381&#34;</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl">          <span class="c1">// 这个添加进来做从节点？</span>
+</span></span><span class="line"><span class="cl">       <span class="nx">mresp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberAddAsLearner</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:32381&#34;</span><span class="p">})</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">          <span class="c1">// 这里用来获取集群的节点列表
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>          <span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberList</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">          <span class="c1">// 这里用来获取集群的节点列表</span>
+</span></span><span class="line"><span class="cl">          <span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberList</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">())</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">          <span class="c1">// 修改节点的内部通信地址
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>          <span class="nx">peerURLs</span> <span class="o">:=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:12380&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="c1">// 修改节点的内部通信地址</span>
+</span></span><span class="line"><span class="cl">          <span class="nx">peerURLs</span> <span class="o">:=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;http://localhost:12380&#34;</span><span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">cli</span><span class="p">.</span><span class="nf">MemberUpdate</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Members</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">ID</span><span class="p">,</span> <span class="nx">peerURLs</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
@@ -1417,7 +1416,7 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
         
             2020 - 
         
-        2024 pandazhangs
+        2025 pandazhangs
     </section>
     
     <section class="powerby">
@@ -1513,7 +1512,7 @@ MVCC能最大化地实现高效地读写并发，尤其是高效地读，非常�
                 src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
                 
                 >
-            </script><script type="text/javascript" src="/ts/main.a8592fdff59695ad5d2f7e77049318ed6ba7bd9a61c82c8660828b0bb366978f.js" defer></script>
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
 <script>
     (function () {
         const customFont = document.createElement('link');
