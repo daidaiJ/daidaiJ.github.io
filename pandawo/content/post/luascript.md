@@ -24,7 +24,7 @@ if currentValue == false then
 	return increment 
 else 
 	local newValue = tonumber(currentValue) + increment 
-	redis.call('SET', key, newValue) 
+	redis.call('SET', key, newValue) -- redis.call('SETEX', key,86400 ,newValue)
 	return newValue 
 end
 ```
