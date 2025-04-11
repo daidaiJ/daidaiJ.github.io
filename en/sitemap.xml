@@ -1,47 +1,15 @@
-  <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-   <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-   xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
    
-   <url>
+   <sitemap>
       <loc>https://daidaij.github.io/en/categories/</loc>
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="zh-cn"
-                  href="https://daidaij.github.io/categories/"
-                  />
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="en"
-                  href="https://daidaij.github.io/en/categories/"
-                  />
-   </url>
+   </sitemap>
    
-   <url>
+   <sitemap>
       <loc>https://daidaij.github.io/en/</loc>
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="zh-cn"
-                  href="https://daidaij.github.io/"
-                  />
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="en"
-                  href="https://daidaij.github.io/en/"
-                  />
-   </url>
+   </sitemap>
    
-   <url>
+   <sitemap>
       <loc>https://daidaij.github.io/en/tags/</loc>
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="zh-cn"
-                  href="https://daidaij.github.io/tags/"
-                  />
-      <xhtml:link
-                  rel="alternate"
-                  hreflang="en"
-                  href="https://daidaij.github.io/en/tags/"
-                  />
-   </url>
+   </sitemap>
    
-   </urlset>
+</sitemapindex>
