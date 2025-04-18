@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
-<title>消息订阅实现</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="一个gin 使用服务端推送的笔记">
+<title>sse</title>
 
-<link rel='canonical' href='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
+<link rel='canonical' href='https://daidaij.github.io/p/sse/'>
 
-<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="消息订阅实现">
-<meta property='og:description' content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
-<meta property='og:url' content='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="sse">
+<meta property='og:description' content="一个gin 使用服务端推送的笔记">
+<meta property='og:url' content='https://daidaij.github.io/p/sse/'>
 <meta property='og:site_name' content='潘达窝'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
-<meta name="twitter:title" content="消息订阅实现">
-<meta name="twitter:description" content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2025-04-18T12:33:29&#43;08:00'/><meta property='article:modified_time' content='2025-04-18T12:33:29&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/51efc8ca/800/600' />
+<meta name="twitter:title" content="sse">
+<meta name="twitter:description" content="一个gin 使用服务端推送的笔记"><meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content='https://picsum.photos/seed/51efc8ca/800/600' />
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -234,8 +235,7 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#原理">原理</a></li>
-    <li><a href="#实现">实现</a></li>
+    <li><a href="#代码示例">代码示例</a></li>
   </ol>
 </nav>
         </div>
@@ -247,12 +247,24 @@
 
 
             <main class="main full-width">
-    <article class="main-article">
+    <article class="has-image main-article">
     <header class="article-header">
+        <div class="article-image">
+            <a href="/p/sse/">
+                
+                    <img src="https://picsum.photos/seed/51efc8ca/800/600" loading="lazy" alt="Featured image of post sse" />
+                
+            </a>
+        </div>
+    
 
     <div class="article-details">
     
     <header class="article-category">
+        
+        <a href="/categories/go/" >
+            Go
+        </a>
         
         <a href="/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/" >
             实用代码
@@ -263,9 +275,13 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/">消息订阅实现</a>
+            <a href="/p/sse/">sse</a>
         </h2>
 
+        
+        <h3 class="article-subtitle">
+            一个gin 使用服务端推送的笔记
+        </h3>
         
     </div>
 
@@ -285,7 +301,7 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-            <time class="article-time--published">Dec 02, 2024</time>
+            <time class="article-time--published">Apr 18, 2025</time>
         </div>
         
 
@@ -305,7 +321,7 @@
         </div>
         <div>
             <time class="article-words">
-                346 字
+                422 字
             </time>
         </div>
         
@@ -323,14 +339,22 @@
     
     
 <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86
-    src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
+    src="//music.163.com/outchain/player?type=2&id=156736&auto=0&height=66">
 </iframe>
     
-    <h1 id="消息订阅实现">消息订阅实现
-</h1><h2 id="原理">原理
-</h2><p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 <code>map[string]chan</code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息</p>
-<h2 id="实现">实现
-</h2><div class="highlight"><div class="chroma">
+    <h1 id="sse-gin-的花式推送">sse gin 的花式推送
+</h1><blockquote>
+<p>众所周知ai llm 这些东西让SSE 这个技术传遍&quot;石河子&quot;东西南北</p>
+</blockquote>
+<p>其实按照推送技术来说还是有不少的：</p>
+<ul>
+<li>chunk 分块 这个其实是SSE 的基础</li>
+<li>sse 服务端推送事件</li>
+<li>websocket 这个可以支持双向的，但是无法兼容h2</li>
+</ul>
+<h2 id="代码示例">代码示例
+</h2><p>下面给一下处了 websocket 以外的 推送示例</p>
+<div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
 </span><span class="lnt"> 2
@@ -393,72 +417,95 @@
 </span><span class="lnt">59
 </span><span class="lnt">60
 </span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
-</span></span><span class="line"><span class="cl">	<span class="s">&#34;sync&#34;</span>
-</span></span><span class="line"><span class="cl">	<span class="s">&#34;time&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEvent</span> <span class="kd">struct</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">Data</span>  <span class="kd">interface</span><span class="p">{}</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">Topic</span> <span class="kt">string</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventData</span> <span class="kd">chan</span> <span class="nx">HEvent</span>
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventDataArray</span> <span class="p">[]</span><span class="nx">HEventData</span> <span class="c1">//一个topic 可以有多个消费者
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventBus</span> <span class="kd">struct</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">sub</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">HEventDataArray</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">rm</span>  <span class="nx">sync</span><span class="p">.</span><span class="nx">RWMutex</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">HEventSrv</span><span class="p">()</span> <span class="o">*</span><span class="nx">HEventBus</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">Sub</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">ch</span> <span class="nx">HEventData</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">Lock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">]</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ch</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">]</span> <span class="p">=</span> <span class="nb">append</span><span class="p">([]</span><span class="nx">HEventData</span><span class="p">{},</span> <span class="nx">ch</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">Push</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">interface</span><span class="p">{})</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">ch</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">chanEvent</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="nx">ch</span> <span class="o">&lt;-</span> <span class="nx">HEvent</span><span class="p">{</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Data</span><span class="p">:</span>  <span class="nx">data</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Topic</span><span class="p">:</span> <span class="nx">topic</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">ChunkDemo</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span> <span class="o">:=</span> <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">header</span> <span class="o">:=</span> <span class="nx">w</span><span class="p">.</span><span class="nf">Header</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">header</span><span class="p">.</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Transfer-Encoding&#34;</span><span class="p">,</span> <span class="s">&#34;chunked&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">header</span><span class="p">.</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Content-Type&#34;</span><span class="p">,</span> <span class="s">&#34;text/html&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span><span class="p">.</span><span class="nf">WriteHeader</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusOK</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">`
+</span></span></span><span class="line"><span class="cl"><span class="s">			&lt;html&gt;
+</span></span></span><span class="line"><span class="cl"><span class="s">					&lt;body&gt;
+</span></span></span><span class="line"><span class="cl"><span class="s">		`</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="p">&lt;</span> <span class="mi">10</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">w</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">`
+</span></span></span><span class="line"><span class="cl"><span class="s">				&lt;h1&gt;%d&lt;/h1&gt;
+</span></span></span><span class="line"><span class="cl"><span class="s">			`</span><span class="p">,</span> <span class="nx">i</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">w</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">time</span><span class="p">.</span><span class="nf">Sleep</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nf">Duration</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">		<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">`
+</span></span></span><span class="line"><span class="cl"><span class="s">			
+</span></span></span><span class="line"><span class="cl"><span class="s">					&lt;/body&gt;
+</span></span></span><span class="line"><span class="cl"><span class="s">			&lt;/html&gt;
+</span></span></span><span class="line"><span class="cl"><span class="s">		`</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">w</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// h1 sse
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">sseHandlerHTTP1</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 设置响应头
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Content-Type&#34;</span><span class="p">,</span> <span class="s">&#34;text/event-stream&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Cache-Control&#34;</span><span class="p">,</span> <span class="s">&#34;no-cache&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Connection&#34;</span><span class="p">,</span> <span class="s">&#34;keep-alive&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Access-Control-Allow-Origin&#34;</span><span class="p">,</span> <span class="s">&#34;*&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">PushFullDrop</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">interface</span><span class="p">{})</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">ch</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">chanEvent</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="k">select</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="k">case</span> <span class="nx">ch</span> <span class="o">&lt;-</span> <span class="nx">HEvent</span><span class="p">{</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Data</span><span class="p">:</span>  <span class="nx">data</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Topic</span><span class="p">:</span> <span class="nx">topic</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}:</span>
-</span></span><span class="line"><span class="cl">			<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">time</span><span class="p">.</span><span class="nf">After</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}</span>
-</span></span><span class="line"><span class="cl">		<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 确保响应头被立即发送
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nx">ticker</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">NewTicker</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">defer</span> <span class="nx">ticker</span><span class="p">.</span><span class="nf">Stop</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">select</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="o">&lt;-</span><span class="nx">c</span><span class="p">.</span><span class="nx">Request</span><span class="p">.</span><span class="nf">Context</span><span class="p">().</span><span class="nf">Done</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="nx">t</span> <span class="o">:=</span> <span class="o">&lt;-</span><span class="nx">ticker</span><span class="p">.</span><span class="nx">C</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// 发送SSE消息
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&#34;data: &#34;</span> <span class="o">+</span> <span class="nx">t</span><span class="p">.</span><span class="nf">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#34;\n\n&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">sseHandlerHTTP2</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 设置响应头
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Content-Type&#34;</span><span class="p">,</span> <span class="s">&#34;text/event-stream&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Header</span><span class="p">().</span><span class="nf">Set</span><span class="p">(</span><span class="s">&#34;Access-Control-Allow-Origin&#34;</span><span class="p">,</span> <span class="s">&#34;*&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 确保响应头被立即发送
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nx">ticker</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">NewTicker</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">defer</span> <span class="nx">ticker</span><span class="p">.</span><span class="nf">Stop</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">select</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="o">&lt;-</span><span class="nx">c</span><span class="p">.</span><span class="nx">Request</span><span class="p">.</span><span class="nf">Context</span><span class="p">().</span><span class="nf">Done</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="nx">t</span> <span class="o">:=</span> <span class="o">&lt;-</span><span class="nx">ticker</span><span class="p">.</span><span class="nx">C</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// 发送SSE消息
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&#34;data: &#34;</span> <span class="o">+</span> <span class="nx">t</span><span class="p">.</span><span class="nf">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#34;\n\n&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">c</span><span class="p">.</span><span class="nx">Writer</span><span class="p">.(</span><span class="nx">http</span><span class="p">.</span><span class="nx">Flusher</span><span class="p">).</span><span class="nf">Flush</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div>
+</div><p>上面的区别其实是 h2 不用设置客户端缓存控制这个响应头, 比较统一的是推送开始和结束都需要Flush 刷写一下</p>
+
 </section>
 
     <footer class="article-footer">
@@ -523,25 +570,6 @@
             
                 
 <article class="has-image">
-    <a href="/p/sse/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/51efc8ca/800/600" loading="lazy" data-key="sse" data-hash="https://picsum.photos/seed/51efc8ca/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">sse</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="has-image">
     <a href="/p/go/">
         
         
@@ -573,6 +601,25 @@
 
         <div class="article-details">
             <h2 class="article-title">Kafka_go</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="has-image">
+    <a href="/p/turn_go/">
+        
+        
+            <div class="article-image">
+                
+                    <img src="https://picsum.photos/seed/26399c1f/800/600" loading="lazy" data-key="Turn_go" data-hash="https://picsum.photos/seed/26399c1f/800/600"/>
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Webrtc_go Turn 服务器相关</h2>
         </div>
     </a>
 </article>

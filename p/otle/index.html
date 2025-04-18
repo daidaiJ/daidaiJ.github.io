@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-cn" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
-<title>消息订阅实现</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="go 服务中使用opentelemetery">
+<title>otle</title>
 
-<link rel='canonical' href='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
+<link rel='canonical' href='https://daidaij.github.io/p/otle/'>
 
-<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="消息订阅实现">
-<meta property='og:description' content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
-<meta property='og:url' content='https://daidaij.github.io/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/'>
+<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="otle">
+<meta property='og:description' content="go 服务中使用opentelemetery">
+<meta property='og:url' content='https://daidaij.github.io/p/otle/'>
 <meta property='og:site_name' content='潘达窝'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2024-12-02T22:36:03&#43;08:00'/><meta property='article:modified_time' content='2024-12-02T22:36:03&#43;08:00'/>
-<meta name="twitter:title" content="消息订阅实现">
-<meta name="twitter:description" content="消息订阅实现 原理 go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 map[string]chan 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='golang' /><meta property='article:published_time' content='2025-04-18T12:33:17&#43;08:00'/><meta property='article:modified_time' content='2025-04-18T12:33:17&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/55031e83/800/600' />
+<meta name="twitter:title" content="otle">
+<meta name="twitter:description" content="go 服务中使用opentelemetery"><meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content='https://picsum.photos/seed/55031e83/800/600' />
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -212,60 +213,36 @@
     </ol>
 </aside>
 
-    <aside class="sidebar right-sidebar sticky">
-        
-            
-                
-    <section class="widget archives">
-        <div class="widget-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <line x1="5" y1="9" x2="19" y2="9" />
-  <line x1="5" y1="15" x2="19" y2="15" />
-  <line x1="11" y1="4" x2="7" y2="20" />
-  <line x1="17" y1="4" x2="13" y2="20" />
-</svg>
-
-
-
-        </div>
-        <h2 class="widget-title section-title">目录</h2>
-        
-        <div class="widget--toc">
-            <nav id="TableOfContents">
-  <ol>
-    <li><a href="#原理">原理</a></li>
-    <li><a href="#实现">实现</a></li>
-  </ol>
-</nav>
-        </div>
-    </section>
-
-            
-        
-    </aside>
-
+    
 
             <main class="main full-width">
-    <article class="main-article">
+    <article class="has-image main-article">
     <header class="article-header">
+        <div class="article-image">
+            <a href="/p/otle/">
+                
+                    <img src="https://picsum.photos/seed/55031e83/800/600" loading="lazy" alt="Featured image of post otle" />
+                
+            </a>
+        </div>
+    
 
     <div class="article-details">
     
     <header class="article-category">
-        
-        <a href="/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/" >
-            实用代码
-        </a>
         
     </header>
     
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/%E6%B6%88%E6%81%AF%E8%AE%A2%E9%98%85%E5%AE%9E%E7%8E%B0/">消息订阅实现</a>
+            <a href="/p/otle/">otle</a>
         </h2>
 
+        
+        <h3 class="article-subtitle">
+            go 服务中使用opentelemetery
+        </h3>
         
     </div>
 
@@ -285,7 +262,7 @@
   <path d="M3 11h16" />
   <path d="M18 16.496v1.504l1 1" />
 </svg>
-            <time class="article-time--published">Dec 02, 2024</time>
+            <time class="article-time--published">Apr 18, 2025</time>
         </div>
         
 
@@ -305,7 +282,7 @@
         </div>
         <div>
             <time class="article-words">
-                346 字
+                437 字
             </time>
         </div>
         
@@ -326,11 +303,8 @@
     src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
 </iframe>
     
-    <h1 id="消息订阅实现">消息订阅实现
-</h1><h2 id="原理">原理
-</h2><p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 <code>map[string]chan</code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息</p>
-<h2 id="实现">实现
-</h2><div class="highlight"><div class="chroma">
+    <h1 id="链路追踪示例">链路追踪示例
+</h1><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
 </span><span class="lnt"> 2
@@ -393,72 +367,131 @@
 </span><span class="lnt">59
 </span><span class="lnt">60
 </span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span><span class="lnt">78
+</span><span class="lnt">79
+</span><span class="lnt">80
+</span><span class="lnt">81
+</span><span class="lnt">82
+</span><span class="lnt">83
+</span><span class="lnt">84
+</span><span class="lnt">85
+</span><span class="lnt">86
+</span><span class="lnt">87
+</span><span class="lnt">88
+</span><span class="lnt">89
+</span><span class="lnt">90
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
-</span></span><span class="line"><span class="cl">	<span class="s">&#34;sync&#34;</span>
-</span></span><span class="line"><span class="cl">	<span class="s">&#34;time&#34;</span>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">main</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;context&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;net/http&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/otel&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/otel/attribute&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/otel/propagation&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;go.opentelemetry.io/otel/sdk/resource&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">tracesdk</span> <span class="s">&#34;go.opentelemetry.io/otel/sdk/trace&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">semconv</span> <span class="s">&#34;go.opentelemetry.io/otel/semconv/v1.17.0&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEvent</span> <span class="kd">struct</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">Data</span>  <span class="kd">interface</span><span class="p">{}</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">Topic</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// initTracer 初始化 OpenTelemetry 追踪器
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">initTracer</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">tracesdk</span><span class="p">.</span><span class="nx">TracerProvider</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">ctx</span> <span class="o">:=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 创建一个 OTLP HTTP 导出器
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">exp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">otlptracehttp</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">otlptracehttp</span><span class="p">.</span><span class="nf">WithInsecure</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">otlptracehttp</span><span class="p">.</span><span class="nf">WithEndpoint</span><span class="p">(</span><span class="s">&#34;localhost:4318&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 创建资源，指定服务名称
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">r</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">resource</span><span class="p">.</span><span class="nf">Merge</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">resource</span><span class="p">.</span><span class="nf">Default</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">resource</span><span class="p">.</span><span class="nf">NewWithAttributes</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">semconv</span><span class="p">.</span><span class="nx">SchemaURL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">semconv</span><span class="p">.</span><span class="nf">ServiceName</span><span class="p">(</span><span class="s">&#34;my-http-service&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 创建追踪器提供程序
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">tp</span> <span class="o">:=</span> <span class="nx">tracesdk</span><span class="p">.</span><span class="nf">NewTracerProvider</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">tracesdk</span><span class="p">.</span><span class="nf">WithBatcher</span><span class="p">(</span><span class="nx">exp</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">tracesdk</span><span class="p">.</span><span class="nf">WithResource</span><span class="p">(</span><span class="nx">r</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 设置全局传播器
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">otel</span><span class="p">.</span><span class="nf">SetTextMapPropagator</span><span class="p">(</span><span class="nx">propagation</span><span class="p">.</span><span class="nf">NewCompositeTextMapPropagator</span><span class="p">(</span><span class="nx">propagation</span><span class="p">.</span><span class="nx">TraceContext</span><span class="p">{},</span> <span class="nx">propagation</span><span class="p">.</span><span class="nx">Baggage</span><span class="p">{}))</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 设置全局追踪器提供程序
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">otel</span><span class="p">.</span><span class="nf">SetTracerProvider</span><span class="p">(</span><span class="nx">tp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nx">tp</span><span class="p">,</span> <span class="kc">nil</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventData</span> <span class="kd">chan</span> <span class="nx">HEvent</span>
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventDataArray</span> <span class="p">[]</span><span class="nx">HEventData</span> <span class="c1">//一个topic 可以有多个消费者
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
-</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">HEventBus</span> <span class="kd">struct</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">sub</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">HEventDataArray</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">rm</span>  <span class="nx">sync</span><span class="p">.</span><span class="nx">RWMutex</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 初始化追踪器
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">tp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">initTracer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;Failed to initialize tracer: %v&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">defer</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">tp</span><span class="p">.</span><span class="nf">Shutdown</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nx">log</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;Error shutting down tracer provider: %v&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}()</span>
 </span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 定义一个简单的 HTTP 处理函数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">http</span><span class="p">.</span><span class="nf">HandleFunc</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">,</span> <span class="kd">func</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 创建一个新的 span
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nx">ctx</span><span class="p">,</span> <span class="nx">span</span> <span class="o">:=</span> <span class="nx">otel</span><span class="p">.</span><span class="nf">Tracer</span><span class="p">(</span><span class="s">&#34;example-tracer&#34;</span><span class="p">).</span><span class="nf">Start</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nf">Context</span><span class="p">(),</span> <span class="s">&#34;handle-root&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">defer</span> <span class="nx">span</span><span class="p">.</span><span class="nf">End</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">HEventSrv</span><span class="p">()</span> <span class="o">*</span><span class="nx">HEventBus</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">h</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 添加一些属性到 span
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nx">span</span><span class="p">.</span><span class="nf">SetAttributes</span><span class="p">(</span><span class="nx">attribute</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;http.method&#34;</span><span class="p">,</span> <span class="nx">r</span><span class="p">.</span><span class="nx">Method</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">Sub</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">ch</span> <span class="nx">HEventData</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">Lock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">]</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ch</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">]</span> <span class="p">=</span> <span class="nb">append</span><span class="p">([]</span><span class="nx">HEventData</span><span class="p">{},</span> <span class="nx">ch</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 模拟一些工作
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="nx">w</span><span class="p">.</span><span class="nf">WriteHeader</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusOK</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">w</span><span class="p">.</span><span class="nf">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&#34;Hello, World!&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">})</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">Push</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">interface</span><span class="p">{})</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">ch</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">chanEvent</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="nx">ch</span> <span class="o">&lt;-</span> <span class="nx">HEvent</span><span class="p">{</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Data</span><span class="p">:</span>  <span class="nx">data</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Topic</span><span class="p">:</span> <span class="nx">topic</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}</span>
-</span></span><span class="line"><span class="cl">		<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 使用 otelhttp 包装 HTTP 处理程序
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="nx">http</span><span class="p">.</span><span class="nf">Handle</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">,</span> <span class="nx">otelhttp</span><span class="p">.</span><span class="nf">NewHandler</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">DefaultServeMux</span><span class="p">,</span> <span class="s">&#34;my-http-service&#34;</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">HEventBus</span><span class="p">)</span> <span class="nf">PushFullDrop</span><span class="p">(</span><span class="nx">topic</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">interface</span><span class="p">{})</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">h</span><span class="p">.</span><span class="nx">rm</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">chanEvent</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">h</span><span class="p">.</span><span class="nx">sub</span><span class="p">[</span><span class="nx">topic</span><span class="p">];</span> <span class="nx">ok</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">ch</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">chanEvent</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="k">select</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">			<span class="k">case</span> <span class="nx">ch</span> <span class="o">&lt;-</span> <span class="nx">HEvent</span><span class="p">{</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Data</span><span class="p">:</span>  <span class="nx">data</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">				<span class="nx">Topic</span><span class="p">:</span> <span class="nx">topic</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}:</span>
-</span></span><span class="line"><span class="cl">			<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">time</span><span class="p">.</span><span class="nf">After</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">			<span class="p">}</span>
-</span></span><span class="line"><span class="cl">		<span class="p">}</span>
-</span></span><span class="line"><span class="cl">	<span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Starting server on :8080&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">http</span><span class="p">.</span><span class="nf">ListenAndServe</span><span class="p">(</span><span class="s">&#34;:8080&#34;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;Failed to start server: %v&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>    
 </span></span></code></pre></td></tr></table>
 </div>
-</div>
+</div><p>示例代码很明确了，另外就是使用 otle 作为exporter 时可以通过环境变量来配置endpoint 端点 <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> 这样可以不用Option 显式配置更加灵活</p>
+
 </section>
 
     <footer class="article-footer">
@@ -515,104 +548,6 @@
     
 
     
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="has-image">
-    <a href="/p/sse/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/51efc8ca/800/600" loading="lazy" data-key="sse" data-hash="https://picsum.photos/seed/51efc8ca/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">sse</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="has-image">
-    <a href="/p/go/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/c73dd60a/800/600" loading="lazy" data-key="go" data-hash="https://picsum.photos/seed/c73dd60a/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">简单的restful http client 包实现 </h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="has-image">
-    <a href="/p/kafka_go/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/8391ff80/800/600" loading="lazy" data-key="kafka_go" data-hash="https://picsum.photos/seed/8391ff80/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Kafka_go</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="has-image">
-    <a href="/p/luascript/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/d0ba0f6f/800/600" loading="lazy" data-key="" data-hash="https://picsum.photos/seed/d0ba0f6f/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Luascript</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/%E5%BC%82%E6%AD%A5%E6%97%A5%E5%BF%97%E5%86%99%E5%AE%9E%E7%8E%B0/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">异步日志写实现</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
 
      
     

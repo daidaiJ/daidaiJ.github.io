@@ -7,18 +7,10 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Thu, 10 Apr 2025 16:05:57 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>实践笔记</title>
-        <link>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%AC%94%E8%AE%B0/</link>
-        <pubDate>Thu, 10 Apr 2025 16:05:57 +0800</pubDate>
-        
-        <guid>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%AC%94%E8%AE%B0/</guid>
-        <description></description>
-        </item>
-        <item>
+        <lastBuildDate>Fri, 18 Apr 2025 12:33:29 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Go</title>
         <link>https://daidaij.github.io/categories/go/</link>
-        <pubDate>Thu, 03 Apr 2025 18:13:44 +0800</pubDate>
+        <pubDate>Fri, 18 Apr 2025 12:33:29 +0800</pubDate>
         
         <guid>https://daidaij.github.io/categories/go/</guid>
         <description></description>
@@ -26,9 +18,17 @@
         <item>
         <title>实用代码</title>
         <link>https://daidaij.github.io/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</link>
-        <pubDate>Thu, 03 Apr 2025 18:13:44 +0800</pubDate>
+        <pubDate>Fri, 18 Apr 2025 12:33:29 +0800</pubDate>
         
         <guid>https://daidaij.github.io/categories/%E5%AE%9E%E7%94%A8%E4%BB%A3%E7%A0%81/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>实践笔记</title>
+        <link>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%AC%94%E8%AE%B0/</link>
+        <pubDate>Thu, 10 Apr 2025 16:05:57 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/categories/%E5%AE%9E%E8%B7%B5%E7%AC%94%E8%AE%B0/</guid>
         <description></description>
         </item>
         <item>
