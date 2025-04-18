@@ -46,6 +46,11 @@
    </sitemap>
    
    <sitemap>
+      <loc>https://daidaij.github.io/categories/%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA/</loc>
+      <lastmod>2025-04-18T12:33:17+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
       <loc>https://daidaij.github.io/tags/cd/</loc>
       <lastmod>2025-04-10T16:05:57+08:00</lastmod>
    </sitemap>
