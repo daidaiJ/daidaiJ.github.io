@@ -8,8 +8,8 @@ draft: false
 toc: true
 hidden: false
 weight: false
-musicid: 5264842
-categories: [""]
+musicid: 308299
+categories: ["go","链路追踪"]
 tags: ["golang"]
 image: https://picsum.photos/seed/55031e83/800/600
 ---
