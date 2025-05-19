@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/'>
 
-<link rel="stylesheet" href="/scss/style.min.180cd7d38b80c44e7ce0bb000b34ece176de19eb9a30473a10886fed9a664b10.css"><meta property='og:title' content="Prometheus exporter pprof 优化">
+<link rel="stylesheet" href="/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css"><meta property='og:title' content="Prometheus exporter pprof 优化">
 <meta property='og:description' content="Prometheus exporter pprof 优化 这个工程是 基于 Prometheus client-go 的库来开发的，这个库的主要流程是将 collector 的数据用http server的形式通过metrics 路由交出去，背景状况是现在这个收集器的收集间隔很长基本上是6个小时更新一次，但是负责抓取这些指标数据的服务leader 又不同意改成6小时的大跨度，所以之前的措施是把硬件采集的数据缓存起来，但是更新后的版本cpu占用率和响应时间都没太大优化，需要定位这个问题\n">
 <meta property='og:url' content='https://daidaij.github.io/p/prometheus-exporter-pprof-%E4%BC%98%E5%8C%96/'>
 <meta property='og:site_name' content='潘达窝'>
