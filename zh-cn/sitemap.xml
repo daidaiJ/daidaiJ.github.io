@@ -2,7 +2,42 @@
    
    <sitemap>
       <loc>https://daidaij.github.io/categories/</loc>
-      <lastmod>2025-04-18T12:33:29+08:00</lastmod>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/post/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/tags/rust/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/categories/rust/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/p/rust_mod/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/tags/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/categories/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84/</loc>
+      <lastmod>2025-05-19T17:09:22+08:00</lastmod>
    </sitemap>
    
    <sitemap>
@@ -16,22 +51,7 @@
    </sitemap>
    
    <sitemap>
-      <loc>https://daidaij.github.io/post/</loc>
-      <lastmod>2025-04-18T12:33:29+08:00</lastmod>
-   </sitemap>
-   
-   <sitemap>
       <loc>https://daidaij.github.io/p/sse/</loc>
-      <lastmod>2025-04-18T12:33:29+08:00</lastmod>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/tags/</loc>
-      <lastmod>2025-04-18T12:33:29+08:00</lastmod>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/</loc>
       <lastmod>2025-04-18T12:33:29+08:00</lastmod>
    </sitemap>
    
@@ -207,11 +227,6 @@
    
    <sitemap>
       <loc>https://daidaij.github.io/tags/qt/</loc>
-      <lastmod>2024-12-02T22:36:03+08:00</lastmod>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/tags/rust/</loc>
       <lastmod>2024-12-02T22:36:03+08:00</lastmod>
    </sitemap>
    
