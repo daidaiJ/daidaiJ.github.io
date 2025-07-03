@@ -323,6 +323,7 @@
     src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
 </iframe>
     
+    
     <h1 id="消息订阅实现">消息订阅实现
 </h1><h2 id="原理">原理
 </h2><p>go 的消息管道可以看成一个并发安全的队列，每个订阅者将字节的收信队列添加到SubHub 里面，按照订阅的topic 和 channel 的关系用一个 <code>map[string]chan</code> 来实现关联，当Hub 接受到对应topic 的消息推送的时候，会给slice 里面的收信队列发事件消息</p>
