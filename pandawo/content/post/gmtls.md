@@ -8,7 +8,7 @@ draft: false
 toc: true
 hidden: false
 weight: false
-musicid: 5264842
+qqmusic: 4932444
 categories: ["go","tcp","mqtt"]
 tags: ["golang"]
 image: https://picsum.photos/seed/8ebdf5d2/800/600

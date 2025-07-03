@@ -5,5 +5,8 @@
     {{ if .Params.musicid }}
     {{ partial "article/components/music" . }}
     {{ end }}
+    {{ if .Params.qqmusic }}
+    {{ partial "article/components/qqmusic" . }}
+    {{ end }}
     {{ .Content | replaceRE "(<table>(?:.|\n)+?</table>)" $wrappedTable | safeHTML }}
 </section>
