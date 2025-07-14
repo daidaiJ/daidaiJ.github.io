@@ -67,7 +67,7 @@ Stream #0:1: Video: h264 (Constrained Baseline), yuv420p(progressive), 768x432, 
 Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;p&gt;可以看到视频编码格式是 H264 ，和切片的编码相同，使用 &lt;code&gt;-c copy&lt;/code&gt; 直接复制即可。
-&lt;img src=&#34;https://daidaij.github.io/image.png&#34;
+&lt;img src=&#34;https://daidaij.github.io/assert/beforecopy.png&#34;
 	
 	
 	
@@ -78,7 +78,7 @@ Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp&lt;/p&gt;
 	
 &gt;&lt;br&gt;
 上下分别是修改前后的资源占用情况 TOP
-&lt;img src=&#34;https://daidaij.github.io/image-1.png&#34;
+&lt;img src=&#34;https://daidaij.github.io/assert/aftercopy.png&#34;
 	
 	
 	
