@@ -63,9 +63,9 @@ image: https://picsum.photos/seed/ccdc7ec6/800/600
   Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp  
   
 可以看到视频编码格式是 H264 ，和切片的编码相同，使用 `-c copy` 直接复制即可。
-![修改前](assert/beforecopy.png)  
+![修改前](asset/beforecopy.png)  
 上下分别是修改前后的资源占用情况 TOP
-![修改后](assert/aftercopy.png)  
+![修改后](asset/aftercopy.png)  
 最低也节省了**40%\*4** 的cpu 资源
 这里还可以利用`hls_warp` 来实现滚动录制，但是得需要手动拷贝到目标目录然后重建m3u8,长期录制需要去做这个，另外这里的优化为后面的切片逻辑让出了余裕。
 ### 切片逻辑优化
