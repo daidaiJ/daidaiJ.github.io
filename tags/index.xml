@@ -7,7 +7,23 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Sun, 06 Jul 2025 15:19:34 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 14 Jul 2025 16:01:50 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Golang</title>
+        <link>https://daidaij.github.io/tags/golang/</link>
+        <pubDate>Mon, 14 Jul 2025 16:01:50 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/tags/golang/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Video</title>
+        <link>https://daidaij.github.io/tags/video/</link>
+        <pubDate>Mon, 14 Jul 2025 16:01:50 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/tags/video/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>Cpp</title>
         <link>https://daidaij.github.io/tags/cpp/</link>
         <pubDate>Sun, 06 Jul 2025 15:19:34 +0800</pubDate>
@@ -21,14 +37,6 @@
         <pubDate>Sun, 06 Jul 2025 15:19:34 +0800</pubDate>
         
         <guid>https://daidaij.github.io/tags/go/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Golang</title>
-        <link>https://daidaij.github.io/tags/golang/</link>
-        <pubDate>Thu, 03 Jul 2025 15:27:35 +0800</pubDate>
-        
-        <guid>https://daidaij.github.io/tags/golang/</guid>
         <description></description>
         </item>
         <item>
