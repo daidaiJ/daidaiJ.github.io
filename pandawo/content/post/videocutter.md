@@ -78,6 +78,7 @@ image: https://picsum.photos/seed/ccdc7ec6/800/600
 When used as an input option (before -i), seeks in this input file to position. Note that in most formats it is not possible to seek exactly, so ffmpeg will seek to the closest seek point before position. 
 当使用`-ss` 时，会先seek 到指定位置，（如果可能的话），然后开始解码  
 
+应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时
 在`-i` 之前使用 `-ss` 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半
 
 针对**问题2**，决定使用多协程并发处理：
@@ -86,5 +87,5 @@ When used as an input option (before -i), seeks in this input file to position. 
 
 ## 结果
 1. ` ffmpeg -i rtmp://xxxxx:1935/yyyy/zzzz/vision -c:v copy -flags +cgop -g 0 -hls_flags program_date_time -hls_list_size 0 -hls_time 10 /app/data/record.m3u8 -y`  大幅减少cpu 资源消耗
-2. `ffmpeg -y  -hide_banner -ss 00:00:18 -t 00:00:40 -f concat -safe 0 -i files.txt  -c copy -hls_list_size 0 ./output.m3u8`   seek 快速定位，避免读取开头的切片，并发协同  
+2. ` ffmpeg -y -hide_banner  -ss 00:00:18 -t 00:00:40  -i xxx.m3u8 -c copy -hls_list_size 0 ./output.m3u8`   seek 快速定位，避免读取开头的切片，并发协同
 
