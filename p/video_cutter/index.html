@@ -331,7 +331,7 @@
         </div>
         <div>
             <time class="article-words">
-                1166 字
+                1216 字
             </time>
         </div>
         
@@ -442,7 +442,8 @@ Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp</p>
 When used as an input option (before -i), seeks in this input file to position. Note that in most formats it is not possible to seek exactly, so ffmpeg will seek to the closest seek point before position.
 当使用<code>-ss</code> 时，会先seek 到指定位置，（如果可能的话），然后开始解码</p>
 </blockquote>
-<p>在<code>-i</code> 之前使用 <code>-ss</code> 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半</p>
+<p>应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时
+在<code>-i</code> 之前使用 <code>-ss</code> 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半</p>
 <p>针对<strong>问题2</strong>，决定使用多协程并发处理：</p>
 <ol>
 <li>使用视角+uuid 方式分离<code>-i</code>参数给的合并输入文件命名，分离多协程之间的干扰；</li>
@@ -451,7 +452,7 @@ When used as an input option (before -i), seeks in this input file to position. 
 <h2 id="结果">结果
 </h2><ol>
 <li><code> ffmpeg -i rtmp://xxxxx:1935/yyyy/zzzz/vision -c:v copy -flags +cgop -g 0 -hls_flags program_date_time -hls_list_size 0 -hls_time 10 /app/data/record.m3u8 -y</code>  大幅减少cpu 资源消耗</li>
-<li><code>ffmpeg -y  -hide_banner -ss 00:00:18 -t 00:00:40 -f concat -safe 0 -i files.txt  -c copy -hls_list_size 0 ./output.m3u8</code>   seek 快速定位，避免读取开头的切片，并发协同</li>
+<li><code> ffmpeg -y -hide_banner  -ss 00:00:18 -t 00:00:40  -i xxx.m3u8 -c copy -hls_list_size 0 ./output.m3u8</code>   seek 快速定位，避免读取开头的切片，并发协同</li>
 </ol>
 
 </section>

@@ -102,7 +102,8 @@ Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp&lt;/p&gt;
 When used as an input option (before -i), seeks in this input file to position. Note that in most formats it is not possible to seek exactly, so ffmpeg will seek to the closest seek point before position.
 当使用&lt;code&gt;-ss&lt;/code&gt; 时，会先seek 到指定位置，（如果可能的话），然后开始解码&lt;/p&gt;
 &lt;/blockquote&gt;
-&lt;p&gt;在&lt;code&gt;-i&lt;/code&gt; 之前使用 &lt;code&gt;-ss&lt;/code&gt; 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半&lt;/p&gt;
+&lt;p&gt;应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时
+在&lt;code&gt;-i&lt;/code&gt; 之前使用 &lt;code&gt;-ss&lt;/code&gt; 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半&lt;/p&gt;
 &lt;p&gt;针对&lt;strong&gt;问题2&lt;/strong&gt;，决定使用多协程并发处理：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;使用视角+uuid 方式分离&lt;code&gt;-i&lt;/code&gt;参数给的合并输入文件命名，分离多协程之间的干扰；&lt;/li&gt;
@@ -111,7 +112,7 @@ When used as an input option (before -i), seeks in this input file to position. 
 &lt;h2 id=&#34;结果&#34;&gt;结果
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;&lt;code&gt; ffmpeg -i rtmp://xxxxx:1935/yyyy/zzzz/vision -c:v copy -flags +cgop -g 0 -hls_flags program_date_time -hls_list_size 0 -hls_time 10 /app/data/record.m3u8 -y&lt;/code&gt;  大幅减少cpu 资源消耗&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;ffmpeg -y  -hide_banner -ss 00:00:18 -t 00:00:40 -f concat -safe 0 -i files.txt  -c copy -hls_list_size 0 ./output.m3u8&lt;/code&gt;   seek 快速定位，避免读取开头的切片，并发协同&lt;/li&gt;
+&lt;li&gt;&lt;code&gt; ffmpeg -y -hide_banner  -ss 00:00:18 -t 00:00:40  -i xxx.m3u8 -c copy -hls_list_size 0 ./output.m3u8&lt;/code&gt;   seek 快速定位，避免读取开头的切片，并发协同&lt;/li&gt;
 &lt;/ol&gt;
 </description>
         </item>
