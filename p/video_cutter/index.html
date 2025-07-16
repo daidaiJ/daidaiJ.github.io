@@ -331,7 +331,7 @@
         </div>
         <div>
             <time class="article-words">
-                1216 字
+                1369 字
             </time>
         </div>
         
@@ -442,9 +442,19 @@ Stream #0:2: Audio: aac (LC), 8000 Hz, mono, fltp</p>
 When used as an input option (before -i), seeks in this input file to position. Note that in most formats it is not possible to seek exactly, so ffmpeg will seek to the closest seek point before position.
 当使用<code>-ss</code> 时，会先seek 到指定位置，（如果可能的话），然后开始解码</p>
 </blockquote>
-<p>应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时
-在<code>-i</code> 之前使用 <code>-ss</code> 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半</p>
-<p>针对<strong>问题2</strong>，决定使用多协程并发处理：</p>
+<p>应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时：</p>
+<p><del>在<code>-i</code> 之前使用 <code>-ss</code> 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半</del>，更正优化策略，通过跟踪观察对HLS类型的录制，直接使用-ss 无法实现预先中的seek 定位，需要手动从原始M3U8 中切出子播放列表，是的可以用 -ss 0 来从子切片的位置开头的位置处直接提取，优化效果1分钟的切片可以在秒级完成，可以满足合规要求</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="mi">2025</span><span class="o">-</span><span class="mi">07</span><span class="o">-</span><span class="mi">16</span><span class="n">T14</span><span class="p">:</span><span class="mi">45</span><span class="p">:</span><span class="mi">18</span><span class="o">+</span><span class="mi">08</span><span class="p">:</span><span class="mi">00</span> <span class="o">|</span> <span class="n">INFO</span>  <span class="o">|</span> <span class="n">command</span><span class="o">.</span><span class="n">go</span><span class="p">:</span><span class="mi">15</span> <span class="o">&gt;</span> <span class="n">ExecCMD</span><span class="p">:</span> <span class="n">ffmpeg</span> <span class="o">-</span><span class="n">y</span> <span class="o">-</span><span class="n">hide_banner</span> <span class="o">-</span><span class="n">ss</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="o">-</span><span class="n">t</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span><span class="p">:</span><span class="mi">32</span> <span class="o">-</span><span class="n">i</span> <span class="o">/</span><span class="n">app</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">temp</span><span class="o">/</span><span class="n">back_bd650cb7</span><span class="o">-</span><span class="mi">15</span><span class="n">f3</span><span class="o">-</span><span class="mi">467</span><span class="n">b</span><span class="o">-</span><span class="mi">99</span><span class="n">d4</span><span class="o">-</span><span class="n">fb4c90c5093e</span><span class="o">.</span><span class="n">m3u8</span> <span class="o">-</span><span class="n">c</span> <span class="n">copy</span> <span class="o">-</span><span class="n">hls_list_size</span> <span class="mi">0</span> <span class="o">/</span><span class="n">app</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">upload</span><span class="o">/</span><span class="n">bd650cb7</span><span class="o">-</span><span class="mi">15</span><span class="n">f3</span><span class="o">-</span><span class="mi">467</span><span class="n">b</span><span class="o">-</span><span class="mi">99</span><span class="n">d4</span><span class="o">-</span><span class="n">fb4c90c5093e</span><span class="o">/</span><span class="n">back</span><span class="o">.</span><span class="n">m3u8</span> <span class="o">|</span>
+</span></span><span class="line"><span class="cl"><span class="mi">2025</span><span class="o">-</span><span class="mi">07</span><span class="o">-</span><span class="mi">16</span><span class="n">T14</span><span class="p">:</span><span class="mi">45</span><span class="p">:</span><span class="mi">20</span><span class="o">+</span><span class="mi">08</span><span class="p">:</span><span class="mi">00</span> <span class="o">|</span> <span class="n">INFO</span>  <span class="o">|</span> <span class="n">transform</span><span class="o">.</span><span class="n">go</span><span class="p">:</span><span class="mi">76</span> <span class="o">&gt;</span> <span class="n">spend</span>  <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">02</span> <span class="n">time</span> <span class="o">|</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>针对<strong>问题2</strong>，决定使用多协程并发处理：</p>
 <ol>
 <li>使用视角+uuid 方式分离<code>-i</code>参数给的合并输入文件命名，分离多协程之间的干扰；</li>
 <li>利用<code>sync.WaitGroup</code> 和 <code>context.Context</code> 来协同父子进程，在子进程完成多个视角切片后，解除阻塞，继续后面的流程tar-&gt; 分片上传；</li>
