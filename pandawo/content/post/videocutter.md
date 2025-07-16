@@ -78,8 +78,13 @@ image: https://picsum.photos/seed/ccdc7ec6/800/600
 When used as an input option (before -i), seeks in this input file to position. Note that in most formats it is not possible to seek exactly, so ffmpeg will seek to the closest seek point before position. 
 当使用`-ss` 时，会先seek 到指定位置，（如果可能的话），然后开始解码  
 
-应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时
-在`-i` 之前使用 `-ss` 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半
+应对策略，在需要切片的视频只命中了一个M3U8文件，去掉合并逻辑，直接从m3u8 切片，使用-ss 优化 切片耗时：  
+
+~~在`-i` 之前使用 `-ss` 可以利用seek 操作，快速定位，提升切片效率，测试后观察切片时间平均减半~~，更正优化策略，通过跟踪观察对HLS类型的录制，直接使用-ss 无法实现预先中的seek 定位，需要手动从原始M3U8 中切出子播放列表，是的可以用 -ss 0 来从子切片的位置开头的位置处直接提取，优化效果1分钟的切片可以在秒级完成，可以满足合规要求
+```log
+2025-07-16T14:45:18+08:00 | INFO  | command.go:15 > ExecCMD: ffmpeg -y -hide_banner -ss 00:00:00 -t 00:01:32 -i /app/data/temp/back_bd650cb7-15f3-467b-99d4-fb4c90c5093e.m3u8 -c copy -hls_list_size 0 /app/data/upload/bd650cb7-15f3-467b-99d4-fb4c90c5093e/back.m3u8 |
+2025-07-16T14:45:20+08:00 | INFO  | transform.go:76 > spend  00:00:02 time |
+```
 
 针对**问题2**，决定使用多协程并发处理：
 1. 使用视角+uuid 方式分离`-i`参数给的合并输入文件命名，分离多协程之间的干扰；  
