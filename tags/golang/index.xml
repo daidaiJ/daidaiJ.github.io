@@ -7,7 +7,50 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 14 Jul 2025 16:01:50 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sun, 20 Jul 2025 15:09:23 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Fixlog</title>
+        <link>https://daidaij.github.io/p/lumberjack/</link>
+        <pubDate>Sun, 20 Jul 2025 15:09:23 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/p/lumberjack/</guid>
+        <description>&lt;img src="https://picsum.photos/seed/f2c285b0/800/600" alt="Featured image of post Fixlog" /&gt;&lt;h1 id=&#34;lumberjack-日志库组件权限陷阱&#34;&gt;lumberjack 日志库组件权限陷阱
+&lt;/h1&gt;&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;之前一直使用go zero 的logx 组件来创建一个滚动日志，对filebeat 日志收集容器兼容性很好；近期在换成zero log+ lumberjack 的这套方案时用，和filebeat 的边车模式产生了冲突；&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;现象&#34;&gt;现象
+&lt;/h2&gt;&lt;p&gt;filebeat 服务告警，指向的日志文件权限不可访问；使用webssh 上去查看时发现&lt;code&gt;ls -al&lt;/code&gt; 看到的权限是&amp;quot;0600&amp;quot;，也就是说不支持其他用户组的服务去访问，于是检查代码，发现并未手动创建日志，赋予0600文件权限，所以问题是lumberjack组件内部的默认文件权限是0600。&lt;br&gt;
+那到底是哪部分导致的？ &lt;a class=&#34;link&#34; href=&#34;https://github.com/natefinch/lumberjack/blob/4cb27fcfbb0f35cb48c542c5ea80b7c1d18933d0/lumberjack.go#L215&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;源码&lt;/a&gt;&lt;br&gt;
+通过翻看上述部分源码，确认是默认给的权限就是0600，搜索issue 发现&lt;a class=&#34;link&#34; href=&#34;https://github.com/natefinch/lumberjack/issues/164&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;自定义文件权限&lt;/a&gt;里面提到：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Lumberjack will copy the permissions of the existing file when it creates the new file.
+See here: &lt;a class=&#34;link&#34; href=&#34;https://github.com/natefinch/lumberjack/blob/v3/lumberjack.go#L267&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://github.com/natefinch/lumberjack/blob/v3/lumberjack.go#L267&lt;/a&gt;&lt;br&gt;
+So if you want different file permissions, the easiest thing to do is create the file with the permissions you want, first.&lt;br&gt;
+另外附加源头pr 链接：https://github.com/natefinch/lumberjack/pull/112, 这里做出这个变更的原因据称是为了审计要求，收紧默认权限。十分甚至一百分的不优雅，加个Options 让使用者自己选不是比默认0600好很多？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;所以处理策略就是在使用前，先创建一个644权限的日志文件，然后关闭,再将该文件名交给lumberjack 组件。这样lumberjack会复制原始文件的权限，创建新的日志文件，避免边车容器因为用户组不同导致600无法访问文件的事情；&lt;/p&gt;
+&lt;h2 id=&#34;处理&#34;&gt;处理
+&lt;/h2&gt;&lt;p&gt;简单的加三行代码&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt;1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;if&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;fp&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;:=&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;os&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;OpenFile&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;fileName&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;os&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;O_WRONLY&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;|&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;os&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;O_APPEND&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;|&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;os&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nx&#34;&gt;O_CREATE&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;mo&#34;&gt;0644&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;==&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;nil&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;		&lt;span class=&#34;nx&#34;&gt;fp&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Close&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id=&#34;总结&#34;&gt;总结
+&lt;/h2&gt;&lt;p&gt;使用不熟悉的库遇到问题的时候，光翻找官方教程和在线博客可能是不够的，需要结合源码和issue 去排查。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Videocutter</title>
         <link>https://daidaij.github.io/p/video_cutter/</link>
         <pubDate>Mon, 14 Jul 2025 16:01:50 +0800</pubDate>

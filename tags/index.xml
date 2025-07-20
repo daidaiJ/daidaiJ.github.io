@@ -7,10 +7,18 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
-        <lastBuildDate>Mon, 14 Jul 2025 16:01:50 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sun, 20 Jul 2025 15:09:23 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Bugfix</title>
+        <link>https://daidaij.github.io/tags/bugfix/</link>
+        <pubDate>Sun, 20 Jul 2025 15:09:23 +0800</pubDate>
+        
+        <guid>https://daidaij.github.io/tags/bugfix/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>Golang</title>
         <link>https://daidaij.github.io/tags/golang/</link>
-        <pubDate>Mon, 14 Jul 2025 16:01:50 +0800</pubDate>
+        <pubDate>Sun, 20 Jul 2025 15:09:23 +0800</pubDate>
         
         <guid>https://daidaij.github.io/tags/golang/</guid>
         <description></description>
