@@ -1,5 +1,5 @@
 ---
-title: "Fixlog"
+title: "lumberjack 日志库组件权限陷阱"
 slug: "lumberjack"
 description: ""
 date: 2025-07-20T15:09:23+08:00
