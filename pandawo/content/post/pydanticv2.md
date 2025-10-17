@@ -163,53 +163,54 @@ class APP(SQLModel, table=True):
 SQLAlchemy 的 TypeDecorator 是用于自定义数据库类型的核心工具，它通过封装底层数据库类型并覆盖特定方法，实现 Python 类型与数据库类型的双向转换。其核心方法如下：
 1. impl：指定底层数据库类型（必须定义）  
 impl 是 TypeDecorator 的核心类属性，用于指定当前自定义类型基于哪个 SQLAlchemy 原生类型（如 Integer、String、JSON 等）。所有数据库交互最终会委托给这个底层类型。  
-示例：
+**示例**：
 
-```python
-from sqlalchemy import TypeDecorator, JSON
+    ```python
+    from sqlalchemy import TypeDecorator, JSON
 
-class MyJsonType(TypeDecorator):
-    impl = JSON  # 基于原生 JSON 类型扩展
-```
+    class MyJsonType(TypeDecorator):
+        impl = JSON  # 基于原生 JSON 类型扩展
+    ```
 2. process_bind_param(self, value, dialect)：Python → 数据库（写入时）  
-作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。
+作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。  
+参数:
+   - value：Python 中要写入数据库的值（可能为 None）。
+   - dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。
+   - 返回值：转换后的值（需符合 impl 类型的要求）。  
+ 
+    **示例**：
+    ```python
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return []
+        # 将自定义模型列表转为字典列表（适配 JSON 类型）
+        return [item.dict() for item in value]
+    ```
+1. process_result_value(self, value, dialect)：数据库 → Python（读取时）  
+作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。  
 参数：
-value：Python 中要写入数据库的值（可能为 None）。
-dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。
-返回值：转换后的值（需符合 impl 类型的要求）。  
-示例：
-```python
-def process_bind_param(self, value, dialect):
-    if value is None:
-        return []
-    # 将自定义模型列表转为字典列表（适配 JSON 类型）
-    return [item.dict() for item in value]
-```
-3. process_result_value(self, value, dialect)：数据库 → Python（读取时）  
-作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。
-参数：
-value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。
-dialect：当前数据库方言。
-返回值：转换后的 Python 对象（如自定义模型实例）。  
-示例：
-```python
+- value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。
+- dialect：当前数据库方言。
+- 返回值：转换后的 Python 对象（如自定义模型实例）。  
+    **示例**：
+    ```python
 
-def process_result_value(self, value, dialect):
-    if not value:
-        return []
-    # 将字典列表转为自定义模型列表
-    return [MyModel(** item) for item in value]
-```
+    def process_result_value(self, value, dialect):
+        if not value:
+            return []
+        # 将字典列表转为自定义模型列表
+        return [MyModel(** item) for item in value]
+    ```
 4. process_literal_param(self, value, dialect)：处理 SQL 字面量（可选）  
-作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。
+作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。  
 默认行为：若未实现，会使用 impl 类型的 process_literal_param 方法。
 通常用于自定义类型需要特殊 SQL 字面量格式的场景（如日期格式化）。  
-示例：
-```python
-def process_literal_param(self, value, dialect):
-    if value is None:
-        return 'NULL'
-    # 对字符串类型值添加单引号，避免 SQL 注入风险
-    return f"'{value}'"
-```
+    **示例**：
+    ```python
+    def process_literal_param(self, value, dialect):
+        if value is None:
+            return 'NULL'
+        # 对字符串类型值添加单引号，避免 SQL 注入风险
+        return f"'{value}'"
+    ```
 
