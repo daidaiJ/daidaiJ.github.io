@@ -1,5 +1,5 @@
 ---
-title: "dll_go"
+title: "纯go 调用dll 实现一些动态装载"
 slug: "go,dll,no cgo"
 description: "use dll with go ,not cgo"
 date: 2025-09-29T10:51:48+08:00
