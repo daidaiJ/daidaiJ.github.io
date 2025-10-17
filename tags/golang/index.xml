@@ -8,12 +8,12 @@
         <language>zh-cn</language>
         <copyright>pandazhangs</copyright>
         <lastBuildDate>Mon, 29 Sep 2025 10:51:48 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>dll_go</title>
+        <title>纯go 调用dll 实现一些动态装载</title>
         <link>https://daidaij.github.io/p/godllno-cgo/</link>
         <pubDate>Mon, 29 Sep 2025 10:51:48 +0800</pubDate>
         
         <guid>https://daidaij.github.io/p/godllno-cgo/</guid>
-        <description>&lt;img src="https://picsum.photos/seed/d91a0fe0/800/600" alt="Featured image of post dll_go" /&gt;&lt;h1 id=&#34;golang-调用dll-实践&#34;&gt;golang 调用dll 实践
+        <description>&lt;img src="https://picsum.photos/seed/d91a0fe0/800/600" alt="Featured image of post 纯go 调用dll 实现一些动态装载" /&gt;&lt;h1 id=&#34;golang-调用dll-实践&#34;&gt;golang 调用dll 实践
 &lt;/h1&gt;&lt;hr&gt;
 &lt;blockquote&gt;
 &lt;p&gt;众所周知，go 支持通过cgo 方式直接嵌入c/cpp 代码，但是有时候涉及到ffi 的部分仅仅是一小部分的业务功能，没有必要开混编。&lt;/p&gt;
