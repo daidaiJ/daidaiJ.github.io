@@ -617,10 +617,10 @@
 <h3 id="sqlalchemy-的类型装饰器">sqlalchemy 的类型装饰器
 </h3><p>SQLAlchemy 的 TypeDecorator 是用于自定义数据库类型的核心工具，它通过封装底层数据库类型并覆盖特定方法，实现 Python 类型与数据库类型的双向转换。其核心方法如下：</p>
 <ol>
-<li>impl：指定底层数据库类型（必须定义）<br>
+<li>
+<p>impl：指定底层数据库类型（必须定义）<br>
 impl 是 TypeDecorator 的核心类属性，用于指定当前自定义类型基于哪个 SQLAlchemy 原生类型（如 Integer、String、JSON 等）。所有数据库交互最终会委托给这个底层类型。<br>
-示例：</li>
-</ol>
+<strong>示例</strong>：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -635,15 +635,17 @@ impl 是 TypeDecorator 的核心类属性，用于指定当前自定义类型基
 </span></span><span class="line"><span class="cl">    <span class="n">impl</span> <span class="o">=</span> <span class="n">JSON</span>  <span class="c1"># 基于原生 JSON 类型扩展</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><ol start="2">
-<li>process_bind_param(self, value, dialect)：Python → 数据库（写入时）<br>
-作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。
-参数：
-value：Python 中要写入数据库的值（可能为 None）。
-dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。
-返回值：转换后的值（需符合 impl 类型的要求）。<br>
-示例：</li>
-</ol>
+</div></li>
+<li>
+<p>process_bind_param(self, value, dialect)：Python → 数据库（写入时）<br>
+作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。<br>
+参数:</p>
+<ul>
+<li>value：Python 中要写入数据库的值（可能为 None）。</li>
+<li>dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。</li>
+<li>返回值：转换后的值（需符合 impl 类型的要求）。</li>
+</ul>
+<p><strong>示例</strong>：</p>
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -660,15 +662,18 @@ dialect：当前数据库方言（如 postgresql、mysql），可用于适配不
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><ol start="3">
-<li>process_result_value(self, value, dialect)：数据库 → Python（读取时）<br>
-作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。
-参数：
-value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。
-dialect：当前数据库方言。
-返回值：转换后的 Python 对象（如自定义模型实例）。<br>
-示例：</li>
+</div></li>
+<li>
+<p>process_result_value(self, value, dialect)：数据库 → Python（读取时）<br>
+作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。<br>
+参数：</p>
+</li>
 </ol>
+<ul>
+<li>value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。</li>
+<li>dialect：当前数据库方言。</li>
+<li>返回值：转换后的 Python 对象（如自定义模型实例）。<br>
+<strong>示例</strong>：
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -687,13 +692,14 @@ dialect：当前数据库方言。
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="n">MyModel</span><span class="p">(</span><span class="o">**</span> <span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><ol start="4">
+</div></li>
+</ul>
+<ol start="4">
 <li>process_literal_param(self, value, dialect)：处理 SQL 字面量（可选）<br>
-作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。
+作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。<br>
 默认行为：若未实现，会使用 impl 类型的 process_literal_param 方法。
 通常用于自定义类型需要特殊 SQL 字面量格式的场景（如日期格式化）。<br>
-示例：</li>
-</ol>
+<strong>示例</strong>：
 <div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
 <pre tabindex="0" class="chroma"><code><span class="lnt">1
@@ -710,7 +716,9 @@ dialect：当前数据库方言。
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="sa">f</span><span class="s2">&#34;&#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&#34;</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div>
+</div></li>
+</ol>
+
 </section>
 
     <footer class="article-footer">
