@@ -119,7 +119,7 @@ class SQLModelListType(TypeDecorator, Generic[T]):
     - 读取：list[dict] -> list[SQLModel]
     """
     # 基础类型：PostgreSQL的ARRAY(JSON)或纯JSON
-    impl = ARRAY(JSON)  # 若用纯JSON则改为JSON
+    impl = JSON  # 若用纯JSON则改为JSON
 
     def __init__(self, model_cls: Type[T], *args, **kwargs):
         super().__init__(*args, **kwargs)
