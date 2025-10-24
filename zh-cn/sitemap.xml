@@ -2,36 +2,41 @@
    
    <sitemap>
       <loc>https://daidaij.github.io/categories/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
    </sitemap>
    
    <sitemap>
       <loc>https://daidaij.github.io/post/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
    </sitemap>
    
    <sitemap>
       <loc>https://daidaij.github.io/tags/python/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
    </sitemap>
    
    <sitemap>
       <loc>https://daidaij.github.io/categories/python/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
    </sitemap>
    
    <sitemap>
       <loc>https://daidaij.github.io/tags/</loc>
-      <lastmod>2025-10-17T13:38:40+08:00</lastmod>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
    </sitemap>
    
    <sitemap>
       <loc>https://daidaij.github.io/</loc>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/p/singleflight-with-python/</loc>
+      <lastmod>2025-10-24T16:34:08+08:00</lastmod>
+   </sitemap>
+   
+   <sitemap>
+      <loc>https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/</loc>
       <lastmod>2025-10-17T13:38:40+08:00</lastmod>
    </sitemap>
    
