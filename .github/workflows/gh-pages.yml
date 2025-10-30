@@ -21,7 +21,7 @@ jobs:
       - name: see workdir
         run: pwd && ls -a
       - name: Build
-        run: ls -a && hugo --baseURL https://daidaij.github.io/
+        run: ls -a && hugo --baseURL https://daidaij.github.io/ --minify
         working-directory: ./pandawo # 注意修改成你使用hugo创建的项目名称
 
       - name: Deploy

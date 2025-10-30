@@ -260,3 +260,7 @@ markup:
         lineNos: true
         lineNumbersInTable: true
         tabWidth: 4
+minify:
+  disableHTML: false
+  disableCSS: false
+  disableJS: false
