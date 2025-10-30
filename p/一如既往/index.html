@@ -1,928 +1,294 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记录三种json 转换方案">
-<title>pydantic V2 迁移遇到的json 类型兼容问题</title>
-
-<link rel='canonical' href='https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/'>
-
-<link rel="stylesheet" href="/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css"><meta property='og:title' content="pydantic V2 迁移遇到的json 类型兼容问题">
-<meta property='og:description' content="记录三种json 转换方案">
-<meta property='og:url' content='https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/'>
-<meta property='og:site_name' content='潘达窝'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='python' /><meta property='article:published_time' content='2025-10-17T13:38:40&#43;08:00'/><meta property='article:modified_time' content='2025-10-17T13:38:40&#43;08:00'/><meta property='og:image' content='https://picsum.photos/seed/8e16cae4/800/600' />
-<meta name="twitter:title" content="pydantic V2 迁移遇到的json 类型兼容问题">
-<meta name="twitter:description" content="记录三种json 转换方案"><meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:image" content='https://picsum.photos/seed/8e16cae4/800/600' />
-    <link rel="shortcut icon" href="/favicon.ico" />
-
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/panda_hu120629243187970115.png" width="300"
-                            height="300" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-                    <span class="emoji">🥤</span>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">潘达窝</a></h1>
-            <h2 class="site-description">潘达张的个人博客</h2>
-        </div>
-    </header><ol class="menu-social">
-            
-                <li>
-                    <a 
-                        href='https://daidaij.github.io/'
-                        target="_blank"
-                        title="GitHub"
-                        rel="me"
-                    >
-                        
-                        
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
-</svg>
-
-
-
-                        
-                    </a>
-                </li>
-            
-        </ol><ol class="menu" id="main-menu">
-        
-        
-        
-        <li >
-            <a href='/%E5%85%B3%E4%BA%8E/' >
-                
-                
-                
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="7" r="4" />
-  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
-</svg>
-
-
-
-                
-                <span>关于</span>
-            </a>
-        </li>
-        
-        
-        <li >
-            <a href='/archives/' >
-                
-                
-                
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <rect x="3" y="4" width="18" height="4" rx="2" />
-  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
-  <line x1="10" y1="12" x2="14" y2="12" />
-</svg>
-
-
-
-                
-                <span>Archives</span>
-            </a>
-        </li>
-        
-        
-        <li >
-            <a href='/search/' >
-                
-                
-                
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="10" cy="10" r="7" />
-  <line x1="21" y1="21" x2="15" y2="15" />
-</svg>
-
-
-
-                
-                <span>Search</span>
-            </a>
-        </li>
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-                    
-                        <li id="i18n-switch">  
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-  <path d="M4 5h7" />
-  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
-  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
-  <path d="M12 20l4 -9l4 9" />
-  <path d="M19.1 18h-6.2" />
-</svg>
-
-
-
-                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
-                                
-                                    <option value="https://daidaij.github.io/en/" >English</option>
-                                
-                                    <option value="https://daidaij.github.io/" selected>中文</option>
-                                
-                            </select>
-                        </li>
-                    
-                
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    <aside class="sidebar right-sidebar sticky">
-        
-            
-                
-    <section class="widget archives">
-        <div class="widget-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <line x1="5" y1="9" x2="19" y2="9" />
-  <line x1="5" y1="15" x2="19" y2="15" />
-  <line x1="11" y1="4" x2="7" y2="20" />
-  <line x1="17" y1="4" x2="13" y2="20" />
-</svg>
-
-
-
-        </div>
-        <h2 class="widget-title section-title">目录</h2>
-        
-        <div class="widget--toc">
-            <nav id="TableOfContents">
-  <ol>
-    <li><a href="#方案1-手动添加方法进行转换">方案1 手动添加方法进行转换</a></li>
-    <li><a href="#方案2-减少对类的改动通过外部转换">方案2 减少对类的改动，通过外部转换</a></li>
-    <li><a href="#方案3-自定义类型适配器推荐">方案3 自定义类型适配器，推荐</a>
-      <ol>
-        <li><a href="#sqlalchemy-的类型装饰器">sqlalchemy 的类型装饰器</a></li>
-      </ol>
-    </li>
-  </ol>
-</nav>
-        </div>
-    </section>
-
-            
-        
-    </aside>
-
-
-            <main class="main full-width">
-    <article class="has-image main-article">
-    <header class="article-header">
-        <div class="article-image">
-            <a href="/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/">
-                
-                    <img src="https://picsum.photos/seed/8e16cae4/800/600" loading="lazy" alt="Featured image of post pydantic V2 迁移遇到的json 类型兼容问题" />
-                
-            </a>
-        </div>
-    
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-        <a href="/categories/python/" >
-            Python
-        </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/">pydantic V2 迁移遇到的json 类型兼容问题</a>
-        </h2>
-
-        
-        <h3 class="article-subtitle">
-            记录三种json 转换方案
-        </h3>
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-        <div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-            <time class="article-time--published">Oct 17, 2025</time>
-        </div>
-        
-
-        
-        <div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-            <time class="article-time--reading">
-                阅读时长: 5 分钟
-            </time>
-        </div>
-        <div>
-            <time class="article-words">
-                2370 字
-            </time>
-        </div>
-        
-    </footer>
-    
-
-    
-</div>
-</header>
-
-    <section class="article-content">
-    
-    
-    
-    
-    
-<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86
-    src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66">
-</iframe>
-    
-    
-    <h1 id="pydantic-v2-的json-兼容性问题">pydantic v2 的json 兼容性问题
-</h1><hr>
-<blockquote>
-<p>背景介绍： 项目里面有很多v1 时代的写法，例如：<code>envs: List[EnvModel] = Field([], sa_column=Column(JSON), description=&quot;环境变量列表&quot;)</code>, 在v1 时代pydantic 会自动帮你做泛型转换
-在 Pydantic v1 中，可能通过隐式逻辑将 List[T] 与 JSON 类型关联，但 v2 移除了这种隐式关联，导致直接使用 sa_column=Column(JSON) 时，SQLAlchemy 无法将 List[EnvModel] 与 JSON 类型正确绑定，从而会引发报错<code> &lt;class 'list'&gt; has no matching SQLAlchemy type</code>。本质原因是SQLAlchemy 对字段类型的推断依赖于明确的 Python 类型与数据库类型的映射（如 str → VARCHAR，int → INTEGER）。但对于泛型容器类型（如 List[EnvModel]），SQLAlchemy 本身无法直接识别为某个数据库类型（如 JSON），必须显式指定类型（如 Column(JSON)）。</p>
-</blockquote>
-<p>现在介绍三种解决方法：</p>
-<h2 id="方案1-手动添加方法进行转换">方案1 手动添加方法进行转换
-</h2><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
-</span><span class="lnt"> 2
-</span><span class="lnt"> 3
-</span><span class="lnt"> 4
-</span><span class="lnt"> 5
-</span><span class="lnt"> 6
-</span><span class="lnt"> 7
-</span><span class="lnt"> 8
-</span><span class="lnt"> 9
-</span><span class="lnt">10
-</span><span class="lnt">11
-</span><span class="lnt">12
-</span><span class="lnt">13
-</span><span class="lnt">14
-</span><span class="lnt">15
-</span><span class="lnt">16
-</span><span class="lnt">17
-</span><span class="lnt">18
-</span><span class="lnt">19
-</span><span class="lnt">20
-</span><span class="lnt">21
-</span><span class="lnt">22
-</span><span class="lnt">23
-</span><span class="lnt">24
-</span><span class="lnt">25
-</span><span class="lnt">26
-</span><span class="lnt">27
-</span><span class="lnt">28
-</span><span class="lnt">29
-</span><span class="lnt">30
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">EnvModel</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">value</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">env_list_adapter</span> <span class="o">=</span> <span class="n">TypeAdapter</span><span class="p">(</span><span class="nb">list</span><span class="p">[</span><span class="n">EnvModel</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">APP</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">,</span> <span class="n">table</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s2">&#34;apps&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&#34;应用名称&#34;</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&#34;应用名称&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">envs_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&#34;&#34;</span><span class="p">,</span><span class="n">sa_column</span><span class="o">=</span><span class="n">Column</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span><span class="n">alias</span><span class="o">=</span><span class="s2">&#34;envs&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">data</span><span class="p">:</span><span class="n">Any</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="n">envs_</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&#34;envs&#34;</span><span class="p">,</span><span class="kc">None</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">envs_</span><span class="p">,</span><span class="nb">list</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">envs</span> <span class="o">=</span> <span class="n">envs_</span>
-</span></span><span class="line"><span class="cl">                    
-</span></span><span class="line"><span class="cl">    <span class="nd">@property</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">envs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">list</span><span class="p">[</span><span class="n">EnvModel</span><span class="p">]:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">envs_json</span><span class="p">,</span><span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">envs_json</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">try</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">env_list_adapter</span><span class="o">.</span><span class="n">validate_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">envs_json</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">env_list_adapter</span><span class="o">.</span><span class="n">validate_python</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">envs_json</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="nd">@envs.setter</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">envs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">val</span><span class="p">:</span><span class="nb">list</span><span class="p">[</span><span class="n">EnvModel</span><span class="p">]):</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">envs_json</span> <span class="o">=</span> <span class="n">env_list_adapter</span><span class="o">.</span><span class="n">dump_json</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>优点： 简单易懂，简单类转换一下也不会出啥问题<br>
-缺点： 改动较多，一个字段最少得多两个方法和一个TypeAdapter，在大量使用这种复合类型字段的情况下，这种改动太多了</p>
-<h2 id="方案2-减少对类的改动通过外部转换">方案2 减少对类的改动，通过外部转换
-</h2><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
-</span><span class="lnt"> 2
-</span><span class="lnt"> 3
-</span><span class="lnt"> 4
-</span><span class="lnt"> 5
-</span><span class="lnt"> 6
-</span><span class="lnt"> 7
-</span><span class="lnt"> 8
-</span><span class="lnt"> 9
-</span><span class="lnt">10
-</span><span class="lnt">11
-</span><span class="lnt">12
-</span><span class="lnt">13
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">EnvModel</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">value</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">orm_mode</span> <span class="o">=</span> <span class="kc">True</span>
-</span></span><span class="line"><span class="cl">        
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">APP</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">,</span> <span class="n">table</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s2">&#34;apps&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&#34;应用名称&#34;</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&#34;应用名称&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 这里用list[dict] 字典列表来做类型注解，自动转换为常见的array json类型</span>
-</span></span><span class="line"><span class="cl">    <span class="n">envs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span> <span class="n">sa_column</span><span class="o">=</span><span class="n">Column</span><span class="p">(</span><span class="n">ARRAY</span><span class="p">(</span><span class="n">JSON</span><span class="p">)),</span><span class="n">alias</span><span class="o">=</span><span class="s2">&#34;envs&#34;</span><span class="p">)</span> 
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>优点： 对类几乎无改动，用的也是基本类型字典<br>
-缺点： 如下：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
-</span><span class="lnt"> 2
-</span><span class="lnt"> 3
-</span><span class="lnt"> 4
-</span><span class="lnt"> 5
-</span><span class="lnt"> 6
-</span><span class="lnt"> 7
-</span><span class="lnt"> 8
-</span><span class="lnt"> 9
-</span><span class="lnt">10
-</span><span class="lnt">11
-</span><span class="lnt">12
-</span><span class="lnt">13
-</span><span class="lnt">14
-</span><span class="lnt">15
-</span><span class="lnt">16
-</span><span class="lnt">17
-</span><span class="lnt">18
-</span><span class="lnt">19
-</span><span class="lnt">20
-</span><span class="lnt">21
-</span><span class="lnt">22
-</span><span class="lnt">23
-</span><span class="lnt">24
-</span><span class="lnt">25
-</span><span class="lnt">26
-</span><span class="lnt">27
-</span><span class="lnt">28
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">async</span> <span class="k">with</span> <span class="n">async_session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">test</span> <span class="o">=</span> <span class="n">APP</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">            <span class="n">name</span><span class="o">=</span><span class="s2">&#34;测试服务&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">            <span class="n">envs</span><span class="o">=</span><span class="p">[</span>
-</span></span><span class="line"><span class="cl">                    <span class="c1"># 赋值需要转成dict </span>
-</span></span><span class="line"><span class="cl">                    <span class="n">EnvModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&#34;PATH&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&#34;/usr/local/bin&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
-</span></span><span class="line"><span class="cl">                    <span class="n">EnvModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&#34;PYTHONPATH&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&#34;/app&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
-</span></span><span class="line"><span class="cl">                    <span class="n">EnvModel</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&#34;DEBUG&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&#34;true&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">                <span class="p">]</span>
-</span></span><span class="line"><span class="cl">            <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">        <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;创建的服务 ID: </span><span class="si">{</span><span class="n">test</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;环境变量数量: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">test</span><span class="o">.</span><span class="n">envs</span><span class="p">)</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">APP</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">APP</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">test</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">        <span class="n">db_app</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;查询到的服务名称: </span><span class="si">{</span><span class="n">db_app</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&#34;环境变量:&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">env</span> <span class="ow">in</span> <span class="n">db_app</span><span class="o">.</span><span class="n">envs</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="c1"># 获取时需要用EnvModel 来检验类型，并转换成对应实例</span>
-</span></span><span class="line"><span class="cl">            <span class="n">env</span> <span class="o">=</span> <span class="n">EnvModel</span><span class="p">(</span><span class="o">**</span><span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><h2 id="方案3-自定义类型适配器推荐">方案3 自定义类型适配器，推荐
-</h2><div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
-</span><span class="lnt"> 2
-</span><span class="lnt"> 3
-</span><span class="lnt"> 4
-</span><span class="lnt"> 5
-</span><span class="lnt"> 6
-</span><span class="lnt"> 7
-</span><span class="lnt"> 8
-</span><span class="lnt"> 9
-</span><span class="lnt">10
-</span><span class="lnt">11
-</span><span class="lnt">12
-</span><span class="lnt">13
-</span><span class="lnt">14
-</span><span class="lnt">15
-</span><span class="lnt">16
-</span><span class="lnt">17
-</span><span class="lnt">18
-</span><span class="lnt">19
-</span><span class="lnt">20
-</span><span class="lnt">21
-</span><span class="lnt">22
-</span><span class="lnt">23
-</span><span class="lnt">24
-</span><span class="lnt">25
-</span><span class="lnt">26
-</span><span class="lnt">27
-</span><span class="lnt">28
-</span><span class="lnt">29
-</span><span class="lnt">30
-</span><span class="lnt">31
-</span><span class="lnt">32
-</span><span class="lnt">33
-</span><span class="lnt">34
-</span><span class="lnt">35
-</span><span class="lnt">36
-</span><span class="lnt">37
-</span><span class="lnt">38
-</span><span class="lnt">39
-</span><span class="lnt">40
-</span><span class="lnt">41
-</span><span class="lnt">42
-</span><span class="lnt">43
-</span><span class="lnt">44
-</span><span class="lnt">45
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">SQLModel</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SQLModelListType</span><span class="p">(</span><span class="n">TypeDecorator</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
-</span></span></span><span class="line"><span class="cl"><span class="s2">    自定义SQLAlchemy类型，自动处理：
-</span></span></span><span class="line"><span class="cl"><span class="s2">    - 写入：list[SQLModel] -&gt; list[dict]（存储为JSON数组）
-</span></span></span><span class="line"><span class="cl"><span class="s2">    - 读取：list[dict] -&gt; list[SQLModel]
-</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 基础类型：PostgreSQL的ARRAY(JSON)或纯JSON</span>
-</span></span><span class="line"><span class="cl">    <span class="n">impl</span> <span class="o">=</span> <span class="n">JSON</span>  <span class="c1"># 若用纯JSON则改为JSON</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_cls</span>  <span class="c1"># 明确标注类型</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">process_bind_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">dialect</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;写入数据库时：将模型列表转为字典列表&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">process_result_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">dialect</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;从数据库读取时：将字典列表转为模型列表&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">model_cls</span><span class="p">(</span><span class="o">**</span> <span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">EnvModel</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">value</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">APP</span><span class="p">(</span><span class="n">SQLModel</span><span class="p">,</span> <span class="n">table</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s2">&#34;apps&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&#34;应用名称&#34;</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&#34;应用名称&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 核心改动：使用自定义类型，指定模型类型为EnvModel</span>
-</span></span><span class="line"><span class="cl">    <span class="n">envs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">EnvModel</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">        <span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">sa_column</span><span class="o">=</span><span class="n">Column</span><span class="p">(</span><span class="n">SQLModelListType</span><span class="p">(</span><span class="n">EnvModel</span><span class="p">))</span>  <span class="c1"># 绑定自定义类型</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>优点： 能复用这个类型装饰器，实现v2 的类型迁移，几乎无感，改动也仅限于对应字段的那行，完全可以接受这个工作量<br>
-缺点： 自定义sqlalchemy 类型装饰器的场景比较少见，用来做sa_column 可能没之前那么直白，理解难度会高一些</p>
-<h3 id="sqlalchemy-的类型装饰器">sqlalchemy 的类型装饰器
-</h3><p>SQLAlchemy 的 TypeDecorator 是用于自定义数据库类型的核心工具，它通过封装底层数据库类型并覆盖特定方法，实现 Python 类型与数据库类型的双向转换。其核心方法如下：</p>
-<ol>
-<li>
-<p>impl：指定底层数据库类型（必须定义）<br>
-impl 是 TypeDecorator 的核心类属性，用于指定当前自定义类型基于哪个 SQLAlchemy 原生类型（如 Integer、String、JSON 等）。所有数据库交互最终会委托给这个底层类型。<br>
-<strong>示例</strong>：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">TypeDecorator</span><span class="p">,</span> <span class="n">JSON</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">MyJsonType</span><span class="p">(</span><span class="n">TypeDecorator</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">impl</span> <span class="o">=</span> <span class="n">JSON</span>  <span class="c1"># 基于原生 JSON 类型扩展</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div></li>
-<li>
-<p>process_bind_param(self, value, dialect)：Python → 数据库（写入时）<br>
-作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。<br>
-参数:</p>
-<ul>
-<li>value：Python 中要写入数据库的值（可能为 None）。</li>
-<li>dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。</li>
-<li>返回值：转换后的值（需符合 impl 类型的要求）。</li>
-</ul>
-<p><strong>示例</strong>：</p>
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">process_bind_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">dialect</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 将自定义模型列表转为字典列表（适配 JSON 类型）</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div></li>
-<li>
-<p>process_result_value(self, value, dialect)：数据库 → Python（读取时）<br>
-作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。<br>
-参数：</p>
-</li>
-</ol>
-<ul>
-<li>value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。</li>
-<li>dialect：当前数据库方言。</li>
-<li>返回值：转换后的 Python 对象（如自定义模型实例）。<br>
-<strong>示例</strong>：
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span><span class="lnt">6
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">process_result_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">dialect</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 将字典列表转为自定义模型列表</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="n">MyModel</span><span class="p">(</span><span class="o">**</span> <span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div></li>
-</ul>
-<ol start="4">
-<li>process_literal_param(self, value, dialect)：处理 SQL 字面量（可选）<br>
-作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。<br>
-默认行为：若未实现，会使用 impl 类型的 process_literal_param 方法。
-通常用于自定义类型需要特殊 SQL 字面量格式的场景（如日期格式化）。<br>
-<strong>示例</strong>：
-<div class="highlight"><div class="chroma">
-<table class="lntable"><tr><td class="lntd">
-<pre tabindex="0" class="chroma"><code><span class="lnt">1
-</span><span class="lnt">2
-</span><span class="lnt">3
-</span><span class="lnt">4
-</span><span class="lnt">5
-</span></code></pre></td>
-<td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">process_literal_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">dialect</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="s1">&#39;NULL&#39;</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># 对字符串类型值添加单引号，避免 SQL 注入风险</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="sa">f</span><span class="s2">&#34;&#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&#34;</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div></li>
-</ol>
-
-</section>
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/python/">Python</a>
-        
-    </section>
-
-
-    
-    <section class="article-copyright">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
-</svg>
-
-
-
-        <span>Licensed under CC BY-NC-SA 4.0</span>
-    </section>
-    </footer>
-
-
-    
-        <link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI&#43;WdtXRGWt2kTvGFasHpSy3SV"crossorigin="anonymous"
-            ><script 
-                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG&#43;vnGctmUb0ZY0l8"crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"integrity="sha384-&#43;VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4&#43;/RRE05"crossorigin="anonymous"
-                defer
-                >
-            </script><script>
-    window.addEventListener("DOMContentLoaded", () => {
-        renderMathInElement(document.body, {
-            delimiters: [
-                { left: "$$", right: "$$", display: true },
-                { left: "$", right: "$", display: false },
-                { left: "\\(", right: "\\)", display: false },
-                { left: "\\[", right: "\\]", display: true }
-            ],
-            ignoredClasses: ["gist"]
-        });})
-</script>
-    
-</article>
-
-    
-
-    
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="has-image">
-    <a href="/p/singleflight-with-python/">
-        
-        
-            <div class="article-image">
-                
-                    <img src="https://picsum.photos/seed/28cc2db5/800/600" loading="lazy" data-key="singleflight with python" data-hash="https://picsum.photos/seed/28cc2db5/800/600"/>
-                
-            </div>
-        
-
-        <div class="article-details">
-            <h2 class="article-title">使用python 实现一个分布式Singleflight</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
-
-     
-    
-        
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-            2020 - 
-        
-        2025 pandazhangs
-    </section>
-    
-    <section class="powerby">
-        
-            往日已经不在，未来尚未开始 <br/>
-        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
-        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.29.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="记录三种json 转换方案"><title>pydantic V2 迁移遇到的json 类型兼容问题</title>
+<link rel=canonical href=https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/><link rel=stylesheet href=/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css><meta property='og:title' content="pydantic V2 迁移遇到的json 类型兼容问题"><meta property='og:description' content="记录三种json 转换方案"><meta property='og:url' content='https://daidaij.github.io/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='python'><meta property='article:published_time' content='2025-10-17T13:38:40+08:00'><meta property='article:modified_time' content='2025-10-17T13:38:40+08:00'><meta property='og:image' content='https://picsum.photos/seed/8e16cae4/800/600'><meta name=twitter:title content="pydantic V2 迁移遇到的json 类型兼容问题"><meta name=twitter:description content="记录三种json 转换方案"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/8e16cae4/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><ol class=menu-social><li><a href=https://daidaij.github.io/ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#方案1-手动添加方法进行转换>方案1 手动添加方法进行转换</a></li><li><a href=#方案2-减少对类的改动通过外部转换>方案2 减少对类的改动，通过外部转换</a></li><li><a href=#方案3-自定义类型适配器推荐>方案3 自定义类型适配器，推荐</a><ol><li><a href=#sqlalchemy-的类型装饰器>sqlalchemy 的类型装饰器</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/><img src=https://picsum.photos/seed/8e16cae4/800/600 loading=lazy alt="Featured image of post pydantic V2 迁移遇到的json 类型兼容问题"></a></div><div class=article-details><header class=article-category><a href=/categories/python/>Python</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/%E4%B8%80%E5%A6%82%E6%97%A2%E5%BE%80/>pydantic V2 迁移遇到的json 类型兼容问题</a></h2><h3 class=article-subtitle>记录三种json 转换方案</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Oct 17, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div><div><time class=article-words>2370 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=pydantic-v2-的json-兼容性问题>pydantic v2 的json 兼容性问题</h1><hr><blockquote><p>背景介绍： 项目里面有很多v1 时代的写法，例如：<code>envs: List[EnvModel] = Field([], sa_column=Column(JSON), description="环境变量列表")</code>, 在v1 时代pydantic 会自动帮你做泛型转换
+在 Pydantic v1 中，可能通过隐式逻辑将 List[T] 与 JSON 类型关联，但 v2 移除了这种隐式关联，导致直接使用 sa_column=Column(JSON) 时，SQLAlchemy 无法将 List[EnvModel] 与 JSON 类型正确绑定，从而会引发报错<code> &lt;class 'list'> has no matching SQLAlchemy type</code>。本质原因是SQLAlchemy 对字段类型的推断依赖于明确的 Python 类型与数据库类型的映射（如 str → VARCHAR，int → INTEGER）。但对于泛型容器类型（如 List[EnvModel]），SQLAlchemy 本身无法直接识别为某个数据库类型（如 JSON），必须显式指定类型（如 Column(JSON)）。</p></blockquote><p>现在介绍三种解决方法：</p><h2 id=方案1-手动添加方法进行转换>方案1 手动添加方法进行转换</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>EnvModel</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>env_list_adapter</span> <span class=o>=</span> <span class=n>TypeAdapter</span><span class=p>(</span><span class=nb>list</span><span class=p>[</span><span class=n>EnvModel</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>APP</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>,</span> <span class=n>table</span><span class=o>=</span><span class=kc>True</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>__tablename__</span> <span class=o>=</span> <span class=s2>&#34;apps&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nb>id</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>primary_key</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=s2>&#34;应用名称&#34;</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>description</span><span class=o>=</span><span class=s2>&#34;应用名称&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>envs_json</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=s2>&#34;&#34;</span><span class=p>,</span><span class=n>sa_column</span><span class=o>=</span><span class=n>Column</span><span class=p>(</span><span class=n>JSON</span><span class=p>),</span><span class=n>alias</span><span class=o>=</span><span class=s2>&#34;envs&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span><span class=o>**</span><span class=n>data</span><span class=p>:</span><span class=n>Any</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=n>envs_</span> <span class=o>=</span> <span class=n>data</span><span class=o>.</span><span class=n>pop</span><span class=p>(</span><span class=s2>&#34;envs&#34;</span><span class=p>,</span><span class=kc>None</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=o>**</span><span class=n>data</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>envs_</span><span class=p>,</span><span class=nb>list</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=bp>self</span><span class=o>.</span><span class=n>envs</span> <span class=o>=</span> <span class=n>envs_</span>
+</span></span><span class=line><span class=cl>                    
+</span></span><span class=line><span class=cl>    <span class=nd>@property</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>envs</span><span class=p>(</span><span class=bp>self</span><span class=p>)</span><span class=o>-&gt;</span><span class=nb>list</span><span class=p>[</span><span class=n>EnvModel</span><span class=p>]:</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>envs_json</span><span class=p>,</span><span class=nb>str</span><span class=p>)</span> <span class=ow>and</span> <span class=bp>self</span><span class=o>.</span><span class=n>envs_json</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>env_list_adapter</span><span class=o>.</span><span class=n>validate_json</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>envs_json</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>except</span> <span class=ne>Exception</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>env_list_adapter</span><span class=o>.</span><span class=n>validate_python</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>envs_json</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=nd>@envs.setter</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>envs</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span><span class=n>val</span><span class=p>:</span><span class=nb>list</span><span class=p>[</span><span class=n>EnvModel</span><span class=p>]):</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>envs_json</span> <span class=o>=</span> <span class=n>env_list_adapter</span><span class=o>.</span><span class=n>dump_json</span><span class=p>(</span><span class=n>val</span><span class=p>)</span><span class=o>.</span><span class=n>decode</span><span class=p>()</span>
+</span></span></code></pre></td></tr></table></div></div><p>优点： 简单易懂，简单类转换一下也不会出啥问题<br>缺点： 改动较多，一个字段最少得多两个方法和一个TypeAdapter，在大量使用这种复合类型字段的情况下，这种改动太多了</p><h2 id=方案2-减少对类的改动通过外部转换>方案2 减少对类的改动，通过外部转换</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>EnvModel</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>Config</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>orm_mode</span> <span class=o>=</span> <span class=kc>True</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>APP</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>,</span> <span class=n>table</span><span class=o>=</span><span class=kc>True</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>__tablename__</span> <span class=o>=</span> <span class=s2>&#34;apps&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nb>id</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>primary_key</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=s2>&#34;应用名称&#34;</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>description</span><span class=o>=</span><span class=s2>&#34;应用名称&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 这里用list[dict] 字典列表来做类型注解，自动转换为常见的array json类型</span>
+</span></span><span class=line><span class=cl>    <span class=n>envs</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=nb>dict</span><span class=p>]</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span> <span class=n>sa_column</span><span class=o>=</span><span class=n>Column</span><span class=p>(</span><span class=n>ARRAY</span><span class=p>(</span><span class=n>JSON</span><span class=p>)),</span><span class=n>alias</span><span class=o>=</span><span class=s2>&#34;envs&#34;</span><span class=p>)</span> 
+</span></span></code></pre></td></tr></table></div></div><p>优点： 对类几乎无改动，用的也是基本类型字典<br>缺点： 如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>async</span> <span class=k>with</span> <span class=n>async_session</span><span class=p>()</span> <span class=k>as</span> <span class=n>session</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>test</span> <span class=o>=</span> <span class=n>APP</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>            <span class=n>name</span><span class=o>=</span><span class=s2>&#34;测试服务&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=n>envs</span><span class=o>=</span><span class=p>[</span>
+</span></span><span class=line><span class=cl>                    <span class=c1># 赋值需要转成dict </span>
+</span></span><span class=line><span class=cl>                    <span class=n>EnvModel</span><span class=p>(</span><span class=n>name</span><span class=o>=</span><span class=s2>&#34;PATH&#34;</span><span class=p>,</span> <span class=n>value</span><span class=o>=</span><span class=s2>&#34;/usr/local/bin&#34;</span><span class=p>)</span><span class=o>.</span><span class=n>model_dump</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>                    <span class=n>EnvModel</span><span class=p>(</span><span class=n>name</span><span class=o>=</span><span class=s2>&#34;PYTHONPATH&#34;</span><span class=p>,</span> <span class=n>value</span><span class=o>=</span><span class=s2>&#34;/app&#34;</span><span class=p>)</span><span class=o>.</span><span class=n>model_dump</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>                    <span class=n>EnvModel</span><span class=p>(</span><span class=n>name</span><span class=o>=</span><span class=s2>&#34;DEBUG&#34;</span><span class=p>,</span> <span class=n>value</span><span class=o>=</span><span class=s2>&#34;true&#34;</span><span class=p>)</span><span class=o>.</span><span class=n>model_dump</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                <span class=p>]</span>
+</span></span><span class=line><span class=cl>            <span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>session</span><span class=o>.</span><span class=n>add</span><span class=p>(</span><span class=n>test</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=n>session</span><span class=o>.</span><span class=n>refresh</span><span class=p>(</span><span class=n>test</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;创建的服务 ID: </span><span class=si>{</span><span class=n>test</span><span class=o>.</span><span class=n>id</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;环境变量数量: </span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>test</span><span class=o>.</span><span class=n>envs</span><span class=p>)</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>result</span> <span class=o>=</span> <span class=k>await</span> <span class=n>session</span><span class=o>.</span><span class=n>execute</span><span class=p>(</span><span class=n>select</span><span class=p>(</span><span class=n>APP</span><span class=p>)</span><span class=o>.</span><span class=n>where</span><span class=p>(</span><span class=n>APP</span><span class=o>.</span><span class=n>id</span> <span class=o>==</span> <span class=n>test</span><span class=o>.</span><span class=n>id</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=n>db_app</span> <span class=o>=</span> <span class=n>result</span><span class=o>.</span><span class=n>first</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;查询到的服务名称: </span><span class=si>{</span><span class=n>db_app</span><span class=o>.</span><span class=n>name</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=s2>&#34;环境变量:&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>env</span> <span class=ow>in</span> <span class=n>db_app</span><span class=o>.</span><span class=n>envs</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=c1># 获取时需要用EnvModel 来检验类型，并转换成对应实例</span>
+</span></span><span class=line><span class=cl>            <span class=n>env</span> <span class=o>=</span> <span class=n>EnvModel</span><span class=p>(</span><span class=o>**</span><span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;  </span><span class=si>{</span><span class=n>env</span><span class=o>.</span><span class=n>name</span><span class=si>}</span><span class=s2>: </span><span class=si>{</span><span class=n>env</span><span class=o>.</span><span class=n>value</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=方案3-自定义类型适配器推荐>方案3 自定义类型适配器，推荐</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>T</span> <span class=o>=</span> <span class=n>TypeVar</span><span class=p>(</span><span class=s1>&#39;T&#39;</span><span class=p>,</span> <span class=n>bound</span><span class=o>=</span><span class=n>SQLModel</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>SQLModelListType</span><span class=p>(</span><span class=n>TypeDecorator</span><span class=p>,</span> <span class=n>Generic</span><span class=p>[</span><span class=n>T</span><span class=p>]):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>    自定义SQLAlchemy类型，自动处理：
+</span></span></span><span class=line><span class=cl><span class=s2>    - 写入：list[SQLModel] -&gt; list[dict]（存储为JSON数组）
+</span></span></span><span class=line><span class=cl><span class=s2>    - 读取：list[dict] -&gt; list[SQLModel]
+</span></span></span><span class=line><span class=cl><span class=s2>    &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 基础类型：PostgreSQL的ARRAY(JSON)或纯JSON</span>
+</span></span><span class=line><span class=cl>    <span class=n>impl</span> <span class=o>=</span> <span class=n>JSON</span>  <span class=c1># 若用纯JSON则改为JSON</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>model_cls</span><span class=p>:</span> <span class=n>Type</span><span class=p>[</span><span class=n>T</span><span class=p>],</span> <span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>(</span><span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>model_cls</span><span class=p>:</span> <span class=n>Type</span><span class=p>[</span><span class=n>T</span><span class=p>]</span> <span class=o>=</span> <span class=n>model_cls</span>  <span class=c1># 明确标注类型</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>process_bind_param</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>List</span><span class=p>[</span><span class=n>T</span><span class=p>],</span> <span class=n>dialect</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>List</span><span class=p>[</span><span class=nb>dict</span><span class=p>]:</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;写入数据库时：将模型列表转为字典列表&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=ow>not</span> <span class=n>value</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>[</span><span class=n>item</span><span class=o>.</span><span class=n>model_dump</span><span class=p>()</span> <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>value</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>process_result_value</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>List</span><span class=p>[</span><span class=nb>dict</span><span class=p>],</span> <span class=n>dialect</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>List</span><span class=p>[</span><span class=n>T</span><span class=p>]:</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;从数据库读取时：将字典列表转为模型列表&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=ow>not</span> <span class=n>value</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>[</span><span class=bp>self</span><span class=o>.</span><span class=n>model_cls</span><span class=p>(</span><span class=o>**</span> <span class=n>item</span><span class=p>)</span> <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>value</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>EnvModel</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>value</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=o>...</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>APP</span><span class=p>(</span><span class=n>SQLModel</span><span class=p>,</span> <span class=n>table</span><span class=o>=</span><span class=kc>True</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>__tablename__</span> <span class=o>=</span> <span class=s2>&#34;apps&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nb>id</span><span class=p>:</span> <span class=nb>int</span> <span class=o>|</span> <span class=kc>None</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>primary_key</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span><span class=s2>&#34;应用名称&#34;</span><span class=p>,</span> <span class=n>nullable</span><span class=o>=</span><span class=kc>False</span><span class=p>,</span> <span class=n>description</span><span class=o>=</span><span class=s2>&#34;应用名称&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 核心改动：使用自定义类型，指定模型类型为EnvModel</span>
+</span></span><span class=line><span class=cl>    <span class=n>envs</span><span class=p>:</span> <span class=nb>list</span><span class=p>[</span><span class=n>EnvModel</span><span class=p>]</span> <span class=o>=</span> <span class=n>Field</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>default_factory</span><span class=o>=</span><span class=nb>list</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=n>sa_column</span><span class=o>=</span><span class=n>Column</span><span class=p>(</span><span class=n>SQLModelListType</span><span class=p>(</span><span class=n>EnvModel</span><span class=p>))</span>  <span class=c1># 绑定自定义类型</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>优点： 能复用这个类型装饰器，实现v2 的类型迁移，几乎无感，改动也仅限于对应字段的那行，完全可以接受这个工作量<br>缺点： 自定义sqlalchemy 类型装饰器的场景比较少见，用来做sa_column 可能没之前那么直白，理解难度会高一些</p><h3 id=sqlalchemy-的类型装饰器>sqlalchemy 的类型装饰器</h3><p>SQLAlchemy 的 TypeDecorator 是用于自定义数据库类型的核心工具，它通过封装底层数据库类型并覆盖特定方法，实现 Python 类型与数据库类型的双向转换。其核心方法如下：</p><ol><li><p>impl：指定底层数据库类型（必须定义）<br>impl 是 TypeDecorator 的核心类属性，用于指定当前自定义类型基于哪个 SQLAlchemy 原生类型（如 Integer、String、JSON 等）。所有数据库交互最终会委托给这个底层类型。<br><strong>示例</strong>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>sqlalchemy</span> <span class=kn>import</span> <span class=n>TypeDecorator</span><span class=p>,</span> <span class=n>JSON</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyJsonType</span><span class=p>(</span><span class=n>TypeDecorator</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>impl</span> <span class=o>=</span> <span class=n>JSON</span>  <span class=c1># 基于原生 JSON 类型扩展</span>
+</span></span></code></pre></td></tr></table></div></div></li><li><p>process_bind_param(self, value, dialect)：Python → 数据库（写入时）<br>作用：将 Python 中的值（如自定义对象、复杂类型）转换为底层数据库类型可接受的格式（如 JSON 类型接受字典 / 列表，String 接受字符串）。<br>参数:</p><ul><li>value：Python 中要写入数据库的值（可能为 None）。</li><li>dialect：当前数据库方言（如 postgresql、mysql），可用于适配不同数据库的差异。</li><li>返回值：转换后的值（需符合 impl 类型的要求）。</li></ul><p><strong>示例</strong>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>process_bind_param</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>,</span> <span class=n>dialect</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 将自定义模型列表转为字典列表（适配 JSON 类型）</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>[</span><span class=n>item</span><span class=o>.</span><span class=n>dict</span><span class=p>()</span> <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>value</span><span class=p>]</span>
+</span></span></code></pre></td></tr></table></div></div></li><li><p>process_result_value(self, value, dialect)：数据库 → Python（读取时）<br>作用：将从数据库读取的值（如 JSON 解析后的字典）转换为 Python 中需要的类型（如自定义模型、复杂对象）。<br>参数：</p></li></ol><ul><li>value：从数据库读取的值（可能为 None，格式由 impl 类型决定）。</li><li>dialect：当前数据库方言。</li><li>返回值：转换后的 Python 对象（如自定义模型实例）。<br><strong>示例</strong>：<div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>process_result_value</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>,</span> <span class=n>dialect</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=ow>not</span> <span class=n>value</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 将字典列表转为自定义模型列表</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>[</span><span class=n>MyModel</span><span class=p>(</span><span class=o>**</span> <span class=n>item</span><span class=p>)</span> <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>value</span><span class=p>]</span>
+</span></span></code></pre></td></tr></table></div></div></li></ul><ol start=4><li>process_literal_param(self, value, dialect)：处理 SQL 字面量（可选）<br>作用：当值以字面量形式嵌入 SQL 语句（如 INSERT VALUES (?) 中的 ?）时，将其转换为符合 SQL 语法的字符串。<br>默认行为：若未实现，会使用 impl 类型的 process_literal_param 方法。
+通常用于自定义类型需要特殊 SQL 字面量格式的场景（如日期格式化）。<br><strong>示例</strong>：<div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>process_literal_param</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>value</span><span class=p>,</span> <span class=n>dialect</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>value</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=s1>&#39;NULL&#39;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 对字符串类型值添加单引号，避免 SQL 注入风险</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=sa>f</span><span class=s2>&#34;&#39;</span><span class=si>{</span><span class=n>value</span><span class=si>}</span><span class=s2>&#39;&#34;</span>
+</span></span></code></pre></td></tr></table></div></div></li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/python/>Python</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/singleflight-with-python/><div class=article-image><img src=https://picsum.photos/seed/28cc2db5/800/600 loading=lazy data-key="singleflight with python" data-hash=https://picsum.photos/seed/28cc2db5/800/600></div><div class=article-details><h2 class=article-title>使用python 实现一个分布式Singleflight</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2025 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

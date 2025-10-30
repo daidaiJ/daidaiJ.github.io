@@ -1,15 +1,1 @@
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/en/categories/</loc>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/en/</loc>
-   </sitemap>
-   
-   <sitemap>
-      <loc>https://daidaij.github.io/en/tags/</loc>
-   </sitemap>
-   
-</sitemapindex>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://daidaij.github.io/en/categories/</loc></sitemap><sitemap><loc>https://daidaij.github.io/en/</loc></sitemap><sitemap><loc>https://daidaij.github.io/en/tags/</loc></sitemap></sitemapindex>
