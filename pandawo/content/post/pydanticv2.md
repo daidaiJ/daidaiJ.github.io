@@ -121,9 +121,10 @@ class SQLModelListType(TypeDecorator, Generic[T]):
     # 基础类型：PostgreSQL的ARRAY(JSON)或纯JSON
     impl = JSON  # 若用纯JSON则改为JSON
 
-    def __init__(self, model_cls: Type[T], *args, **kwargs):
+    def __init__(self, model_cls: Optional[Type[T]]=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_cls: Type[T] = model_cls  # 明确标注类型
+        if model_cls:
+            self.model_cls: Type[T] = model_cls  # 明确标注类型
 
     def process_bind_param(self, value: List[T], dialect) -> List[dict]:
         """写入数据库时：将模型列表转为字典列表"""
