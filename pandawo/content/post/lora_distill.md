@@ -1,5 +1,5 @@
 ---
-title: "Lora_distill"
+title: "结合lora和离线学习的llm蒸馏策略"
 slug: "llm"
 description: "idea for lora finetune/distill llm"
 date: 2025-12-05T16:29:45+08:00
@@ -19,7 +19,8 @@ image: https://picsum.photos/seed/b6a2445d/800/600
 ## 简单的模型蒸馏
 在前几年bert刷分的时代，bert 蒸馏技术在印象中可以简单归纳为两种:
 1. logit 层感知学习，对照教师模型和学生模型在最后一个logit 层的张量损失，作为学生模型的学习损失
-2. hidden 层感知学习， 这个是将中间多层transformers 块的输出也考虑进来，逐个对照输出分布差异，将各层损失求和
+2. hidden 层感知学习， 这个是将中间多层transformers 块的输出也考虑进来，逐个对照输出分布差异，将各层损失求和  
+
 这两种方法在资源紧张的情况下，可以通过保存张量，和输入预料关联制作成离线的蒸馏学习数据集：
 好处是：
 - 蒸馏学习时可以省去一个教师大模型占据的显存资源，成本低；

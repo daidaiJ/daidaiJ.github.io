@@ -1,5 +1,5 @@
 ---
-title: "Pg_caltime"
+title: "使用pg 对资源用时进行统计"
 slug: "pg"
 description: "Use pg database to count online time"
 date: 2025-12-05T17:00:24+08:00
