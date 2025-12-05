@@ -11,10 +11,7 @@
 </a><a href=/categories/python/>Python</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/pg/>使用pg 对资源用时进行统计</a></h2><h3 class=article-subtitle>Use pg database to count online time</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
 <time class=article-time--published>Dec 05, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
 <time class=article-time--reading>阅读时长: 3 分钟</time></div><div><time class=article-words>1131 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=使用pg统计资源用时>使用pg统计资源用时</h1><p>近期项目上有个相关资源用时统计的需求，我个人想了一个简单的统计demo</p><h2 id=大致需求>大致需求</h2><p>有个资源有唯一id ，需要根据开机时间，关机时间统计按当天（近似实时），天，周，月，年的维度计算用时数据
-拆解下来最基本的计算逻辑时天和当天这两种，下文会简单说下其他的几个维度咋统计或者查询
-计算当天和昨天的需求可以被抽象成一个逻辑：
-查找开始时间到截止（当下或者昨天最后一秒）的资源用时。
-先给个简单的创建表结构语句示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+拆解下来最基本的计算逻辑时天和当天这两种，下文会简单说下其他的几个维度咋统计或者查询<br>计算当天和昨天的需求可以被抽象成一个逻辑：<br>查找开始时间到截止（当下或者昨天最后一秒）的资源用时。<br>先给个简单的创建表结构语句示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span><span class=lnt>4
@@ -125,7 +122,7 @@
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=c1># 结果解析：返回整数小时数（无数据则返回None）</span>
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nb>int</span><span class=p>(</span><span class=n>result</span><span class=p>)</span> <span class=k>if</span> <span class=n>result</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span> <span class=k>else</span> <span class=mi>0</span>
-</span></span></code></pre></td></tr></table></div></div><h2 id=周月年怎么处理>周，月，年怎么处理</h2><p>上面其实已经论述了怎么计算前一天的用时数据，那其他维度的过去用量其实都是可以按照天来定时更新，按照id ，时间维度的开始日期或者就是时间，来确定一个周，月，年的资源统计记录，然后把这个增量数据（天）加上去，这个就是出去当天之前的其他维度数据的计算，通过存放到多个表里来以查代算，只用每天定时更新前一天的就可以把计算的维度缩小到一天之中，控制聚合的记录数量，剩下就是重复走当天用量的计算逻辑。 这里看下来通过创建这三个字段的聚合索引可以完成初步优化</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></span></code></pre></td></tr></table></div></div><h2 id=周月年怎么处理>周，月，年怎么处理</h2><p>上面其实已经论述了怎么计算前一天的用时数据，那其他维度的过去用量其实都是可以按照天来定时更新，按照id ，时间维度的开始日期或者就是时间，来确定一个周，月，年的资源统计记录，然后把这个增量数据（天）加上去。<br>这个就是除去当天之前的其他维度数据的计算，通过存放到多个表里来以查代算，只用每天定时更新前一天的就可以把计算的维度缩小到一天之中，控制聚合的记录数量，剩下就是重复走当天用量的计算逻辑。 这里看下来通过创建这三个字段的聚合索引可以完成初步优化</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
 </span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>CREATE</span><span class=w> </span><span class=k>INDEX</span><span class=w> </span><span class=n>idx_machine_runtime_covering</span><span class=w> </span><span class=k>ON</span><span class=w> </span><span class=n>machine_runtime</span><span class=w> </span><span class=p>(</span><span class=w>
