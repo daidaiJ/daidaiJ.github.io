@@ -1,13 +1,13 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai on 潘达窝</title><link>https://daidaij.github.io/tags/ai/</link><description>Recent content in Ai on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 05 Dec 2025 16:29:45 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml"/><item><title>Lora_distill</title><link>https://daidaij.github.io/p/llm/</link><pubDate>Fri, 05 Dec 2025 16:29:45 +0800</pubDate><guid>https://daidaij.github.io/p/llm/</guid><description>&lt;img src="https://picsum.photos/seed/b6a2445d/800/600" alt="Featured image of post Lora_distill" />&lt;h1 id="大模型的lora-想法">大模型的lora 想法
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai on 潘达窝</title><link>https://daidaij.github.io/tags/ai/</link><description>Recent content in Ai on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 05 Dec 2025 16:29:45 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai/index.xml" rel="self" type="application/rss+xml"/><item><title>结合lora和离线学习的llm蒸馏策略</title><link>https://daidaij.github.io/p/llm/</link><pubDate>Fri, 05 Dec 2025 16:29:45 +0800</pubDate><guid>https://daidaij.github.io/p/llm/</guid><description>&lt;img src="https://picsum.photos/seed/b6a2445d/800/600" alt="Featured image of post 结合lora和离线学习的llm蒸馏策略" />&lt;h1 id="大模型的lora-想法">大模型的lora 想法
 &lt;/h1>&lt;p>大模型本身在推理部署的场景下对模型显存的占用量就是很夸张的，导致训练大模型成本很高，基于lora 在领域语料上继续学习垂直知识是一个低成本的最佳实践，最近组里也在测试蒸馏学习的最佳实践，便有了如下的想法，估计很多人都已经付诸于实践了，我这点东西只是记录下碎片化的idea。&lt;/p>
 &lt;h2 id="简单的模型蒸馏">简单的模型蒸馏
 &lt;/h2>&lt;p>在前几年bert刷分的时代，bert 蒸馏技术在印象中可以简单归纳为两种:&lt;/p>
 &lt;ol>
 &lt;li>logit 层感知学习，对照教师模型和学生模型在最后一个logit 层的张量损失，作为学生模型的学习损失&lt;/li>
-&lt;li>hidden 层感知学习， 这个是将中间多层transformers 块的输出也考虑进来，逐个对照输出分布差异，将各层损失求和
-这两种方法在资源紧张的情况下，可以通过保存张量，和输入预料关联制作成离线的蒸馏学习数据集：
-好处是：&lt;/li>
+&lt;li>hidden 层感知学习， 这个是将中间多层transformers 块的输出也考虑进来，逐个对照输出分布差异，将各层损失求和&lt;/li>
 &lt;/ol>
+&lt;p>这两种方法在资源紧张的情况下，可以通过保存张量，和输入预料关联制作成离线的蒸馏学习数据集：
+好处是：&lt;/p>
 &lt;ul>
 &lt;li>蒸馏学习时可以省去一个教师大模型占据的显存资源，成本低；&lt;/li>
 &lt;li>同时这部分数据可以多次复用，用时间去换空间；&lt;/li>
