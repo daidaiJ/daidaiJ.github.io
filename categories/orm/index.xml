@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Orm on 潘达窝</title><link>https://daidaij.github.io/categories/orm/</link><description>Recent content in Orm on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Tue, 23 Dec 2025 18:10:06 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/orm/index.xml" rel="self" type="application/rss+xml"/><item><title>Sqlmodel 官方文档之外的操作</title><link>https://daidaij.github.io/p/sqlmodel-advance-action/</link><pubDate>Tue, 23 Dec 2025 18:10:06 +0800</pubDate><guid>https://daidaij.github.io/p/sqlmodel-advance-action/</guid><description>&lt;img src="https://picsum.photos/seed/9c84c14d/800/600" alt="Featured image of post Sqlmodel 官方文档之外的操作" />&lt;h1 id="sqlmodel-教程之外的实用操作">SqlModel 教程之外的实用操作
+&lt;/h1>&lt;p>sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
+下面就是近期遇到并发掘的一些实用操作&lt;/p>
+&lt;h2 id="count-数据计数">count 数据计数
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl"> &lt;span class="k">with&lt;/span> &lt;span class="n">get_session&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="n">session&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stmt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">select&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">func&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">())&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">where&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">col&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TestData&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="n">StatusEnums&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">ACTIVE&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">count&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">exec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">stmt&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">cnt&lt;/span>&lt;span class="o">:=&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">first&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;get cnt &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">cnt&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># get cnt xx&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>其实本质上就是用&lt;code>sqlmodel.func&lt;/code> 底下的 count 函数做了 &lt;code>count(*) 操作&lt;/code>&lt;/p>
+&lt;h2 id="批量更新及删除">批量更新及删除
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">with&lt;/span> &lt;span class="n">get_session&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="n">session&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 更新 status 为inactive 的变成 banned 状态&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stmt_update&lt;/span> &lt;span class="o">=&lt;/span>&lt;span class="n">update&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TestData&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">where&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">col&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TestData&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="n">StatusEnums&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">INACTIVE&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">values&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">StatusEnums&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">BANNED&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">exec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">stmt_update&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">commit&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 删除所有 banned 状态的数据，慎重&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stmt_delete&lt;/span> &lt;span class="o">=&lt;/span>&lt;span class="n">delete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TestData&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">where&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">col&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">TestData&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="n">StatusEnums&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">BANNED&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">exec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">stmt_delete&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">commit&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>session.exec(stmt_delete) 在传入非select 语句的时候低版本会被pylance 报错，重载不支持，其实可以执行,忽视类型检查就行&lt;/p>
+&lt;/blockquote>
+&lt;p>这里用的是sqlmodel 的&lt;code>update&lt;/code> 和&lt;code>delete&lt;/code> 表达式&lt;/p>
+&lt;h2 id="pg-方言冲突时更新">pg 方言冲突时更新
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">from&lt;/span> &lt;span class="nn">sqlmodel&lt;/span> &lt;span class="kn">import&lt;/span> &lt;span class="n">Session&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">select&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">insert&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">from&lt;/span> &lt;span class="nn">sqlalchemy.dialects.postgresql&lt;/span> &lt;span class="kn">import&lt;/span> &lt;span class="n">insert&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="n">pg_insert&lt;/span> &lt;span class="p">,&lt;/span>&lt;span class="n">Insert&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">from&lt;/span> &lt;span class="nn">.models.creation_template&lt;/span> &lt;span class="kn">import&lt;/span> &lt;span class="n">CreationTemplate&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">update_creation_template&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">session&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">Session&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">uuid&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="nb">list&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">],&lt;/span>&lt;span class="n">creation_type&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">],&lt;/span>&lt;span class="n">template_id&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">],&lt;/span>&lt;span class="n">commit&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="nb">bool&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">False&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">uuid&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="mi">0&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="n">creation_type&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span> &lt;span class="p">:&lt;/span> &lt;span class="c1"># 兼容旧传参&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">data&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[{&lt;/span>&lt;span class="s2">&amp;#34;res_uuid&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">x&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;creation_type&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">creation_type&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="s2">&amp;#34;template_id&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">template_id&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">x&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">uuid&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stmt&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">Insert&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pg_insert&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">CreationTemplate&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">values&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">data&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 这里一定要 重新赋值&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stmt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">stmt&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">on_conflict_do_update&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">index_elements&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">CreationTemplate&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">res_uuid&lt;/span>&lt;span class="p">],&lt;/span>&lt;span class="n">set_&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="n">CreationTemplate&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">creation_type&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">creation_type&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">CreationTemplate&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">template_id&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="n">template_id&lt;/span>&lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">execute&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">stmt&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">commit&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">session&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">commit&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>stmt = stmt.on_conflict_do_update(index_elements=[CreationTemplate.res_uuid],set_={CreationTemplate.creation_type:creation_type,CreationTemplate.template_id:template_id})&lt;/code> 这行一定要重新赋值，因为on_conflict_do_update 不是原地替换inpalce，是传统的链式调用的模式，这样有相同主键的就会更新字段内容
+其实更简单的是 &lt;code>session.merge(instance)&lt;/code> 会先查再更新或者创建，但是性能上会差一些，也不适合批量更新&lt;/p></description></item></channel></rss>
