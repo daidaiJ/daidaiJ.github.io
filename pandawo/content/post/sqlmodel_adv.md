@@ -53,6 +53,7 @@ async def get_async_session() -> AsyncIterator[AsyncSession]:
 
     async with AsyncSessionLocal() as session:
         yield session
+        await session.commit()
 
 sync_engine = create_engine(
     sync_url,  # postgresql+psycopg2://
@@ -73,6 +74,7 @@ SyncSessionLocal = sessionmaker(
 def get_sync_session()->Iterator[Session]:
     with SyncSessionLocal() as session:
         yield session
+        session.commit()
 ```
 通过上下文管理器装饰器来支持`with` 和 `async with` 自动commit 提交更改
 
