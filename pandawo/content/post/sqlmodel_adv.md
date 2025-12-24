@@ -31,7 +31,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 async_engine = create_async_engine(
-    url,
+    async_url, # 异步dsn  postgresql+asyncpg://
     echo=app.settings.ECHO,
     future=True,
     pool_size=2,
@@ -58,7 +58,7 @@ async def get_async_session() -> AsyncIterator[AsyncSession]:
         
 
 sync_engine = create_engine(
-    url,  # 同步连接串（如 mysql+pymysql://...）
+    sync_url,  # postgresql+psycopg2://
     echo=app.settings.ECHO,
     pool_size=2,
     max_overflow=30,
