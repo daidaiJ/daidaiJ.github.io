@@ -18,6 +18,69 @@ image: https://picsum.photos/seed/9c84c14d/800/600
 # SqlModel 教程之外的实用操作
 sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
 下面就是近期遇到并发掘的一些实用操作
+## 同异步会话创建
+```python
+from contextlib import asynccontextmanager,contextmanager
+from typing import AsyncIterator, Iterator
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy import AsyncAdaptedQueuePool, create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+
+
+async_engine = create_async_engine(
+    url,
+    echo=app.settings.ECHO,
+    future=True,
+    pool_size=2,
+    max_overflow=30,
+    pool_recycle=3600,
+    pool_pre_ping=True,
+    poolclass=AsyncAdaptedQueuePool,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,  # 避免commit后属性过期
+)
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncIterator[AsyncSession]:
+    """ """
+
+    async with AsyncSessionLocal() as session:
+        yield session
+        await session.commit()
+        
+
+sync_engine = create_engine(
+    url,  # 同步连接串（如 mysql+pymysql://...）
+    echo=app.settings.ECHO,
+    pool_size=2,
+    max_overflow=30,
+    pool_recycle=3600,
+    pool_pre_ping=True,
+)
+
+SyncSessionLocal = sessionmaker(
+    bind=sync_engine,
+    class_=Session,
+    expire_on_commit=False,  # 避免commit后属性过期
+)
+
+@contextmanager
+def get_sync_session()->Iterator[Session]:
+    with SyncSessionLocal() as session:
+        yield session
+        session.commit()
+
+```
+通过上下文管理器装饰器来支持`with` 和 `async with` 自动commit 提交更改
+
 ## count 数据计数
 ```python
     with get_session() as session:
