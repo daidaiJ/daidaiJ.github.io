@@ -10,7 +10,7 @@
 <span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#同异步会话创建>同异步会话创建</a></li><li><a href=#count-数据计数>count 数据计数</a></li><li><a href=#批量更新及删除>批量更新及删除</a></li><li><a href=#pg-方言冲突时更新>pg 方言冲突时更新</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/sqlmodel-advance-action/><img src=https://picsum.photos/seed/9c84c14d/800/600 loading=lazy alt="Featured image of post Sqlmodel 官方文档之外的操作"></a></div><div class=article-details><header class=article-category><a href=/categories/orm/>Orm
 </a><a href=/categories/%E5%AE%9E%E7%94%A8%E6%93%8D%E4%BD%9C/>实用操作</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/sqlmodel-advance-action/>Sqlmodel 官方文档之外的操作</a></h2><h3 class=article-subtitle>官方教程之外的实用内容</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
 <time class=article-time--published>Dec 23, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-<time class=article-time--reading>阅读时长: 2 分钟</time></div><div><time class=article-words>732 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=sqlmodel-教程之外的实用操作>SqlModel 教程之外的实用操作</h1><p>sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
+<time class=article-time--reading>阅读时长: 2 分钟</time></div><div><time class=article-words>737 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=sqlmodel-教程之外的实用操作>SqlModel 教程之外的实用操作</h1><p>sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
 下面就是近期遇到并发掘的一些实用操作</p><h2 id=同异步会话创建>同异步会话创建</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
@@ -64,6 +64,8 @@
 </span><span class=lnt>51
 </span><span class=lnt>52
 </span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
 </span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>contextlib</span> <span class=kn>import</span> <span class=n>asynccontextmanager</span><span class=p>,</span><span class=n>contextmanager</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>typing</span> <span class=kn>import</span> <span class=n>AsyncIterator</span><span class=p>,</span> <span class=n>Iterator</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>sqlalchemy.ext.asyncio</span> <span class=kn>import</span> <span class=n>create_async_engine</span><span class=p>,</span> <span class=n>async_sessionmaker</span>
@@ -97,6 +99,7 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>    <span class=k>async</span> <span class=k>with</span> <span class=n>AsyncSessionLocal</span><span class=p>()</span> <span class=k>as</span> <span class=n>session</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>        <span class=k>yield</span> <span class=n>session</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>sync_engine</span> <span class=o>=</span> <span class=n>create_engine</span><span class=p>(</span>
 </span></span><span class=line><span class=cl>    <span class=n>sync_url</span><span class=p>,</span>  <span class=c1># postgresql+psycopg2://</span>
@@ -117,6 +120,7 @@
 </span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>get_sync_session</span><span class=p>()</span><span class=o>-&gt;</span><span class=n>Iterator</span><span class=p>[</span><span class=n>Session</span><span class=p>]:</span>
 </span></span><span class=line><span class=cl>    <span class=k>with</span> <span class=n>SyncSessionLocal</span><span class=p>()</span> <span class=k>as</span> <span class=n>session</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>        <span class=k>yield</span> <span class=n>session</span>
+</span></span><span class=line><span class=cl>        <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
 </span></span></code></pre></td></tr></table></div></div><p>通过上下文管理器装饰器来支持<code>with</code> 和 <code>async with</code> 自动commit 提交更改</p><h2 id=count-数据计数>count 数据计数</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
