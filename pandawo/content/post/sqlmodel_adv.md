@@ -79,8 +79,8 @@ def get_sync_session()->Iterator[Session]:
 
 def session_scope(func):
     """会话管理装饰器（自动开启、提交、回滚、关闭会话）"""
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        from sqlmodel import create_engine
         with SyncSessionLocal() as session:
             try:
                 result = func(*args, session_=session, **kwargs)
