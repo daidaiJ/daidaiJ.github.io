@@ -7,10 +7,10 @@
 <span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
 <select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
 <svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
-<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#同异步会话创建>同异步会话创建</a></li><li><a href=#count-数据计数>count 数据计数</a></li><li><a href=#批量更新及删除>批量更新及删除</a></li><li><a href=#pg-方言冲突时更新>pg 方言冲突时更新</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/sqlmodel-advance-action/><img src=https://picsum.photos/seed/9c84c14d/800/600 loading=lazy alt="Featured image of post Sqlmodel 官方文档之外的操作"></a></div><div class=article-details><header class=article-category><a href=/categories/orm/>Orm
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#同异步会话创建>同异步会话创建</a></li><li><a href=#count-数据计数>count 数据计数</a></li><li><a href=#批量更新及删除>批量更新及删除</a></li><li><a href=#pg-方言冲突时更新>pg 方言冲突时更新</a></li><li><a href=#排序时处理null-值>排序时处理null 值</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/sqlmodel-advance-action/><img src=https://picsum.photos/seed/9c84c14d/800/600 loading=lazy alt="Featured image of post Sqlmodel 官方文档之外的操作"></a></div><div class=article-details><header class=article-category><a href=/categories/orm/>Orm
 </a><a href=/categories/%E5%AE%9E%E7%94%A8%E6%93%8D%E4%BD%9C/>实用操作</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/sqlmodel-advance-action/>Sqlmodel 官方文档之外的操作</a></h2><h3 class=article-subtitle>官方教程之外的实用内容</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
 <time class=article-time--published>Dec 23, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-<time class=article-time--reading>阅读时长: 2 分钟</time></div><div><time class=article-words>737 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=sqlmodel-教程之外的实用操作>SqlModel 教程之外的实用操作</h1><p>sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
+<time class=article-time--reading>阅读时长: 3 分钟</time></div><div><time class=article-words>1208 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=sqlmodel-教程之外的实用操作>SqlModel 教程之外的实用操作</h1><p>sqlmodel 官方的一些教程基本上都是偏向python 查询到model 实例再操作的循环流程，对于一些可能有大批量数据的场景来说不是很友好，毕竟cython 比数据操作会更慢。
 下面就是近期遇到并发掘的一些实用操作</p><h2 id=同异步会话创建>同异步会话创建</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
@@ -66,6 +66,21 @@
 </span><span class=lnt>53
 </span><span class=lnt>54
 </span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
 </span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>contextlib</span> <span class=kn>import</span> <span class=n>asynccontextmanager</span><span class=p>,</span><span class=n>contextmanager</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>typing</span> <span class=kn>import</span> <span class=n>AsyncIterator</span><span class=p>,</span> <span class=n>Iterator</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>sqlalchemy.ext.asyncio</span> <span class=kn>import</span> <span class=n>create_async_engine</span><span class=p>,</span> <span class=n>async_sessionmaker</span>
@@ -121,6 +136,21 @@
 </span></span><span class=line><span class=cl>    <span class=k>with</span> <span class=n>SyncSessionLocal</span><span class=p>()</span> <span class=k>as</span> <span class=n>session</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>        <span class=k>yield</span> <span class=n>session</span>
 </span></span><span class=line><span class=cl>        <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>session_scope</span><span class=p>(</span><span class=n>func</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;会话管理装饰器（自动开启、提交、回滚、关闭会话）&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nd>@wraps</span><span class=p>(</span><span class=n>func</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>wrapper</span><span class=p>(</span><span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=k>with</span> <span class=n>SyncSessionLocal</span><span class=p>()</span> <span class=k>as</span> <span class=n>session</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>result</span> <span class=o>=</span> <span class=n>func</span><span class=p>(</span><span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=n>session_</span><span class=o>=</span><span class=n>session</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>result</span>
+</span></span><span class=line><span class=cl>            <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>e</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>session</span><span class=o>.</span><span class=n>rollback</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                <span class=k>raise</span> <span class=n>e</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>wrapper</span>
 </span></span></code></pre></td></tr></table></div></div><p>通过上下文管理器装饰器来支持<code>with</code> 和 <code>async with</code> 自动commit 提交更改</p><h2 id=count-数据计数>count 数据计数</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
 </span><span class=lnt>2
 </span><span class=lnt>3
@@ -180,7 +210,90 @@
 </span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>commit</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>        <span class=n>session</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
 </span></span></code></pre></td></tr></table></div></div><p><code>stmt = stmt.on_conflict_do_update(index_elements=[CreationTemplate.res_uuid],set_={CreationTemplate.creation_type:creation_type,CreationTemplate.template_id:template_id})</code> 这行一定要重新赋值，因为on_conflict_do_update 不是原地替换inpalce，是传统的链式调用的模式，这样有相同主键的就会更新字段内容
-其实更简单的是 <code>session.merge(instance)</code> 会先查再更新或者创建，但是性能上会差一些，也不适合批量更新</p></section><footer class=article-footer><section class=article-tags><a href=/tags/python/>Python</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+其实更简单的是 <code>session.merge(instance)</code> 会先查再更新或者创建，但是性能上会差一些，也不适合批量更新
+工具类</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>PGConflictBase</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=nd>@session_scope</span> <span class=c1># 装饰器注入session</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>conflict_or_do_nothing</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span><span class=n>session_</span><span class=p>:</span> <span class=n>Session</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>            仅创建一次
+</span></span></span><span class=line><span class=cl><span class=s2>        &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=n>stmt</span><span class=p>:</span><span class=n>Insert</span> <span class=o>=</span> <span class=n>pg_insert</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=vm>__class__</span><span class=p>)</span><span class=o>.</span><span class=n>values</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>model_dump</span><span class=p>(</span><span class=n>exclude_unset</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>exclude_none</span><span class=o>=</span><span class=kc>False</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=n>pk</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=vm>__class__</span><span class=o>.</span><span class=n>get_pk_fields</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=n>stmt</span> <span class=o>=</span> <span class=n>stmt</span><span class=o>.</span><span class=n>on_conflict_do_nothing</span><span class=p>(</span><span class=n>index_elements</span><span class=o>=</span><span class=n>pk</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>session_</span><span class=o>.</span><span class=n>exec</span><span class=p>(</span><span class=n>stmt</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>session_</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nd>@session_scope</span> <span class=c1># 装饰器注入session</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>conflict_or_do_update</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span><span class=n>session_</span><span class=p>:</span> <span class=n>Session</span><span class=p>,</span><span class=n>exclude_fields</span><span class=p>:</span> <span class=n>Optional</span><span class=p>[</span><span class=n>List</span><span class=p>[</span><span class=nb>str</span><span class=p>]]</span> <span class=o>=</span> <span class=kc>None</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;
+</span></span></span><span class=line><span class=cl><span class=s2>            仅创建一次
+</span></span></span><span class=line><span class=cl><span class=s2>        &#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=n>pk</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=vm>__class__</span><span class=o>.</span><span class=n>get_pk_fields</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=n>exclude_fields</span> <span class=o>=</span> <span class=n>exclude_fields</span><span class=o>.</span><span class=n>extend</span><span class=p>(</span><span class=n>pk</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>instance_data</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>model_dump</span><span class=p>(</span><span class=n>exclude_unset</span><span class=o>=</span><span class=kc>True</span><span class=err>，</span><span class=n>exclude_none</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>stmt</span><span class=p>:</span><span class=n>Insert</span> <span class=o>=</span> <span class=n>pg_insert</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=vm>__class__</span><span class=p>)</span><span class=o>.</span><span class=n>values</span><span class=p>(</span><span class=n>instance_data</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>update_values</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>field</span><span class=p>:</span> <span class=nb>getattr</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>field</span><span class=p>)</span>  <span class=c1># 直观获取当前实例的字段值，可读性极强</span>
+</span></span><span class=line><span class=cl>            <span class=k>for</span> <span class=n>field</span> <span class=ow>in</span> <span class=n>instance_data</span><span class=o>.</span><span class=n>keys</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>field</span> <span class=ow>not</span> <span class=ow>in</span> <span class=n>exclude_fields</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=n>stmt</span> <span class=o>=</span> <span class=n>stmt</span><span class=o>.</span><span class=n>on_conflict_do_update</span><span class=p>(</span><span class=n>index_elements</span><span class=o>=</span><span class=n>pk</span><span class=p>,</span><span class=n>set_</span><span class=o>=</span><span class=n>update_values</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>session_</span><span class=o>.</span><span class=n>exec</span><span class=p>(</span><span class=n>stmt</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>session_</span><span class=o>.</span><span class=n>commit</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=nd>@classmethod</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>get_pk_fields</span><span class=p>(</span><span class=bp>cls</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=c1># 检查模型并获取mapper对象</span>
+</span></span><span class=line><span class=cl>        <span class=n>mapper</span> <span class=o>=</span> <span class=n>inspect</span><span class=p>(</span><span class=bp>cls</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=c1># 提取主键字段名</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>[</span><span class=n>col</span><span class=o>.</span><span class=n>key</span> <span class=k>for</span> <span class=n>col</span> <span class=ow>in</span> <span class=n>mapper</span><span class=o>.</span><span class=n>primary_key</span><span class=p>]</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=排序时处理null-值>排序时处理null 值</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>obj</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>rank_no</span><span class=p>:</span><span class=n>Optional</span><span class=p>[</span><span class=nb>int</span><span class=p>]</span><span class=o>=</span><span class=n>Field</span><span class=p>(</span><span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span><span class=n>description</span><span class=o>=</span><span class=s2>&#34;排序数，可以为空&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=c1># </span>
+</span></span><span class=line><span class=cl><span class=n>order</span> <span class=o>=</span> <span class=n>col</span><span class=p>(</span><span class=n>obj</span><span class=o>.</span><span class=n>rank_no</span><span class=p>)</span><span class=o>.</span><span class=n>asc</span><span class=p>()</span><span class=o>.</span><span class=n>nulls_last</span><span class=p>()</span> <span class=c1># 默认的情况下会将null 值排前面，使用nulls_last() 可以置后</span>
+</span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-tags><a href=/tags/python/>Python</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
 <span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><footer class=site-footer><section class=copyright>&copy;
 2020 -
 2025 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
