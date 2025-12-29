@@ -123,3 +123,51 @@ def update_creation_template(session:Session,uuid:list[str],creation_type:Option
 ```
 `stmt = stmt.on_conflict_do_update(index_elements=[CreationTemplate.res_uuid],set_={CreationTemplate.creation_type:creation_type,CreationTemplate.template_id:template_id})`   这行一定要重新赋值，因为on_conflict_do_update 不是原地替换inpalce，是传统的链式调用的模式，这样有相同主键的就会更新字段内容
 其实更简单的是 `session.merge(instance)` 会先查再更新或者创建，但是性能上会差一些，也不适合批量更新
+工具类
+```python
+
+class PGConflictBase:
+    @session_scope # 装饰器注入session
+    def conflict_or_do_nothing(self,session_: Session):
+        """
+            仅创建一次
+        """
+        stmt:Insert = pg_insert(self.__class__).values(self.model_dump(exclude_unset=True, exclude_none=False))
+        pk = self.__class__.get_pk_fields()
+        stmt = stmt.on_conflict_do_nothing(index_elements=pk)
+        session_.exec(stmt)
+        session_.commit()
+
+    @session_scope # 装饰器注入session
+    def conflict_or_do_update(self,session_: Session,exclude_fields: Optional[List[str]] = None):
+        """
+            仅创建一次
+        """
+        pk = self.__class__.get_pk_fields()
+        exclude_fields = exclude_fields.extend(pk)
+        instance_data = self.model_dump(exclude_unset=True，exclude_none=False)
+        stmt:Insert = pg_insert(self.__class__).values(instance_data)
+        update_values = {
+            field: getattr(self, field)  # 直观获取当前实例的字段值，可读性极强
+            for field in instance_data.keys()
+            if field not in exclude_fields
+        }
+        stmt = stmt.on_conflict_do_update(index_elements=pk,set_=update_values)
+        session_.exec(stmt)
+        session_.commit()
+    
+    @classmethod
+    def get_pk_fields(cls):
+        # 检查模型并获取mapper对象
+        mapper = inspect(cls)
+        # 提取主键字段名
+        return [col.key for col in mapper.primary_key]
+```
+
+## 排序时处理null 值
+```python
+class obj:
+    rank_no:Optional[int]=Field(default=None,description="排序数，可以为空")
+# 
+order = col(obj.rank_no).asc().nulls_last() # 默认的情况下会将null 值排前面，使用nulls_last() 可以置后
+```
