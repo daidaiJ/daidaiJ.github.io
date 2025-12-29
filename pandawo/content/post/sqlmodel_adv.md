@@ -75,6 +75,22 @@ def get_sync_session()->Iterator[Session]:
     with SyncSessionLocal() as session:
         yield session
         session.commit()
+
+
+def session_scope(func):
+    """会话管理装饰器（自动开启、提交、回滚、关闭会话）"""
+    def wrapper(*args, **kwargs):
+        from sqlmodel import create_engine
+        with SyncSessionLocal() as session:
+            try:
+                result = func(*args, session_=session, **kwargs)
+                session.commit()
+                return result
+            except Exception as e:
+                session.rollback()
+                raise e
+    return wrapper
+
 ```
 通过上下文管理器装饰器来支持`with` 和 `async with` 自动commit 提交更改
 
