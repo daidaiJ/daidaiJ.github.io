@@ -40,7 +40,7 @@ typedef struct {
     int32_t hostpid;
     device_memory_t used[CUDA_DEVICE_MAX_COUNT]; // 显存分配信息，对监控没啥用，但是是实现共享显存的基础
     uint64_t monitorused[CUDA_DEVICE_MAX_COUNT]; // 显存用量字节
-    device_util_t device_util[CUDA_DEVICE_MAX_COUNT]; // 存储
+    device_util_t device_util[CUDA_DEVICE_MAX_COUNT]; // 存储sm 核心使用率
     int32_t status;   // GPU 状态
     uint64_t unused[3];
 } shrreg_proc_slot_t;
@@ -153,3 +153,4 @@ int get_used_gpu_utilization(int *userutil,int *sysprocnum) {
 }
 
 ```
+这里获取的时候也是直接按节点上的deviceidx 设备索引号来获取有负载的卡上的不同任务负载的显存用量和利用率数据
