@@ -241,8 +241,8 @@ func (s Spec) GetProcs() []ShrregProcSlotT {
 
 ```
 这里我是手动确认了项目中cache 格式是符合v1 格式的，于是只做了v1 格式的解析工具
-使用如下 `./hami_cache -f e38008ef-62e3-4400-8d87-dab22aaff197.cache` 后者就是从环境中拷贝出来的cache 文件
-![cache 文件解析结果](asset/hami_cache.png)
+使用如下 `./hami_cache -f e38008ef-62e3-4400-8d87-dab22aaff197.cache` 后者就是从环境中拷贝出来的cache 文件  
+![cache 文件解析结果](asset/hami_cache.png)  
 目前可以确认cache 拿到的就是util 0 ，这时观察到hostpid 和pid 相等，怀疑是hostpid 到pid 映射失败，Hami core 只拿到容器内pid 的
 接下来，需要在Hami 管理的容器中去尝试通过相同逻辑获取使用率，确认最终问题
 
@@ -328,8 +328,8 @@ if __name__ == "__main__":
       }
 
 ```
-运行结果如下
-![hami nvml 容器内执行结果](asset/hami_nvml.png)
+运行结果如下  
+![hami nvml 容器内执行结果](asset/hami_nvml.png)  
 可以看到这中间的冲突是hostpid 在节点上是36103 和上一步拿到写在cache 中的hostpid 1082 完全不等，那这个猜想合理么？
 
 ## hami core 映射proc 和hostpid 的源码
