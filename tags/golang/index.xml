@@ -1,4 +1,651 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 29 Sep 2025 10:51:48 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>纯go 调用dll 实现一些动态装载</title><link>https://daidaij.github.io/p/godllno-cgo/</link><pubDate>Mon, 29 Sep 2025 10:51:48 +0800</pubDate><guid>https://daidaij.github.io/p/godllno-cgo/</guid><description>&lt;img src="https://picsum.photos/seed/d91a0fe0/800/600" alt="Featured image of post 纯go 调用dll 实现一些动态装载" />&lt;h1 id="golang-调用dll-实践">golang 调用dll 实践
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 09 Jan 2026 18:14:42 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>HAMI vgpu monitor 解析：（二）</title><link>https://daidaij.github.io/p/vgpu/</link><pubDate>Fri, 09 Jan 2026 18:14:42 +0800</pubDate><guid>https://daidaij.github.io/p/vgpu/</guid><description>&lt;img src="https://picsum.photos/seed/478a975b/800/600" alt="Featured image of post HAMI vgpu monitor 解析：（二）" />&lt;h1 id="从hami-vgpu-monitor-排错开始">从HAMi vGPU Monitor 排错开始
+&lt;/h1>&lt;blockquote>
+&lt;p>近期项目中hami vgpu monitor 的vgpu 利用率一直获取为0，但是节点上的物理卡nvidia-smi 利用率为100% 附近，两者显然是冲突的，下面是排查的过程，包括一些工具脚本的开发&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="解析cache-文件">解析cache 文件
+&lt;/h2>&lt;p>从上一篇指定vgpu monitor 获取的数据源是一个mmap 创建的内存映射cache文件，我们从hami pkg monitor 中截取一部分代码，用来作为一个hami cache 文件解析的工具，代码主要如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">//go:build linux
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// +build linux
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">package&lt;/span> &lt;span class="nx">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;flag&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">v1&lt;/span> &lt;span class="s">&amp;#34;hami_tool/v1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;os&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;syscall&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">UsageInfo&lt;/span> &lt;span class="nx">v1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">ContainerUsage&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">PodUID&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ContainerName&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">data&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">byte&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Info&lt;/span> &lt;span class="nx">v1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">readCacheFile&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">cacheFile&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">ContainerUsage&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 1. 打开文件（只读模式）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">f&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">OpenFile&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">cacheFile&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">O_RDONLY&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mo">0666&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Errorf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;打开缓存文件失败: %w&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">defer&lt;/span> &lt;span class="kd">func&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">_&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">f&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Close&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;已关闭文件：%s\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">cacheFile&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 2. 获取文件信息（大小）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">info&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">f&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Stat&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Errorf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;获取文件信息失败: %w&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fileSize&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Size&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">fileSize&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Errorf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;缓存文件为空：%s&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">cacheFile&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;缓存文件大小：%d 字节\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fileSize&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 3. mmap映射文件（仅读取）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">mmapData&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">syscall&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Mmap&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">f&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fd&lt;/span>&lt;span class="p">()),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">fileSize&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">syscall&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">PROT_READ&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">syscall&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">MAP_SHARED&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Errorf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;mmap映射文件失败: %w&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 确保mmap内存最终会释放（无论解析是否成功）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">defer&lt;/span> &lt;span class="kd">func&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">syscall&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Munmap&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">mmapData&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;释放mmap内存失败: %v\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;已释放mmap内存，长度：%d\n&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">mmapData&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 4. 深拷贝mmap数据到新的字节切片（核心修改）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">dataCopy&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">([]&lt;/span>&lt;span class="kt">byte&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">mmapData&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">copy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dataCopy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">mmapData&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 将mmap内存的数据复制到新内存
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 5. 用拷贝后的数据解析（此时解析结果不再依赖mmap内存）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;casting......v1\n&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">usage&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">ContainerUsage&lt;/span>&lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">usage&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Info&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">v1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">CastSpec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dataCopy&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 6. 返回解析结果（仅保留Info，mmap内存会在defer中释放）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="nx">usage&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kc">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">main&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 1. 解析命令行参数
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">var&lt;/span> &lt;span class="nx">cacheFile&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">flag&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">StringVar&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">cacheFile&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;f&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;缓存文件路径（必填）&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">flag&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Parse&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 2. 校验参数
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">cacheFile&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;必须通过 -f 参数指定缓存文件路径&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">flag&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Usage&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1">// 打印用法
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Exit&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 3. 核心逻辑：一次性读取并解析mmap文件
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">usage&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">readCacheFile&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">cacheFile&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;处理缓存文件失败: %v&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Exit&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">proc&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">usage&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetProcs&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Printf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34; %d proc hostpid [%d] pid [%d] util [%d] mem [%d]&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetHostPid&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetPid&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetUtil&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetMemUtil&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>v1 的核心定义如下，基本上是nvidia v1 里面spec 定义稍微修改了点&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">package&lt;/span> &lt;span class="nx">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="s">&amp;#34;unsafe&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">const&lt;/span> &lt;span class="nx">maxDevices&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">16&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">deviceMemory&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">contextSize&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">moduleSize&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">bufferSize&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">offset&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">total&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">unused&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">deviceUtilization&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">decUtil&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">encUtil&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">smUtil&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">unused&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">ShrregProcSlotT&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pid&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">hostpid&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">used&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="nx">deviceMemory&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">monitorused&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">deviceUtil&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="nx">deviceUtilization&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">status&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">unused&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="nx">ShrregProcSlotT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">GetHostPid&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">int32&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">hostpid&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="nx">ShrregProcSlotT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">GetPid&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">int32&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">pid&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="nx">ShrregProcSlotT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">GetMemUtil&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">uint64&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">val&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">monitorused&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">val&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">val&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="nx">ShrregProcSlotT&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">GetUtil&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">uint64&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">device&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">deviceUtil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">device&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">smUtil&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">device&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">smUtil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">uuid&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">uuid&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">96&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">byte&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">semT&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sem&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">32&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">byte&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">SharedRegionT&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">initializedFlag&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">majorVersion&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">minorVersion&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">smInitFlag&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ownerPid&lt;/span> &lt;span class="kt">uint32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sem&lt;/span> &lt;span class="nx">semT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">num&lt;/span> &lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">uuids&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="nx">uuid&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">limit&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">smLimit&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">procs&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">1024&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="nx">ShrregProcSlotT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">procnum&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">utilizationSwitch&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">recentKernel&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">priority&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">lastKernelTime&lt;/span> &lt;span class="kt">int64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">unused&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">Spec&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sr&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">SharedRegionT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">CastSpec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">data&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">byte&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">Spec&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">Spec&lt;/span>&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sr&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">SharedRegionT&lt;/span>&lt;span class="p">)(&lt;/span>&lt;span class="nx">unsafe&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Pointer&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">])),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="nx">Spec&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">GetProcs&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">ShrregProcSlotT&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ret&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">ShrregProcSlotT&lt;/span>&lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">proc&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">sr&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">procs&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">hostpid&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">pid&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ret&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">append&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ret&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">proc&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">ret&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这里我是手动确认了项目中cache 格式是符合v1 格式的，于是只做了v1 格式的解析工具
+使用如下 &lt;code>./hami_cache -f e38008ef-62e3-4400-8d87-dab22aaff197.cache&lt;/code> 后者就是从环境中拷贝出来的cache 文件&lt;br>
+&lt;img src="https://daidaij.github.io/asset/hami_cache.png"
+loading="lazy"
+alt="cache 文件解析结果"
+>&lt;br>
+目前可以确认cache 拿到的就是util 0 ，这时观察到hostpid 和pid 相等，怀疑是hostpid 到pid 映射失败，Hami core 只拿到容器内pid 的
+接下来，需要在Hami 管理的容器中去尝试通过相同逻辑获取使用率，确认最终问题&lt;/p>
+&lt;h2 id="容器内获取util-demo">容器内获取util demo
+&lt;/h2>&lt;p>这里用的是nvidia-ml-py 这个nvml 的python 绑定，hami core 通过libvgpu.so 注入劫持了nvml 的直接调用，所以通过nvml 的python binding库搭配脚本，可以避开编译调试的复杂性，测试如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">from&lt;/span> &lt;span class="nn">contextlib&lt;/span> &lt;span class="kn">import&lt;/span> &lt;span class="n">contextmanager&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">pynvml&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nd">@contextmanager&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_nvml&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlInit&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">yield&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">finally&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlShutdown&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">gettimeofday_microsec&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;&amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 纯Python实现：获取当前Unix微秒时间戳（向前偏移1秒）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> 功能等价于原C代码+ctypes封装的逻辑，无任何C依赖
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2"> &amp;#34;&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 获取当前时间的秒数和微秒数（等价于C的gettimeofday）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># time.time() 返回浮点数，单位为秒，精度到微秒级&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">current_time&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">time&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 拆分出秒数和微秒数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">tv_sec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">current_time&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># 整数部分：秒数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">tv_usec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">int&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="n">current_time&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">tv_sec&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">1000000&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># 小数部分转微秒&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 核心逻辑：向前偏移1秒（和原代码一致，避免秒数为0时出现负数）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">tv_sec&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">tv_sec&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 计算最终的微秒级时间戳&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">microsec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">sec&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">1000&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">1000&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">tv_usec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">microsec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nd">@_nvml&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">debug&lt;/span>&lt;span class="p">():&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">gpu_num&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="nb">int&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlDeviceGetCount&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="nb">range&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">gpu_num&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">handle&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlDeviceGetHandleByIndex&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">procs&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlDeviceGetComputeRunningProcesses&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">handle&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="n">proc&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">procs&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlSystemGetProcessName&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">proc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pid&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">proc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">usedGpuMemory&lt;/span> &lt;span class="o">//&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">1024&lt;/span>&lt;span class="o">**&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">util&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlDeviceGetUtilizationRates&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">handle&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">microsec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">gettimeofday_microsec&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">hami_sm_utils&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pynvml&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">nvmlDeviceGetProcessUtilization&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">handle&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">microsec&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;pid &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">proc&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pid&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> name &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> mem &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">memory&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> util &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">util&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">gpu&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="n">hami_util&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">hami_sm_utils&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sm_util&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">hami_util&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sm_util&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">print&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;hami pid &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">hami_util&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pid&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">sm_util&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="vm">__name__&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s2">&amp;#34;__main__&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">debug&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这里主要是观察hami 通过pynvml.nvmlDeviceGetProcessUtilization 拿到的设备sm util 的过程来模拟其源码中定时获取监控数据的更新逻辑&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Get SM util for container
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">processes_num&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">nvmlDevice_t&lt;/span> &lt;span class="n">device&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 获取一秒间隔中的利用率采样数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">gettimeofday&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">cur&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="nb">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">microsec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cur&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">tv_sec&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">1000UL&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">1000UL&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">cur&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">tv_usec&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">nvmlProcessUtilizationSample_t&lt;/span> &lt;span class="n">processes_sample&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">SHARED_REGION_MAX_PROCESS_NUM&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">processes_num&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">SHARED_REGION_MAX_PROCESS_NUM&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">res&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nf">nvmlDeviceGetProcessUtilization&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">device&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">processes_sample&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">processes_num&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="n">microsec&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">res&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">NVML_SUCCESS&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">processes_num&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">){&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proc&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nf">find_proc_by_hostpid&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">processes_sample&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">pid&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">proc&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="nb">NULL&lt;/span>&lt;span class="p">){&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sum&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">processes_sample&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">smUtil&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proc&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">device_util&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">cudadev&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">sm_util&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">processes_sample&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">smUtil&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>运行结果如下&lt;br>
+&lt;img src="https://daidaij.github.io/asset/hami_nvml.png"
+loading="lazy"
+alt="hami nvml 容器内执行结果"
+>&lt;br>
+可以看到这中间的冲突是hostpid 在节点上是36103 和上一步拿到写在cache 中的hostpid 1082 完全不等，那这个猜想合理么？&lt;/p>
+&lt;h2 id="hami-core-映射proc-和hostpid-的源码">hami core 映射proc 和hostpid 的源码
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="kt">shrreg_proc_slot_t&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nf">find_proc_by_hostpid&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">int&lt;/span> &lt;span class="n">hostpid&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">int&lt;/span> &lt;span class="n">i&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">region_info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">shared_region&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">proc_num&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">region_info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">shared_region&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">procs&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">hostpid&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">hostpid&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">region_info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">shared_region&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">procs&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nb">NULL&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>可以看到就是凭借一个hostpid 相等来定位的，但是按照cache 中解析的那样，容器中hami core 错误将hostpid 和pid 弄成一个数了，目前还没想到好办法来解决，因为节点上会存在多卡情况，一个proc 可能存在多个卡上，用&lt;code>nvmlDeviceGetUtilizationRates&lt;/code> 不能完全满足需求&lt;/p></description></item><item><title>纯go 调用dll 实现一些动态装载</title><link>https://daidaij.github.io/p/godllno-cgo/</link><pubDate>Mon, 29 Sep 2025 10:51:48 +0800</pubDate><guid>https://daidaij.github.io/p/godllno-cgo/</guid><description>&lt;img src="https://picsum.photos/seed/d91a0fe0/800/600" alt="Featured image of post 纯go 调用dll 实现一些动态装载" />&lt;h1 id="golang-调用dll-实践">golang 调用dll 实践
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>众所周知，go 支持通过cgo 方式直接嵌入c/cpp 代码，但是有时候涉及到ffi 的部分仅仅是一小部分的业务功能，没有必要开混编。&lt;/p>
