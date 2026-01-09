@@ -1,6 +1,6 @@
 ---
 title: "HAMI vgpu monitor 解析：（二）"
-slug: "vGPU"
+slug: "vGPU2"
 description: "HAMI vgpu原理解析笔记"
 date: 2026-01-09T18:14:42+08:00
 lastmod: 2026-01-09T18:14:42+08:00
