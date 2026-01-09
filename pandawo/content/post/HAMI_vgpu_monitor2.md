@@ -2,8 +2,8 @@
 title: "HAMI vgpu monitor 解析：（二）"
 slug: "vGPU"
 description: "HAMI vgpu原理解析笔记"
-date: 2026-01-08T11:23:12+08:00
-lastmod: 2026-01-08T11:23:12+08:00
+date: 2026-01-09T18:14:42+08:00
+lastmod: 2026-01-09T18:14:42+08:00
 draft: false
 toc: true
 hidden: false
@@ -11,8 +11,8 @@ weight: false
 musicid: 5264842
 qqmusic: 
 categories: ["vgpu"]
-tags: ["解析"]
-image: https://picsum.photos/seed/d4228b53/800/600
+tags: ["golang","python"]
+image: https://picsum.photos/seed/478a975b/800/600
 ---
 # 从HAMi vGPU Monitor 排错开始
 > 近期项目中hami vgpu monitor 的vgpu 利用率一直获取为0，但是节点上的物理卡nvidia-smi 利用率为100% 附近，两者显然是冲突的，下面是排查的过程，包括一些工具脚本的开发
