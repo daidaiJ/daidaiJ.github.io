@@ -1,4 +1,26 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 09 Jan 2026 18:14:42 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>HAMI vgpu monitor 解析：（二）</title><link>https://daidaij.github.io/p/vgpu2/</link><pubDate>Fri, 09 Jan 2026 18:14:42 +0800</pubDate><guid>https://daidaij.github.io/p/vgpu2/</guid><description>&lt;img src="https://picsum.photos/seed/478a975b/800/600" alt="Featured image of post HAMI vgpu monitor 解析：（二）" />&lt;h1 id="从hami-vgpu-monitor-排错开始">从HAMi vGPU Monitor 排错开始
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Wed, 14 Jan 2026 13:29:25 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>Docker push ununauthorized</title><link>https://daidaij.github.io/p/docker-push-ununauthorized/</link><pubDate>Wed, 14 Jan 2026 13:29:25 +0800</pubDate><guid>https://daidaij.github.io/p/docker-push-ununauthorized/</guid><description>&lt;img src="https://picsum.photos/seed/fd3bdfd0/800/600" alt="Featured image of post Docker push ununauthorized" />&lt;h1 id="记录一次harbor-镜像报错失败的定位流程">记录一次harbor 镜像报错失败的定位流程
+&lt;/h1>&lt;blockquote>
+&lt;p>问题背景，在通过docker client 库向harbor 仓库推送一个28G 左右的镜像时，会遇到推送到100% 左右出现&lt;code>unauthorized: unauthorized to access repository: project_name/repo_name &lt;/code>的报错，导致整个job 失败，然后出现重试，导致业务层面看到push 进度从100%&amp;ndash;&amp;gt; 0% 的奇怪现象&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="搜索与llm">搜索与llm
+&lt;/h2>&lt;ol>
+&lt;li>llm 提示要检查nginx 转发配置和认证的token 配置的有效时间；&lt;/li>
+&lt;li>搜索到的绝大多数解决方法都是 login 一下&lt;/li>
+&lt;/ol>
+&lt;p>这两者中1 比较符合项目上出现的情况，因为是有成功过的推送过程的，近似于超时，2 离得比较远了，而且确认过鉴权正常；&lt;/p>
+&lt;h2 id="翻找harbor-issue">翻找harbor issue
+&lt;/h2>&lt;blockquote>
+&lt;p>Can&amp;rsquo;t push large image if the process takes more then 30 min - unauthorized to access repository&lt;br>
+&lt;a class="link" href="https://github.com/goharbor/harbor/issues/19413" target="_blank" rel="noopener"
+>harbor push 30min超时，出现unauthorized: unauthorized to access repository&lt;/a> 这是原issue 连接 ，有相应的解决方法&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://daidaij.github.io/asset/harbor_session_expire.png"
+loading="lazy"
+alt="harbor 会话有效时间"
+>
+这里对应我们业务的影响其实是会话有效时间，貌似harbor 需要在一个鉴权后的会话中完成镜像的推送流程&lt;/p>
+&lt;h2 id="结论">结论
+&lt;/h2>&lt;p>在harbor web 管理页中修改了系统配置的会话有效时间解决了这个问题&lt;/p></description></item><item><title>HAMI vgpu monitor 解析：（二）</title><link>https://daidaij.github.io/p/vgpu2/</link><pubDate>Fri, 09 Jan 2026 18:14:42 +0800</pubDate><guid>https://daidaij.github.io/p/vgpu2/</guid><description>&lt;img src="https://picsum.photos/seed/478a975b/800/600" alt="Featured image of post HAMI vgpu monitor 解析：（二）" />&lt;h1 id="从hami-vgpu-monitor-排错开始">从HAMi vGPU Monitor 排错开始
 &lt;/h1>&lt;blockquote>
 &lt;p>近期项目中hami vgpu monitor 的vgpu 利用率一直获取为0，但是节点上的物理卡nvidia-smi 利用率为100% 附近，两者显然是冲突的，下面是排查的过程，包括一些工具脚本的开发&lt;/p>
 &lt;/blockquote>
