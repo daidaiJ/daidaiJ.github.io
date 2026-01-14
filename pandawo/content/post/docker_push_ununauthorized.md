@@ -1,7 +1,7 @@
 ---
-title: "Docker push ununauthorized"
+title: "Docker push unauthorized"
 slug: ""
-description: ""
+description: "docker 推送大镜像异常，报告unauthorized"
 date: 2026-01-14T13:29:25+08:00
 lastmod: 2026-01-14T13:29:25+08:00
 draft: false
