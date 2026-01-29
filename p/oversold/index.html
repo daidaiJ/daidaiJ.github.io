@@ -1,0 +1,397 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="HAMI vGPU 虚拟化原理笔记"><title>HAMI 虚拟化原理与资源超卖机制</title>
+<link rel=canonical href=https://daidaij.github.io/p/oversold/><link rel=stylesheet href=/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css><meta property='og:title' content="HAMI 虚拟化原理与资源超卖机制"><meta property='og:description' content="HAMI vGPU 虚拟化原理笔记"><meta property='og:url' content='https://daidaij.github.io/p/oversold/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='golang'><meta property='article:tag' content='kubernetes'><meta property='article:published_time' content='2026-01-29T11:00:00+08:00'><meta property='article:modified_time' content='2026-01-29T11:00:00+08:00'><meta property='og:image' content='https://picsum.photos/seed/33b4728e/800/600'><meta name=twitter:title content="HAMI 虚拟化原理与资源超卖机制"><meta name=twitter:description content="HAMI vGPU 虚拟化原理笔记"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/33b4728e/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><ol class=menu-social><li><a href=https://daidaij.github.io/ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#一调度器原理>一、调度器原理</a><ol><li><a href=#11-架构概述>1.1 架构概述</a></li><li><a href=#12-部署架构>1.2 部署架构</a></li><li><a href=#13-关键配置>1.3 关键配置</a></li><li><a href=#14-资源感知机制>1.4 资源感知机制</a><ol><li><a href=#141-感知节点上的-gpu-资源信息>1.4.1 感知节点上的 GPU 资源信息</a></li><li><a href=#142-感知节点上-gpu-使用情况>1.4.2 感知节点上 GPU 使用情况</a></li></ol></li><li><a href=#15-调度核心算法>1.5 调度核心算法</a><ol><li><a href=#151-filter-接口节点过滤与打分>1.5.1 Filter 接口（节点过滤与打分）</a></li><li><a href=#152-bind-接口完成调度>1.5.2 Bind 接口（完成调度）</a></li></ol></li><li><a href=#16-内存数据结构>1.6 内存数据结构</a></li></ol></li><li><a href=#二资源超卖机制>二、资源超卖机制</a><ol><li><a href=#21-超卖配置参数>2.1 超卖配置参数</a></li><li><a href=#22-资源充足情况>2.2 资源充足情况</a></li><li><a href=#23-资源不足情况>2.3 资源不足情况</a></li><li><a href=#24-显存超卖原理>2.4 显存超卖原理</a><ol><li><a href=#241-运行时显存分配失败处理机制>2.4.1 运行时显存分配失败处理机制</a></li></ol></li><li><a href=#25-核心超卖原理>2.5 核心超卖原理</a></li><li><a href=#26-调度策略配置>2.6 调度策略配置</a></li></ol></li><li><a href=#三调度流程总结>三、调度流程总结</a></li><li><a href=#四关键环境变量汇总>四、关键环境变量汇总</a></li><li><a href=#五总结>五、总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/oversold/><img src=https://picsum.photos/seed/33b4728e/800/600 loading=lazy alt="Featured image of post HAMI 虚拟化原理与资源超卖机制"></a></div><div class=article-details><header class=article-category><a href=/categories/vgpu/>Vgpu</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/oversold/>HAMI 虚拟化原理与资源超卖机制</a></h2><h3 class=article-subtitle>HAMI vGPU 虚拟化原理笔记</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Jan 29, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div><div><time class=article-words>3432 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=hami-虚拟化原理与资源超卖机制>HAMI 虚拟化原理与资源超卖机制</h1><blockquote><p>HAMI（HAMi）是一个开源的 vGPU 方案，本文从调度器原理、资源超卖两个方面做个总结。</p></blockquote><h2 id=一调度器原理>一、调度器原理</h2><h3 id=11-架构概述>1.1 架构概述</h3><p>Hami-scheduler 采用 <strong>Scheduler Extender</strong> 机制实现，而非直接扩展 default-scheduler：</p><ul><li>使用默认 <code>kube-scheduler</code> 镜像启动服务，通过配置将调度器名称指定为 <code>hami-scheduler</code></li><li>为该调度器配置 Extender，Extender 服务由同一 Pod 中的另一个 Container 启动的 HTTP 服务提供</li></ul><h3 id=12-部署架构>1.2 部署架构</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Deployment (kube-system/vgpu-hami-scheduler)
+</span></span><span class=line><span class=cl>├── Container 1: kube-scheduler（原生调度器）
+</span></span><span class=line><span class=cl>│   └── 使用 KubeSchedulerConfiguration 配置 Extender
+</span></span><span class=line><span class=cl>└── Container 2: vgpu-scheduler-extender（HAMi 调度逻辑）
+</span></span><span class=line><span class=cl>    └── 提供 /filter 和 /bind HTTP 接口
+</span></span></code></pre></td></tr></table></div></div><h3 id=13-关键配置>1.3 关键配置</h3><p><strong>KubeSchedulerConfiguration 配置：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>profiles</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>- <span class=nt>schedulerName</span><span class=p>:</span><span class=w> </span><span class=l>hami-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>extenders</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>- <span class=nt>urlPrefix</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;https://127.0.0.1:443&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>filterVerb</span><span class=p>:</span><span class=w> </span><span class=l>filter     </span><span class=w> </span><span class=c># 对应 /filter 接口</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>bindVerb</span><span class=p>:</span><span class=w> </span><span class=l>bind         </span><span class=w> </span><span class=c># 对应 /bind 接口</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>nodeCacheCapable</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>weight</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>httpTimeout</span><span class=p>:</span><span class=w> </span><span class=l>30s</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>enableHTTPS</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tlsConfig</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>insecure</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>managedResources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>nvidia.com/vgpu</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ignoredByScheduler</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># ... 其他 vGPU 相关资源</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>managedResources 作用：</strong></p><ul><li>指定 HAMi 管理的资源类型（<code>nvidia.com/vgpu</code>、<code>nvidia.com/gpumem</code> 等）</li><li><code>ignoredByScheduler: true</code> 表示原生调度器忽略这些资源，完全由 Extender 处理</li><li>只有 Pod 申请了这些资源时，调度器才会请求 Extender</li></ul><h3 id=14-资源感知机制>1.4 资源感知机制</h3><h4 id=141-感知节点上的-gpu-资源信息>1.4.1 感知节点上的 GPU 资源信息</h4><p>HAMi 通过 <strong>Node Annotations</strong> 获取 GPU 信息：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Node Annotation 示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>hami.io/node-nvidia-register</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;GPU-03f69c50-207a-2038-9b45-23cac89cb67d,10,46068,100,NVIDIA-NVIDIA A40,0,true:...&#39;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>格式解析：<code>GPU-ID,索引,显存(MB),核心数,厂商型号,NUMA节点,健康状态</code></p><p><strong>数据来源：</strong></p><ul><li>DevicePlugin 中的后台 Goroutine 定时上报并写入 Node Annotations</li><li>Scheduler 通过 <code>RegisterFromNodeAnnotations()</code> 方法定时（每 15 秒）从 Annotations 解析 GPU 信息</li></ul><h4 id=142-感知节点上-gpu-使用情况>1.4.2 感知节点上 GPU 使用情况</h4><p>通过 <strong>Informer 机制</strong> Watch Pod 和 Node 变化：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// Pod 事件处理
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>informer</span><span class=p>.</span><span class=nf>AddEventHandler</span><span class=p>(</span><span class=nx>cache</span><span class=p>.</span><span class=nx>ResourceEventHandlerFuncs</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>AddFunc</span><span class=p>:</span>    <span class=nx>s</span><span class=p>.</span><span class=nx>onAddPod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>UpdateFunc</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>onUpdatePod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>DeleteFunc</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>onDelPod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span></code></pre></td></tr></table></div></div><p>从 Pod Annotations 解析 GPU 使用情况：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Pod Annotation 示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>hami.io/vgpu-devices-allocated</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;GPU-03f69c50-207a-2038-9b45-23cac89cb67d,NVIDIA,3000,30:;&#39;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>格式解析：<code>GPU-UUID,设备类型,已用显存(MB),已用核心百分比</code></p><h3 id=15-调度核心算法>1.5 调度核心算法</h3><h4 id=151-filter-接口节点过滤与打分>1.5.1 Filter 接口（节点过滤与打分）</h4><p><strong>流程：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 检查 Pod 是否申请 vGPU 资源 → 未申请则返回全部节点
+</span></span><span class=line><span class=cl>2. 获取所有节点的 GPU 使用情况 (getNodesUsage)
+</span></span><span class=line><span class=cl>3. 计算每个节点的得分 (calcScore)
+</span></span><span class=line><span class=cl>4. 选择得分最高的节点进行调度
+</span></span></code></pre></td></tr></table></div></div><p><strong>得分计算算法：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// pkg/scheduler/policy/node_policy.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>ns</span> <span class=o>*</span><span class=nx>NodeScore</span><span class=p>)</span> <span class=nf>ComputeScore</span><span class=p>(</span><span class=nx>devices</span> <span class=nx>DeviceUsageList</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 统计已使用资源
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>used</span><span class=p>,</span> <span class=nx>usedCore</span><span class=p>,</span> <span class=nx>usedMem</span> <span class=o>:=</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>device</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>devices</span><span class=p>.</span><span class=nx>DeviceLists</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>used</span> <span class=o>+=</span> <span class=nx>device</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Used</span>
+</span></span><span class=line><span class=cl>        <span class=nx>usedCore</span> <span class=o>+=</span> <span class=nx>device</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Usedcores</span>
+</span></span><span class=line><span class=cl>        <span class=nx>usedMem</span> <span class=o>+=</span> <span class=nx>device</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Usedmem</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 统计总资源
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>total</span><span class=p>,</span> <span class=nx>totalCore</span><span class=p>,</span> <span class=nx>totalMem</span> <span class=o>:=</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>deviceLists</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>devices</span><span class=p>.</span><span class=nx>DeviceLists</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>total</span> <span class=o>+=</span> <span class=nx>deviceLists</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Count</span>
+</span></span><span class=line><span class=cl>        <span class=nx>totalCore</span> <span class=o>+=</span> <span class=nx>deviceLists</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Totalcore</span>
+</span></span><span class=line><span class=cl>        <span class=nx>totalMem</span> <span class=o>+=</span> <span class=nx>deviceLists</span><span class=p>.</span><span class=nx>Device</span><span class=p>.</span><span class=nx>Totalmem</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 计算得分：资源使用率越高，得分越高
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>useScore</span> <span class=o>:=</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>used</span><span class=p>)</span> <span class=o>/</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>total</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>coreScore</span> <span class=o>:=</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>usedCore</span><span class=p>)</span> <span class=o>/</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>totalCore</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>memScore</span> <span class=o>:=</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>usedMem</span><span class=p>)</span> <span class=o>/</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>totalMem</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>ns</span><span class=p>.</span><span class=nx>Score</span> <span class=p>=</span> <span class=nb>float32</span><span class=p>(</span><span class=nx>Weight</span><span class=p>)</span> <span class=o>*</span> <span class=p>(</span><span class=nx>useScore</span> <span class=o>+</span> <span class=nx>coreScore</span> <span class=o>+</span> <span class=nx>memScore</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>核心逻辑：</strong> 节点上 GPU Core 和 GPU Memory 资源剩余越少，得分越高（Binpack 策略）。</p><h4 id=152-bind-接口完成调度>1.5.2 Bind 接口（完成调度）</h4><p><strong>核心逻辑：</strong> 调用 Kubernetes API 创建 Binding 对象将 Pod 绑定到目标节点</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>binding</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Binding</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span><span class=nx>Name</span><span class=p>:</span> <span class=nx>args</span><span class=p>.</span><span class=nx>PodName</span><span class=p>,</span> <span class=nx>UID</span><span class=p>:</span> <span class=nx>args</span><span class=p>.</span><span class=nx>PodUID</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Target</span><span class=p>:</span>     <span class=nx>corev1</span><span class=p>.</span><span class=nx>ObjectReference</span><span class=p>{</span><span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;Node&#34;</span><span class=p>,</span> <span class=nx>Name</span><span class=p>:</span> <span class=nx>args</span><span class=p>.</span><span class=nx>Node</span><span class=p>},</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=nx>err</span> <span class=p>=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>kubeClient</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=nx>args</span><span class=p>.</span><span class=nx>PodNamespace</span><span class=p>).</span><span class=nf>Bind</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span> <span class=nx>binding</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=16-内存数据结构>1.6 内存数据结构</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Scheduler</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>nodes</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=o>*</span><span class=nx>util</span><span class=p>.</span><span class=nx>NodeInfo</span>    <span class=c1>// 节点 GPU 信息缓存
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>cachedstatus</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=o>*</span><span class=nx>NodeUsage</span> <span class=c1>// 节点资源使用情况
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>overviewstatus</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=o>*</span><span class=nx>NodeUsage</span> <span class=c1>// 全局节点概览
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><hr><h2 id=二资源超卖机制>二、资源超卖机制</h2><h3 id=21-超卖配置参数>2.1 超卖配置参数</h3><div class=table-wrapper><table><thead><tr><th>参数</th><th>默认值</th><th>超卖场景</th></tr></thead><tbody><tr><td><code>device-memory-scaling</code></td><td>1.0</td><td>显存超卖（如设为 1.5 表示 100GB 可虚拟出 150GB）</td></tr><tr><td><code>device-cores-scaling</code></td><td>1.0</td><td>核心超卖（如设为 1.5 表示 100% 核心可虚拟出 150%）</td></tr></tbody></table></div><h3 id=22-资源充足情况>2.2 资源充足情况</h3><p><strong>场景：</strong> 节点有足够的物理 GPU 资源满足 Pod 需求</p><p><strong>处理方式：</strong></p><ol><li>正常计算节点得分</li><li>根据 Binpack 策略选择得分最高（资源利用率最高）的节点</li><li>Pod 分配到目标节点后，Device Plugin 进行资源绑定</li></ol><p><strong>调度流程：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Pod 申请资源 → Filter 阶段计算得分 → 选择得分最高节点 → Bind 阶段绑定 → Device Plugin 分配
+</span></span></code></pre></td></tr></table></div></div><h3 id=23-资源不足情况>2.3 资源不足情况</h3><p><strong>场景：</strong> 节点剩余资源无法完全满足 Pod 需求</p><p><strong>处理方式：</strong></p><div class=table-wrapper><table><thead><tr><th>场景</th><th>处理方式</th></tr></thead><tbody><tr><td><strong>资源充足</strong></td><td>正常计算得分，选择得分最高（资源利用率最高）的节点</td></tr><tr><td><strong>资源不足</strong></td><td><code>fitInDevices()</code> 判断节点剩余资源是否满足 Pod 需求，不满足则忽略该节点</td></tr><tr><td><strong>所有节点都不满足</strong></td><td>返回错误：&ldquo;no available node, all node scores do not meet&rdquo;</td></tr></tbody></table></div><p><strong>核心判断逻辑（伪代码）：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>fitInDevices</span><span class=p>(</span><span class=nx>node</span> <span class=o>*</span><span class=nx>NodeUsage</span><span class=p>,</span> <span class=nx>request</span> <span class=nx>ResourceRequest</span><span class=p>)</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 检查显存是否满足
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>node</span><span class=p>.</span><span class=nx>AvailableMem</span> <span class=p>&lt;</span> <span class=nx>request</span><span class=p>.</span><span class=nx>Memory</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 检查核心是否满足
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>node</span><span class=p>.</span><span class=nx>AvailableCores</span> <span class=p>&lt;</span> <span class=nx>request</span><span class=p>.</span><span class=nx>Cores</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 检查设备数量是否满足
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>node</span><span class=p>.</span><span class=nx>AvailableDevices</span> <span class=p>&lt;</span> <span class=nx>request</span><span class=p>.</span><span class=nx>DeviceCount</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=24-显存超卖原理>2.4 显存超卖原理</h3><p>当 <code>device-memory-scaling > 1.0</code> 时启用显存超卖：</p><ol><li><p><strong>注册阶段</strong>：将物理显存按比例放大写入 Node Annotations</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>实际显存: 46068 MB
+</span></span><span class=line><span class=cl>缩放后显存: 46068 * 1.5 = 69102 MB
+</span></span></code></pre></td></tr></table></div></div></li><li><p><strong>调度阶段</strong>：按虚拟显存进行调度，允许调度总量超过物理显存</p></li><li><p><strong>运行时限制</strong>：通过 <code>libvgpu.so</code> 拦截 CUDA 内存分配请求</p><ul><li>环境变量 <code>CUDA_DEVICE_MEMORY_LIMIT_*</code> 设置显存上限</li><li>超额部分通过共享缓存文件（<code>CUDA_DEVICE_MEMORY_SHARED_CACHE</code>）模拟</li></ul></li></ol><h4 id=241-运行时显存分配失败处理机制>2.4.1 运行时显存分配失败处理机制</h4><p>当 Pod 在 limit 配额内申请更多显存，但整个 GPU 已经没有余下可用显存时，HAMi-core 通过以下机制处理，类似应用接收到显存分配失败异常，而不是被OOM Kill：</p><p><strong>1. 内存分配拦截与检查</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// libvgpu/cuda_memory.c - cuMemAlloc_v2_hook
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>CUresult</span> <span class=nf>cuMemAlloc_v2_hook</span><span class=p>(</span><span class=n>CUdeviceptr</span> <span class=o>*</span><span class=n>dptr</span><span class=p>,</span> <span class=kt>size_t</span> <span class=n>bytesize</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>log_debug</span><span class=p>(</span><span class=s>&#34;Intercepted cuMemAlloc_v2: size=%zu&#34;</span><span class=p>,</span> <span class=n>bytesize</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 检查内存限制
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nf>check_memory_limit</span><span class=p>(</span><span class=n>bytesize</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>log_error</span><span class=p>(</span><span class=s>&#34;Memory allocation exceeds limit: %zu bytes&#34;</span><span class=p>,</span> <span class=n>bytesize</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>CUDA_ERROR_OUT_OF_MEMORY</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 调用真实的 cuMemAlloc
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>CUresult</span> <span class=n>result</span> <span class=o>=</span> <span class=nf>cuMemAlloc_v2_real</span><span class=p>(</span><span class=n>dptr</span><span class=p>,</span> <span class=n>bytesize</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>result</span> <span class=o>==</span> <span class=n>CUDA_SUCCESS</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 更新内存使用统计
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nf>update_memory_usage</span><span class=p>(</span><span class=n>bytesize</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 记录分配信息
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nf>record_allocation</span><span class=p>(</span><span class=o>*</span><span class=n>dptr</span><span class=p>,</span> <span class=n>bytesize</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>2. 共享内存协调机制</strong></p><p>HAMi-core 使用共享内存实现多进程间的内存使用统计和协调：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// libvgpu/cuda_shm.c - 共享内存结构
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>struct</span> <span class=n>shm_info</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>size_t</span> <span class=n>memory_limit</span><span class=p>;</span>      <span class=c1>// 内存限制（来自环境变量）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>size_t</span> <span class=n>used_memory</span><span class=p>;</span>       <span class=c1>// 当前已使用内存
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>int</span> <span class=n>process_count</span><span class=p>;</span>        <span class=c1>// 进程计数
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>pid_t</span> <span class=n>process_pids</span><span class=p>[</span><span class=n>MAX_PROCESSES</span><span class=p>];</span>      <span class=c1>// 进程PID数组
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>size_t</span> <span class=n>process_memory</span><span class=p>[</span><span class=n>MAX_PROCESSES</span><span class=p>];</span>   <span class=c1>// 每个进程的内存使用
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 检查内存限制
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=nf>check_memory_limit</span><span class=p>(</span><span class=kt>size_t</span> <span class=n>size</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=n>shm_info</span> <span class=n>info</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 从共享内存获取当前内存使用情况
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nf>get_shm_info</span><span class=p>(</span><span class=o>&amp;</span><span class=n>info</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 检查是否超过限制
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=n>info</span><span class=p>.</span><span class=n>used_memory</span> <span class=o>+</span> <span class=n>size</span> <span class=o>&gt;</span> <span class=n>info</span><span class=p>.</span><span class=n>memory_limit</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>log_error</span><span class=p>(</span><span class=s>&#34;Memory limit exceeded: %zu + %zu &gt; %zu&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                  <span class=n>info</span><span class=p>.</span><span class=n>used_memory</span><span class=p>,</span> <span class=n>size</span><span class=p>,</span> <span class=n>info</span><span class=p>.</span><span class=n>memory_limit</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>3. 处理流程总结</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              显存分配失败处理流程                                 │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│  1. CUDA 应用调用 cudaMalloc()                                   │
+</span></span><span class=line><span class=cl>│     └── 被 libvgpu.so 拦截                                       │
+</span></span><span class=line><span class=cl>│                                                                  │
+</span></span><span class=line><span class=cl>│  2. 检查内存限制 (check_memory_limit)                           │
+</span></span><span class=line><span class=cl>│     ├── 从共享内存读取当前使用量                                 │
+</span></span><span class=line><span class=cl>│     ├── 检查是否超过 CUDA_DEVICE_MEMORY_LIMIT_*                 │
+</span></span><span class=line><span class=cl>│     └── 如果超过，返回 CUDA_ERROR_OUT_OF_MEMORY                 │
+</span></span><span class=line><span class=cl>│                                                                  │
+</span></span><span class=line><span class=cl>│  3. 如果未超过限制，调用真实 cuMemAlloc()                       │
+</span></span><span class=line><span class=cl>│     ├── 成功 → 更新共享内存使用统计                              │
+</span></span><span class=line><span class=cl>│     └── 失败 → 返回 CUDA_ERROR_OUT_OF_MEMORY                    │
+</span></span><span class=line><span class=cl>│                                                                  │
+</span></span><span class=line><span class=cl>│  4. CUDA 错误处理                                                │
+</span></span><span class=line><span class=cl>│     ├── 记录错误日志（当前使用量、限制值）                       │
+</span></span><span class=line><span class=cl>│     ├── 触发 OOM 处理函数                                        │
+</span></span><span class=line><span class=cl>│     └── 尝试清理缓存（如果有）                                   │
+</span></span><span class=line><span class=cl>│                                                                  │
+</span></span><span class=line><span class=cl>│  5. 应用程序收到 CUDA_ERROR_OUT_OF_MEMORY                       │
+</span></span><span class=line><span class=cl>│     └── 应用程序自行处理 OOM（如释放内存、降低 batch size 等）   │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></td></tr></table></div></div><h3 id=25-核心超卖原理>2.5 核心超卖原理</h3><p>当 <code>device-cores-scaling > 1.0</code> 时启用核心超卖：</p><ol><li><p><strong>配置方式</strong>：设置 <code>CUDA_DEVICE_SM_LIMIT</code> 环境变量限制 SM 使用比例</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>物理核心: 100%
+</span></span><span class=line><span class=cl>缩放后虚拟核心: 150%
+</span></span></code></pre></td></tr></table></div></div></li><li><p><strong>实现原理</strong>：通过 <code>libvgpu.so</code> 周期性采样和限制</p><ul><li>采样周期内如果 SM 利用率超过限制，则触发限流</li><li><code>recentKernel</code> 和 <code>lastKernelTime</code> 用于平滑超卖场景下的资源分配</li></ul></li></ol><h3 id=26-调度策略配置>2.6 调度策略配置</h3><p><strong>节点选择策略（通过 Annotations 配置）：</strong></p><ul><li><code>hami.io/node-scheduler-policy</code>: 节点级调度策略（<code>binpack</code> / <code>spread</code>）</li><li><code>hami.io/gpu-scheduler-policy</code>: GPU 级调度策略（<code>binpack</code> / <code>spread</code>）</li></ul><div class=table-wrapper><table><thead><tr><th>策略</th><th>说明</th></tr></thead><tbody><tr><td><strong>binpack</strong></td><td>优先将 Pod 调度到资源使用率高的节点，减少碎片</td></tr><tr><td><strong>spread</strong></td><td>优先将 Pod 调度到资源使用率低的节点，提高容错</td></tr></tbody></table></div><hr><h2 id=三调度流程总结>三、调度流程总结</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     HAMI 调度器工作流程                              │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│  1. 用户创建 Pod 并申请 vGPU 资源                                    │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  2. Webhook 修改 SchedulerName 为 hami-scheduler                    │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  3. hami-scheduler 接收调度请求                                      │
+</span></span><span class=line><span class=cl>│     ├── 获取 Node Annotations → 解析 GPU 资源总量                   │
+</span></span><span class=line><span class=cl>│     ├── 获取 Pod Annotations  → 解析 GPU 使用量                     │
+</span></span><span class=line><span class=cl>│     └── 计算各节点剩余可用资源                                       │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  4. Filter 阶段：                                                    │
+</span></span><span class=line><span class=cl>│     ├── fitInDevices() 检查资源是否满足                             │
+</span></span><span class=line><span class=cl>│     ├── 根据资源使用率计算得分（Binpack/Spread）                    │
+</span></span><span class=line><span class=cl>│     └── 选择得分最高的节点                                          │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  5. Bind 阶段：将 Pod 绑定到目标节点                                 │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  6. Kubelet 启动 Pod，Device Plugin 进行资源绑定                    │
+</span></span><span class=line><span class=cl>│     ├── 设置 NVIDIA_VISIBLE_DEVICES（原生逻辑）                    │
+</span></span><span class=line><span class=cl>│     ├── 挂载 libvgpu.so，设置资源限制环境变量（HAMi 逻辑）          │
+</span></span><span class=line><span class=cl>│     └── libvgpu.so 运行时拦截 CUDA API 实现资源隔离                 │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></td></tr></table></div></div><hr><h2 id=四关键环境变量汇总>四、关键环境变量汇总</h2><div class=table-wrapper><table><thead><tr><th>环境变量</th><th>作用</th></tr></thead><tbody><tr><td><code>NVIDIA_VISIBLE_DEVICES</code></td><td>指定容器可见的 GPU 设备</td></tr><tr><td><code>CUDA_DEVICE_MEMORY_LIMIT_*</code></td><td>限制对应 GPU 的显存使用量</td></tr><tr><td><code>CUDA_DEVICE_SM_LIMIT</code></td><td>限制 GPU 核心（SM）使用比例</td></tr><tr><td><code>CUDA_DEVICE_MEMORY_SHARED_CACHE</code></td><td>共享内存缓存文件路径</td></tr><tr><td><code>CUDA_OVERSUBSCRIBE</code></td><td>启用显存超额订阅</td></tr><tr><td><code>CUDA_DISABLE_CONTROL</code></td><td>禁用 libvgpu.so 控制（跳过 ld.so.preload 替换）</td></tr><tr><td><code>CoreLimitSwitch</code></td><td>是否关闭算力限制</td></tr></tbody></table></div><hr><h2 id=五总结>五、总结</h2><p>HAMI vGPU 方案的核心设计要点：</p><ol><li><p><strong>调度器层</strong>：采用 Extender 机制实现调度逻辑，根据节点资源使用率进行打分和选择</p></li><li><p><strong>资源超卖</strong>：通过 <code>device-memory-scaling</code> 和 <code>device-cores-scaling</code> 参数启用，配合 <code>libvgpu.so</code> 实现运行时隔离</p></li><li><p><strong>核心隔离</strong>：依赖 <code>libvgpu.so</code> 拦截 CUDA API，通过环境变量控制显存和核心使用上限</p></li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/golang/>Golang</a>
+<a href=/tags/kubernetes/>Kubernetes</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/vgpu2/><div class=article-image><img src=https://picsum.photos/seed/478a975b/800/600 loading=lazy data-key=vGPU2 data-hash=https://picsum.photos/seed/478a975b/800/600></div><div class=article-details><h2 class=article-title>HAMI vgpu monitor 解析：（二）</h2></div></a></article><article class=has-image><a href=/p/vgpu/><div class=article-image><img src=https://picsum.photos/seed/dc637815/800/600 loading=lazy data-key=vGPU data-hash=https://picsum.photos/seed/dc637815/800/600></div><div class=article-details><h2 class=article-title>HAMI vgpu monitor 解析：（一）</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
