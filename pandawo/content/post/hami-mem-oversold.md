@@ -10,6 +10,8 @@ hidden: false
 weight: false
 categories: ["vgpu"]
 tags: ["golang","kubernetes"]
+image: https://picsum.photos/seed/33b4728e/800/600
+musicid: 5264842
 ---
 
 # HAMI 虚拟化原理与资源超卖机制
