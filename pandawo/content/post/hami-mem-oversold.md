@@ -2,8 +2,8 @@
 title: "HAMI 虚拟化原理与资源超卖机制"
 slug: "oversold"
 description: "HAMI vGPU 虚拟化原理笔记"
-date: 2026-01-29T18:00:00+08:00
-lastmod: 2026-01-29T18:00:00+08:00
+date: 2026-01-29T11:00:00+08:00
+lastmod: 2026-01-29T11:00:00+08:00
 draft: false
 toc: true
 hidden: false
