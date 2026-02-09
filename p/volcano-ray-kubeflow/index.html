@@ -1,0 +1,581 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="使用Volcano调度器运行Ray分布式计算任务和Kubeflow PyTorch训练任务的完整实践指南"><title>基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践</title>
+<link rel=canonical href=https://daidaij.github.io/p/volcano-ray-kubeflow/><link rel=stylesheet href=/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css><meta property='og:title' content="基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践"><meta property='og:description' content="使用Volcano调度器运行Ray分布式计算任务和Kubeflow PyTorch训练任务的完整实践指南"><meta property='og:url' content='https://daidaij.github.io/p/volcano-ray-kubeflow/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='volcano'><meta property='article:tag' content='ray'><meta property='article:tag' content='kubeflow'><meta property='article:tag' content='pytorch'><meta property='article:tag' content='distributed-computing'><meta property='article:published_time' content='2026-02-09T15:30:00+08:00'><meta property='article:modified_time' content='2026-02-09T15:30:00+08:00'><meta property='og:image' content='https://picsum.photos/seed/volcano-ray/800/600'><meta name=twitter:title content="基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践"><meta name=twitter:description content="使用Volcano调度器运行Ray分布式计算任务和Kubeflow PyTorch训练任务的完整实践指南"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/volcano-ray/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><ol class=menu-social><li><a href=https://daidaij.github.io/ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#ray-on-volcano-分布式计算示例>Ray on Volcano 分布式计算示例</a><ol><li><a href=#环境准备>环境准备</a></li><li><a href=#volcano-job配置>Volcano Job配置</a></li><li><a href=#ray分布式计算脚本>Ray分布式计算脚本</a></li><li><a href=#部署和运行>部署和运行</a></li></ol></li><li><a href=#kubeflow-training-operator-v1-pytorch训练示例>Kubeflow Training Operator v1 PyTorch训练示例</a><ol><li><a href=#环境准备-1>环境准备</a></li><li><a href=#resnet训练脚本>ResNet训练脚本</a></li><li><a href=#pytorchjob配置>PyTorchJob配置</a></li><li><a href=#部署和监控>部署和监控</a></li></ol></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/volcano-ray-kubeflow/><img src=https://picsum.photos/seed/volcano-ray/800/600 loading=lazy alt="Featured image of post 基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践"></a></div><div class=article-details><header class=article-category><a href=/categories/kubernetes/>Kubernetes
+</a><a href=/categories/ai-ml/>Ai-Ml</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/volcano-ray-kubeflow/>基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践</a></h2><h3 class=article-subtitle>使用Volcano调度器运行Ray分布式计算任务和Kubeflow PyTorch训练任务的完整实践指南</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 09, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div><div><time class=article-words>2068 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=基于volcano调度器的ray分布式计算与kubeflow-pytorch训练实践>基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践</h1><blockquote><p>记录下如何使用Volcano调度器运行Ray分布式计算任务，以及使用Kubeflow Training Operator v1（老版本，限制v2 重构了）进行PyTorch模型训练的完整实践。</p></blockquote><h2 id=ray-on-volcano-分布式计算示例>Ray on Volcano 分布式计算示例</h2><h3 id=环境准备>环境准备</h3><p>在使用Ray on Volcano之前，需要确保：</p><ul><li>已安装Volcano调度器的Kubernetes集群</li><li>启用Ray插件和svc插件</li></ul><h3 id=volcano-job配置>Volcano Job配置</h3><p>以下是一个完整的Ray集群部署配置：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>batch.volcano.sh/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Job</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>ray-distributed-compute</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>minAvailable</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>schedulerName</span><span class=p>:</span><span class=w> </span><span class=l>volcano</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>plugins</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ray</span><span class=p>:</span><span class=w> </span><span class=p>[]</span><span class=w>    </span><span class=c># 启用Ray插件</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>svc</span><span class=p>:</span><span class=w> </span><span class=p>[]</span><span class=w>    </span><span class=c># 启用Service插件</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>policies</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>event</span><span class=p>:</span><span class=w> </span><span class=l>PodEvicted</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>RestartJob</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>queue</span><span class=p>:</span><span class=w> </span><span class=l>default</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tasks</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>head</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>head</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>rayproject/ray:2.9.0-py311-cpu</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;bash&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;-c&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span>- <span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>                  ray start --head --port=6379 &amp;&amp; \
+</span></span></span><span class=line><span class=cl><span class=sd>                  python3 /workspace/distributed_compute.py</span><span class=w>                  
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>OnFailure</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>worker</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>worker</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>rayproject/ray:2.9.0-py311-cpu</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;bash&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;-c&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span>- <span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>                  ray start --address=${RAY_HEAD_IP}:6379</span><span class=w>                  
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>env</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>RAY_HEAD_IP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;ray-distributed-compute-head-svc&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>OnFailure</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=ray分布式计算脚本>Ray分布式计算脚本</h3><p>创建一个简单的分布式计算任务脚本：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>import</span> <span class=nn>ray</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>time</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>numpy</span> <span class=k>as</span> <span class=nn>np</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 初始化Ray连接</span>
+</span></span><span class=line><span class=cl><span class=n>ray</span><span class=o>.</span><span class=n>init</span><span class=p>(</span><span class=n>address</span><span class=o>=</span><span class=s2>&#34;auto&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nd>@ray.remote</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>compute_task</span><span class=p>(</span><span class=n>data_chunk</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;模拟计算密集型任务&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 模拟一些计算</span>
+</span></span><span class=line><span class=cl>    <span class=n>result</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>sum</span><span class=p>(</span><span class=n>data_chunk</span> <span class=o>**</span> <span class=mi>2</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>time</span><span class=o>.</span><span class=n>sleep</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>  <span class=c1># 模拟计算时间</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>result</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>distributed_compute</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;分布式计算示例&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Ray集群资源: </span><span class=si>{</span><span class=n>ray</span><span class=o>.</span><span class=n>cluster_resources</span><span class=p>()</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 创建测试数据</span>
+</span></span><span class=line><span class=cl>    <span class=n>data_size</span> <span class=o>=</span> <span class=mi>1000000</span>
+</span></span><span class=line><span class=cl>    <span class=n>chunk_size</span> <span class=o>=</span> <span class=n>data_size</span> <span class=o>//</span> <span class=mi>4</span>
+</span></span><span class=line><span class=cl>    <span class=n>data_chunks</span> <span class=o>=</span> <span class=p>[</span><span class=n>np</span><span class=o>.</span><span class=n>random</span><span class=o>.</span><span class=n>random</span><span class=p>(</span><span class=n>chunk_size</span><span class=p>)</span> <span class=k>for</span> <span class=n>_</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=mi>4</span><span class=p>)]</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 并行执行计算任务</span>
+</span></span><span class=line><span class=cl>    <span class=n>start_time</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>time</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 提交任务到Ray集群</span>
+</span></span><span class=line><span class=cl>    <span class=n>futures</span> <span class=o>=</span> <span class=p>[</span><span class=n>compute_task</span><span class=o>.</span><span class=n>remote</span><span class=p>(</span><span class=n>chunk</span><span class=p>)</span> <span class=k>for</span> <span class=n>chunk</span> <span class=ow>in</span> <span class=n>data_chunks</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 获取结果</span>
+</span></span><span class=line><span class=cl>    <span class=n>results</span> <span class=o>=</span> <span class=n>ray</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>futures</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>total_result</span> <span class=o>=</span> <span class=nb>sum</span><span class=p>(</span><span class=n>results</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>end_time</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>time</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;计算结果: </span><span class=si>{</span><span class=n>total_result</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;总耗时: </span><span class=si>{</span><span class=n>end_time</span> <span class=o>-</span> <span class=n>start_time</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>秒&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>total_result</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>&#34;__main__&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>result</span> <span class=o>=</span> <span class=n>distributed_compute</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;分布式计算完成，结果: </span><span class=si>{</span><span class=n>result</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=部署和运行>部署和运行</h3><p>下述操作可以通过业务代码来自动完成</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 应用Volcano Job配置</span>
+</span></span><span class=line><span class=cl>kubectl apply -f ray-distributed-compute.yaml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看Pod状态</span>
+</span></span><span class=line><span class=cl>kubectl get pods
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 端口转发访问Ray Dashboard</span>
+</span></span><span class=line><span class=cl>kubectl port-forward service/ray-distributed-compute-head-svc 8265:8265
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看分布式计算日志</span>
+</span></span><span class=line><span class=cl>kubectl logs -f ray-distributed-compute-head-0
+</span></span></code></pre></td></tr></table></div></div><h2 id=kubeflow-training-operator-v1-pytorch训练示例>Kubeflow Training Operator v1 PyTorch训练示例</h2><h3 id=环境准备-1>环境准备</h3><p>确保已安装Kubeflow Training Operator v1，并配置好GPU资源。</p><h3 id=resnet训练脚本>ResNet训练脚本</h3><p>一个简单的ResNet模型训练脚本：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span><span class=lnt>76
+</span><span class=lnt>77
+</span><span class=lnt>78
+</span><span class=lnt>79
+</span><span class=lnt>80
+</span><span class=lnt>81
+</span><span class=lnt>82
+</span><span class=lnt>83
+</span><span class=lnt>84
+</span><span class=lnt>85
+</span><span class=lnt>86
+</span><span class=lnt>87
+</span><span class=lnt>88
+</span><span class=lnt>89
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>import</span> <span class=nn>torch</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>torch.nn</span> <span class=k>as</span> <span class=nn>nn</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>torch.optim</span> <span class=k>as</span> <span class=nn>optim</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>torch.distributed</span> <span class=k>as</span> <span class=nn>dist</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>torch.multiprocessing</span> <span class=k>as</span> <span class=nn>mp</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>torch.nn.parallel</span> <span class=kn>import</span> <span class=n>DistributedDataParallel</span> <span class=k>as</span> <span class=n>DDP</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>torchvision</span> <span class=kn>import</span> <span class=n>models</span><span class=p>,</span> <span class=n>transforms</span>
+</span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>torch.utils.data</span> <span class=kn>import</span> <span class=n>DataLoader</span><span class=p>,</span> <span class=n>TensorDataset</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>os</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>setup</span><span class=p>(</span><span class=n>rank</span><span class=p>,</span> <span class=n>world_size</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;初始化分布式训练环境&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=p>[</span><span class=s1>&#39;MASTER_ADDR&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=s1>&#39;localhost&#39;</span>
+</span></span><span class=line><span class=cl>    <span class=n>os</span><span class=o>.</span><span class=n>environ</span><span class=p>[</span><span class=s1>&#39;MASTER_PORT&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=s1>&#39;12355&#39;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 初始化进程组</span>
+</span></span><span class=line><span class=cl>    <span class=n>dist</span><span class=o>.</span><span class=n>init_process_group</span><span class=p>(</span><span class=s2>&#34;nccl&#34;</span><span class=p>,</span> <span class=n>rank</span><span class=o>=</span><span class=n>rank</span><span class=p>,</span> <span class=n>world_size</span><span class=o>=</span><span class=n>world_size</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>cleanup</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;清理分布式训练环境&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>dist</span><span class=o>.</span><span class=n>destroy_process_group</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>create_dummy_dataset</span><span class=p>(</span><span class=n>size</span><span class=o>=</span><span class=mi>1000</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;创建虚拟数据集用于演示&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 模拟ImageNet数据 (224x224 RGB图像)</span>
+</span></span><span class=line><span class=cl>    <span class=n>images</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>randn</span><span class=p>(</span><span class=n>size</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>224</span><span class=p>,</span> <span class=mi>224</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>labels</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>randint</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=mi>1000</span><span class=p>,</span> <span class=p>(</span><span class=n>size</span><span class=p>,))</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>TensorDataset</span><span class=p>(</span><span class=n>images</span><span class=p>,</span> <span class=n>labels</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>train</span><span class=p>(</span><span class=n>rank</span><span class=p>,</span> <span class=n>world_size</span><span class=p>,</span> <span class=n>epochs</span><span class=o>=</span><span class=mi>5</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;训练函数&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Running DDP on rank </span><span class=si>{</span><span class=n>rank</span><span class=si>}</span><span class=s2>.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>setup</span><span class=p>(</span><span class=n>rank</span><span class=p>,</span> <span class=n>world_size</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 设置设备</span>
+</span></span><span class=line><span class=cl>    <span class=n>torch</span><span class=o>.</span><span class=n>cuda</span><span class=o>.</span><span class=n>set_device</span><span class=p>(</span><span class=n>rank</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>device</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>device</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;cuda:</span><span class=si>{</span><span class=n>rank</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 创建模型</span>
+</span></span><span class=line><span class=cl>    <span class=n>model</span> <span class=o>=</span> <span class=n>models</span><span class=o>.</span><span class=n>resnet18</span><span class=p>(</span><span class=n>pretrained</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>model</span> <span class=o>=</span> <span class=n>model</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>device</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>ddp_model</span> <span class=o>=</span> <span class=n>DDP</span><span class=p>(</span><span class=n>model</span><span class=p>,</span> <span class=n>device_ids</span><span class=o>=</span><span class=p>[</span><span class=n>rank</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 创建优化器和损失函数</span>
+</span></span><span class=line><span class=cl>    <span class=n>optimizer</span> <span class=o>=</span> <span class=n>optim</span><span class=o>.</span><span class=n>SGD</span><span class=p>(</span><span class=n>ddp_model</span><span class=o>.</span><span class=n>parameters</span><span class=p>(),</span> <span class=n>lr</span><span class=o>=</span><span class=mf>0.001</span><span class=p>,</span> <span class=n>momentum</span><span class=o>=</span><span class=mf>0.9</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>criterion</span> <span class=o>=</span> <span class=n>nn</span><span class=o>.</span><span class=n>CrossEntropyLoss</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 创建数据加载器</span>
+</span></span><span class=line><span class=cl>    <span class=n>dataset</span> <span class=o>=</span> <span class=n>create_dummy_dataset</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=n>sampler</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>utils</span><span class=o>.</span><span class=n>data</span><span class=o>.</span><span class=n>distributed</span><span class=o>.</span><span class=n>DistributedSampler</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>dataset</span><span class=p>,</span> <span class=n>num_replicas</span><span class=o>=</span><span class=n>world_size</span><span class=p>,</span> <span class=n>rank</span><span class=o>=</span><span class=n>rank</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>dataloader</span> <span class=o>=</span> <span class=n>DataLoader</span><span class=p>(</span><span class=n>dataset</span><span class=p>,</span> <span class=n>batch_size</span><span class=o>=</span><span class=mi>32</span><span class=p>,</span> <span class=n>sampler</span><span class=o>=</span><span class=n>sampler</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 训练循环</span>
+</span></span><span class=line><span class=cl>    <span class=n>ddp_model</span><span class=o>.</span><span class=n>train</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>epoch</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>epochs</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=n>sampler</span><span class=o>.</span><span class=n>set_epoch</span><span class=p>(</span><span class=n>epoch</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>epoch_loss</span> <span class=o>=</span> <span class=mf>0.0</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>batch_idx</span><span class=p>,</span> <span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>dataloader</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=n>data</span><span class=p>,</span> <span class=n>target</span> <span class=o>=</span> <span class=n>data</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>device</span><span class=p>),</span> <span class=n>target</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>device</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=n>optimizer</span><span class=o>.</span><span class=n>zero_grad</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=n>output</span> <span class=o>=</span> <span class=n>ddp_model</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>loss</span> <span class=o>=</span> <span class=n>criterion</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=n>epoch_loss</span> <span class=o>+=</span> <span class=n>loss</span><span class=o>.</span><span class=n>item</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>batch_idx</span> <span class=o>%</span> <span class=mi>10</span> <span class=o>==</span> <span class=mi>0</span> <span class=ow>and</span> <span class=n>rank</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Epoch </span><span class=si>{</span><span class=n>epoch</span><span class=si>}</span><span class=s2>, Batch </span><span class=si>{</span><span class=n>batch_idx</span><span class=si>}</span><span class=s2>, Loss: </span><span class=si>{</span><span class=n>loss</span><span class=o>.</span><span class=n>item</span><span class=p>()</span><span class=si>:</span><span class=s2>.4f</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>rank</span> <span class=o>==</span> <span class=mi>0</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>avg_loss</span> <span class=o>=</span> <span class=n>epoch_loss</span> <span class=o>/</span> <span class=nb>len</span><span class=p>(</span><span class=n>dataloader</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Epoch </span><span class=si>{</span><span class=n>epoch</span><span class=si>}</span><span class=s2> 完成，平均损失: </span><span class=si>{</span><span class=n>avg_loss</span><span class=si>:</span><span class=s2>.4f</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>cleanup</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>main</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;主函数&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>world_size</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>cuda</span><span class=o>.</span><span class=n>device_count</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;使用 </span><span class=si>{</span><span class=n>world_size</span><span class=si>}</span><span class=s2> 个GPU进行训练&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>mp</span><span class=o>.</span><span class=n>spawn</span><span class=p>(</span><span class=n>train</span><span class=p>,</span> <span class=n>args</span><span class=o>=</span><span class=p>(</span><span class=n>world_size</span><span class=p>,),</span> <span class=n>nprocs</span><span class=o>=</span><span class=n>world_size</span><span class=p>,</span> <span class=n>join</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>&#34;__main__&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>main</span><span class=p>()</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=pytorchjob配置>PyTorchJob配置</h3><p>创建Kubeflow PyTorchJob CR配置：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>kubeflow.org/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>PyTorchJob</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>resnet-training</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>kubeflow</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>sidecar.istio.io/inject</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;false&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cleanPodPolicy</span><span class=p>:</span><span class=w> </span><span class=l>None</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>pytorchReplicaSpecs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>Master</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>OnFailure</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>pytorch</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=s2>&#34;python&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=s2>&#34;/workspace/resnet_train.py&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>workspace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/workspace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;16Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;32Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>containerPort</span><span class=p>:</span><span class=w> </span><span class=m>23456</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>pytorchjob-port</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>Worker</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>OnFailure</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>pytorch</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=s2>&#34;python&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=s2>&#34;/workspace/resnet_train.py&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>workspace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/workspace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;16Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;4&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;32Gi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>containerPort</span><span class=p>:</span><span class=w> </span><span class=m>23456</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>pytorchjob-port</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>workspace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>emptyDir</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=部署和监控>部署和监控</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 创建PyTorchJob</span>
+</span></span><span class=line><span class=cl>kubectl create -f resnet-training.yaml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看Job状态</span>
+</span></span><span class=line><span class=cl>kubectl get pytorchjobs resnet-training -n kubeflow
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看创建的Pod</span>
+</span></span><span class=line><span class=cl>kubectl get pods -l training.kubeflow.org/job-name<span class=o>=</span>resnet-training -n kubeflow
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看训练日志（Master节点）</span>
+</span></span><span class=line><span class=cl><span class=nv>PODNAME</span><span class=o>=</span><span class=k>$(</span>kubectl get pods -l training.kubeflow.org/job-name<span class=o>=</span>resnet-training,training.kubeflow.org/replica-type<span class=o>=</span>master,training.kubeflow.org/replica-index<span class=o>=</span><span class=m>0</span> -o name -n kubeflow<span class=k>)</span>
+</span></span><span class=line><span class=cl>kubectl logs -f <span class=si>${</span><span class=nv>PODNAME</span><span class=si>}</span> -n kubeflow
+</span></span></code></pre></td></tr></table></div></div><h2 id=总结>总结</h2><p>总结一下volcano 和 分布式计算运行时其实在业务中和常规k8s job定义的区别还是较少的，这上面两种常见的运行时的计算任务，其实很好转化为业务代码，通过api server 提交业务请求对应的cr 来触发volcano 调度器去创建分布式运行时对应的job</p><ol><li><strong>Ray on Volcano</strong>：适合通用分布式计算任务，提供了灵活的编程模型和自动扩缩容能力</li><li><strong>Kubeflow Training Operator</strong>：专为机器学习训练优化，提供了完整的训练作业管理功能</li></ol><p>两种方案都可以充分利用Volcano的gang调度能力，确保作业的资源需求得到满足。在实际应用中，可以根据具体需求选择合适的方案。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/volcano/>Volcano</a>
+<a href=/tags/ray/>Ray</a>
+<a href=/tags/kubeflow/>Kubeflow</a>
+<a href=/tags/pytorch/>Pytorch</a>
+<a href=/tags/distributed-computing/>Distributed-Computing</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
