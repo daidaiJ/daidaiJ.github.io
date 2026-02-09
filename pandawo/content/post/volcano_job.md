@@ -15,7 +15,7 @@ tags: ["volcano","ray","kubeflow","pytorch","distributed-computing"]
 image: https://picsum.photos/seed/volcano-ray/800/600
 ---
 
-# 基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践
+# 使用Volcano调度器执行分布式任务记录实践记录
 
 > 记录下如何使用Volcano调度器运行Ray分布式计算任务，以及使用Kubeflow Training Operator v1（老版本，限制v2 重构了）进行PyTorch模型训练的完整实践。
 
