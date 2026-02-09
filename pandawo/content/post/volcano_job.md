@@ -1,7 +1,7 @@
 ---
-title: "基于Volcano调度器的Ray分布式计算与Kubeflow PyTorch训练实践"
+title: "Volcano调度器执行分布式任务记录"
 slug: "volcano-ray-kubeflow"
-description: "使用Volcano调度器运行Ray分布式计算任务和Kubeflow PyTorch训练任务的完整实践指南"
+description: "使用Volcano调度器执行分布式任务记录"
 date: 2026-02-09T15:30:00+08:00
 lastmod: 2026-02-09T15:30:00+08:00
 draft: false
