@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Llm on 潘达窝</title><link>https://daidaij.github.io/tags/llm/</link><description>Recent content in Llm on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Mon, 09 Feb 2026 10:40:46 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Vllm deploy</title><link>https://daidaij.github.io/p/vllm/</link><pubDate>Mon, 09 Feb 2026 10:40:46 +0800</pubDate><guid>https://daidaij.github.io/p/vllm/</guid><description>&lt;img src="https://picsum.photos/seed/2d04c5e3/800/600" alt="Featured image of post Vllm deploy" />&lt;h1 id="vllm-部署大模型手册">vLLM 部署大模型手册
+&lt;/h1>&lt;hr>
+&lt;p>以Qwen2.5-32B-Instruct 为例子&lt;br>
+基本命令：&lt;br>
+&lt;code>python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --enable-prefix-caching --disable-log-requests --model /data --gpu-memory-utilization 0.90 -tp 8 --port 8000 --served-model-name Qwen2.5-32B-Instruct --max-model-len 32768&lt;/code>&lt;/p>
+&lt;h2 id="vllm常见参数配置说明">vLLM常见参数配置说明
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-txt" data-lang="txt">&lt;span class="line">&lt;span class="cl">--model 挂载模型目录（与【挂载地址】保持一致）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-tp 卡数（部署模型需要几张卡就写几张）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--port 端口（默认8000即可）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--max-model-len 最大上下文长度
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--served-model-name 模型名称
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--gpu-memory-utilization 0.90
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--max_num_seqs batch 里面的最大输入序列个数
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--enforce_eager 禁用图捕获优化参数，能节省一些显存
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--pipeline_parallel_size 一般是多节点部署时，按照这个参数去拆分模型层，多个节点构成流水线，但是会增加延迟
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--max_num_batched_tokens = batch_size * max_model_len， 是一个batch 中总的token 数
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--enable_expert_parallel 对部分MOE 专家模型，启用专家并行
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--kv-transfer-config &amp;#39;{&amp;#34;kv_connector&amp;#34;:&amp;#34;MooncakeConnector&amp;#34;,&amp;#34;kv_role&amp;#34;:&amp;#34;kv_consumer&amp;#34;}&amp;#39; 安装mooncake-transfer-engine 可以通过多级缓存和RDMA 来加速kv cache 传输，优化推理
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-dcp 这个计算公式是 tp数/（kv 头数*节点数） ，可以保持同个节点上不会重复载入
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">注：预估 tp 的值（卡数），简单预算公式（单位GB）：模型文件总大小 * 1.2 &amp;lt;= GPU显存大小
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="多节点部署">多节点部署
+&lt;/h2>&lt;h3 id="mp-运行时">mp 运行时
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># master 节点&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --enable-prefix-caching --disable-log-requests --model /data --gpu-memory-utilization 0.90 -tp &lt;span class="m">2&lt;/span> --port &lt;span class="m">8000&lt;/span> --served-model-name Qwen2.5-32B-Instruct &lt;span class="c1"># 注意下面这几行 &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--nnodes &lt;span class="m">2&lt;/span> &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span>--node-rank &lt;span class="m">0&lt;/span> &lt;span class="se">\ &lt;/span>&lt;span class="c1"># 不同节点这个就这个rank 数不同，master 用0 &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--master-addr 192.168.0.101 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span>--distributed-executor-backend mp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="ray-计算后端">ray 计算后端
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 首先，先在master 节点&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ray start --head --port&lt;span class="o">=&lt;/span>&lt;span class="m">6379&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 然后其他worker 节点&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ray start --address&lt;span class="o">=&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nv">master_ip&lt;/span>&lt;span class="si">}&lt;/span>:6379
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 这时候ray 集群通信就建立起来了&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --enable-prefix-caching --disable-log-requests --model /data --gpu-memory-utilization 0.90 --port &lt;span class="m">8000&lt;/span> -tp &lt;span class="m">8&lt;/span> --pipeline-parallel-size &lt;span class="m">2&lt;/span> --served-model-name Qwen2.5-32B-Instruct &lt;span class="se">\ &lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 注意下面这个&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">--distributed-executor-backend ray
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>使用vllm 的示例脚本简化上述过程&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># master&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bash /vllm-workspace/examples/online_serving/multi-node-serving.sh leader --ray_cluster_size&lt;span class="o">=&lt;/span>&lt;span class="m">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --enable-prefix-caching --disable-log-requests --model /data --gpu-memory-utilization 0.90 --port &lt;span class="m">8000&lt;/span> -tp &lt;span class="m">8&lt;/span> --pipeline-parallel-size &lt;span class="m">2&lt;/span> --served-model-name Qwen2.5-32B-Instruct
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># worker&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bash /vllm-workspace/examples/online_serving/multi-node-serving.sh worker --ray_cluster_size&lt;span class="o">=&lt;/span>&lt;span class="m">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="volcano-分布式任务编排">Volcano 分布式任务编排
+&lt;/h3>&lt;p>其实Volcano 本质上是对不同分布式任务运行时的编排调度管理工具，所以按照上面两种分布式运行时后端，创建job 时适配command 命令就行，volcano 会按照工作组做资源分配管理&lt;br>
+参照 &lt;a class="link" href="https://docs.vllm.ai/projects/ascend/zh-cn/v0.13.0/user_guide/deployment_guide/using_volcano_kthena.html" target="_blank" rel="noopener"
+>Volcano Kthena 在 Kubernetes 上部署多节点LLM推理&lt;/a>&lt;/p></description></item></channel></rss>
