@@ -1,4 +1,79 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Thu, 29 Jan 2026 11:00:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>HAMI 虚拟化原理与资源超卖机制</title><link>https://daidaij.github.io/p/oversold/</link><pubDate>Thu, 29 Jan 2026 11:00:00 +0800</pubDate><guid>https://daidaij.github.io/p/oversold/</guid><description>&lt;img src="https://picsum.photos/seed/33b4728e/800/600" alt="Featured image of post HAMI 虚拟化原理与资源超卖机制" />&lt;h1 id="hami-虚拟化原理与资源超卖机制">HAMI 虚拟化原理与资源超卖机制
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 28 Feb 2026 13:41:14 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>Claude_mem_prompt</title><link>https://daidaij.github.io/p/mem_prompt/</link><pubDate>Sat, 28 Feb 2026 13:41:14 +0800</pubDate><guid>https://daidaij.github.io/p/mem_prompt/</guid><description>&lt;img src="https://picsum.photos/seed/a62a1464/800/600" alt="Featured image of post Claude_mem_prompt" />&lt;h1 id="claude-mem-提示词总结笔记">claude mem 提示词总结笔记
+&lt;/h1>&lt;blockquote>
+&lt;p>年后回来比较忙，今天才有一点时间总结一下假期对claude mem 的上下文管理研究&lt;/p>
+&lt;/blockquote>
+&lt;p>claude mem 对上下文的管理主要是分成两部分：&lt;/p>
+&lt;ul>
+&lt;li>总结 summary 让llm 自身对上下文做提炼，获取一个精炼的内容摘要&lt;/li>
+&lt;li>渐进式检索，通过summary 和会话的id 顺序，获得前后关联内容&lt;/li>
+&lt;/ul>
+&lt;h2 id="summary-部分">summary 部分
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">PROGRESS SUMMARY CHECKPOINT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">===========================
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Write progress notes of what was done, what was learned, and what&amp;#39;s next. This is a checkpoint to capture progress so far. The session is ongoing - you may receive more requests and tool executions after this summary. Write \&amp;#34;next_steps\&amp;#34; as the current trajectory of work (what&amp;#39;s actively being worked on or coming up next), not as post-session future work. Always write at least a minimal summary explaining current progress, even if work is still in early stages, so that users see a summary output tied to each request.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Claude&amp;#39;s Full Response to User:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">${lastAssistantMessage}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Respond in this XML format:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;summary&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;request&amp;gt;&lt;/span>[捕捉用户请求和讨论/完成内容实质的简短标题]&lt;span class="nt">&amp;lt;/request&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;investigated&amp;gt;&lt;/span>[到目前为止探索了什么？检查了什么？]&lt;span class="nt">&amp;lt;/investigated&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;learned&amp;gt;&lt;/span>[你了解到了什么工作原理？]&lt;span class="nt">&amp;lt;/learned&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;completed&amp;gt;&lt;/span>[到目前为止完成了什么工作？发布或更改了什么？]&lt;span class="nt">&amp;lt;/completed&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;next_steps&amp;gt;&lt;/span>[在此会话中，你正在积极处理或计划接下来处理什么？]&lt;span class="nt">&amp;lt;/next_steps&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;notes&amp;gt;&lt;/span>[关于当前进度的其他见解或观察]&lt;span class="nt">&amp;lt;/notes&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/summary&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">IMPORTANT! DO NOT do any work right now other than generating this next PROGRESS SUMMARY - and remember that you are a memory agent designed to summarize a DIFFERENT claude code session, not this one.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Never reference yourself or your own actions. Do not output anything other than the summary content formatted in the XML structure above. All other output is ignored by the system, and the system has been designed to be smart about token usage. Please spend your tokens wisely on useful summary content.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Thank you, this summary will be very useful for keeping track of our progress!
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">LANGUAGE REQUIREMENTS: Please write ALL summary content (request, investigated, learned, completed, next_steps, notes) in 中文
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>可以看到整个提示次的结构可以分成四部分：&lt;/p>
+&lt;ol>
+&lt;li>意图，也就是目标&lt;/li>
+&lt;li>待处理内容&lt;/li>
+&lt;li>输出示例&lt;/li>
+&lt;li>输出形式约束&lt;/li>
+&lt;/ol>
+&lt;h1 id="上下文管理的相关思考">上下文管理的相关思考
+&lt;/h1>&lt;h2 id="claude-mem-的三级结构">claude mem 的三级结构
+&lt;/h2>&lt;ol>
+&lt;li>索引，可以理解为字段检索，根据持久化上下文中的元信息&lt;/li>
+&lt;li>上下文也就是摘要相关的内容&lt;/li>
+&lt;li>全量的原始会话&lt;/li>
+&lt;/ol>
+&lt;p>目前claude 通过记录和压缩历史上下文，能够让长期项目在会话启动时收益，避免预先加载大量上下文，算是一种瘦身，另外尚有一种在测试的endless 模式，通过拦截替换工具调用的上下文，整理历史会话，避免多轮对话+ 多次工具调用带来的上下文膨胀问题，节省token。&lt;/p>
+&lt;p>另外可以通过减少工具/tool search/skill 渐进式加载等方式在工程上缓解这个问题，其实子智能体subAgent 通过隔离上下文，可以和上述的技术结合起来改善上下文问题&lt;/p>
+&lt;h2 id="todo">TODO
+&lt;/h2>&lt;p>学习研究pageindex 的递归树式上下文管理，思考如何在seekdb 这类至少可以支持BM25+向量混合检索的数据库上实现这类模式&lt;/p></description></item><item><title>HAMI 虚拟化原理与资源超卖机制</title><link>https://daidaij.github.io/p/oversold/</link><pubDate>Thu, 29 Jan 2026 11:00:00 +0800</pubDate><guid>https://daidaij.github.io/p/oversold/</guid><description>&lt;img src="https://picsum.photos/seed/33b4728e/800/600" alt="Featured image of post HAMI 虚拟化原理与资源超卖机制" />&lt;h1 id="hami-虚拟化原理与资源超卖机制">HAMI 虚拟化原理与资源超卖机制
 &lt;/h1>&lt;blockquote>
 &lt;p>HAMI（HAMi）是一个开源的 vGPU 方案，本文从调度器原理、资源超卖两个方面做个总结。&lt;/p>
 &lt;/blockquote>
