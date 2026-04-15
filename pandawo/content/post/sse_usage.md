@@ -58,7 +58,7 @@ data: {"id":"...","object":"chat.completion.chunk","created":...,"model":"...","
 ---
 
 ## 滚动更新缓存
-
+参考： [openai chat completes api 文档](https://openai.apifox.cn/api-67883981)
 既然 usage 必然出现在 `[DONE]` 之前，只要在收到 `[DONE]` 时，解析缓存的最后一个分块就行了。
 
 思路：
