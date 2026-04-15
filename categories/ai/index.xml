@@ -42,7 +42,9 @@
 &lt;p>这就是核心：&lt;strong>usage 信息不是元数据单独发过来的，而是塞在流结束前的上个分块里。&lt;/strong> 。&lt;/p>
 &lt;hr>
 &lt;h2 id="滚动更新缓存">滚动更新缓存
-&lt;/h2>&lt;p>既然 usage 必然出现在 &lt;code>[DONE]&lt;/code> 之前，只要在收到 &lt;code>[DONE]&lt;/code> 时，解析缓存的最后一个分块就行了。&lt;/p>
+&lt;/h2>&lt;p>参考： &lt;a class="link" href="https://openai.apifox.cn/api-67883981" target="_blank" rel="noopener"
+>openai chat completes api 文档&lt;/a>
+既然 usage 必然出现在 &lt;code>[DONE]&lt;/code> 之前，只要在收到 &lt;code>[DONE]&lt;/code> 时，解析缓存的最后一个分块就行了。&lt;/p>
 &lt;p>思路：&lt;/p>
 &lt;ol>
 &lt;li>收到正常分块 → 放进队列，队列满了就踢掉最老的&lt;/li>
