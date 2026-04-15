@@ -81,6 +81,7 @@ def stream_chat_completion(base_url: str, sk: str, model: str, messages: list):
 
     Args:
         base_url: API 基础地址
+        sk: 模型密钥sk
         model: 模型名称
         messages: 对话消息列表
     """
@@ -158,9 +159,9 @@ if __name__ == "__main__":
     BASE_URL = "https://api.example.com"
     MODEL = "gpt-3.5-turbo"
     MESSAGES = [{"role": "user", "content": "用一句话介绍 Python 3.11"}]
-    sk = "your-api-key"
+    SK = "your-api-key"
 
-    stream_chat_completion(BASE_URL, sk, MODEL, MESSAGES)
+    stream_chat_completion(BASE_URL, SK, MODEL, MESSAGES)
 ```
 
 跑一下，大概是这种输出：
@@ -211,7 +212,7 @@ for line in response.iter_lines():
 
 ---
 
-## 什么场景用得上
+## 适用场景
 
 想了一下，大概是这么几类场景：
 
