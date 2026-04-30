@@ -3,7 +3,7 @@ name: GitHub Pages
 on:
   push:
     branches:
-      - main  # Set a branch to deploy
+      - main
   pull_request:
 
 jobs:
@@ -11,24 +11,51 @@ jobs:
     runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 缓存 Hugo 模块
+      - name: Cache Hugo modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/hugo_cache
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-hugo-modules-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-hugo-modules-
+
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: '0.139.3' # 注意修改成你的hugo版本，以防兼容性错误
-          extended: true # 是否启用hugo extended
-      - name: see workdir
-        run: pwd && ls -a
+          hugo-version: '0.139.3'
+          extended: true
+
       - name: Build
-        run: ls -a && hugo --baseURL https://daidaij.github.io/ --minify
-        working-directory: ./pandawo # 注意修改成你使用hugo创建的项目名称
+        working-directory: ./pandawo
+        run: hugo --baseURL https://daidaij.github.io/ --minify
+
+      # 图片优化
+      - name: Optimize Images
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y optipng jpegoptim
+          find ./pandawo/public -name "*.png" -exec optipng -o5 -quiet {} \; 2>/dev/null || true
+          find ./pandawo/public -name "*.jpg" -exec jpegoptim --max=85 --quiet {} \; 2>/dev/null || true
+
+      # 生成预压缩文件
+      - name: Pre-compress files
+        run: |
+          find ./pandawo/public -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" -o -name "*.json" -o -name "*.svg" \) ! -name "*.gz" ! -name "*.br" -exec gzip -k -9 {} \;
+          find ./pandawo/public -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" -o -name "*.json" -o -name "*.svg" \) ! -name "*.gz" ! -name "*.br" -exec brotli -k -9 {} \;
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: github.ref == 'refs/heads/main'
         with:
           PERSONAL_TOKEN: ${{ secrets.ACTION_TOKEN }}
-          PUBLISH_DIR: ./pandawo/public # 注意修改成你使用hugo创建的项目名称
-          EXTERNAL_REPOSITORY: daidaiJ/daidaiJ.github.io # 你的Github Pages远程仓库名
-          # PUBLISH_BRANCH: master 如果不想推送到gh-pages分支，可以添加这一行
+          PUBLISH_DIR: ./pandawo/public
+          EXTERNAL_REPOSITORY: daidaiJ/daidaiJ.github.io

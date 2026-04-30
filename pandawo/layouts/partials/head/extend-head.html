@@ -1,0 +1,78 @@
+<style>
+/* 折叠按钮样式 */
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--card-background);
+    box-shadow: var(--shadow-l1);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+    color: var(--body-text-color);
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.sidebar-toggle-btn svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.3s ease;
+}
+
+/* 左侧栏按钮位置 */
+.left-sidebar .sidebar-toggle-btn {
+    right: -16px;
+}
+
+/* 右侧栏按钮位置 */
+.right-sidebar .sidebar-toggle-btn {
+    left: -16px;
+}
+
+/* 折叠状态样式 */
+.sidebar.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden;
+    opacity: 0;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+}
+
+.sidebar.collapsed * {
+    visibility: hidden;
+}
+
+/* 过渡动画 */
+.sidebar {
+    transition: width 0.3s ease, opacity 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+}
+
+/* 折叠时按钮图标旋转 */
+.left-sidebar.collapsed .sidebar-toggle-btn svg {
+    transform: rotate(180deg);
+}
+
+.right-sidebar.collapsed .sidebar-toggle-btn svg {
+    transform: rotate(180deg);
+}
+
+/* 移动端隐藏折叠按钮 */
+@media (max-width: 768px) {
+    .sidebar-toggle-btn {
+        display: none !important;
+    }
+}
+</style>
