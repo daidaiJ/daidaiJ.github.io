@@ -43,7 +43,7 @@
 &lt;hr>
 &lt;h2 id="滚动更新缓存">滚动更新缓存
 &lt;/h2>&lt;p>参考： &lt;a class="link" href="https://openai.apifox.cn/api-67883981" target="_blank" rel="noopener"
->openai chat completes api 文档&lt;/a>
+>openai chat completes api 文档&lt;/a>&lt;br>
 既然 usage 必然出现在 &lt;code>[DONE]&lt;/code> 之前，只要在收到 &lt;code>[DONE]&lt;/code> 时，解析缓存的最后一个分块就行了。&lt;/p>
 &lt;p>思路：&lt;/p>
 &lt;ol>
