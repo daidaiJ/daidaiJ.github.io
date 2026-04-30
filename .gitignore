@@ -1,1 +1,17 @@
+# Hugo 构建产物
+pandawo/public/
+pandawo/resources/
+pandawo/.hugo_build.lock
+
+# 设计文档（本地开发用）
+docs/
+
+# 系统文件
 *.exe
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
