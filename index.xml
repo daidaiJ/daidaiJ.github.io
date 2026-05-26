@@ -31,7 +31,7 @@
 &lt;td>$10 / ¥72&lt;/td>
 &lt;td>1.5x&lt;/td>
 &lt;td>✅ $60 额度（6 倍杠杆）&lt;/td>
-&lt;td>⚠️ DS 折扣未同步，同步后等效 token +33%&lt;/td>
+&lt;td>⚠️ DS 折扣未同步，同步后等效 token +300%&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>Mimo API 直调&lt;/td>
@@ -231,7 +231,7 @@ Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token
 &lt;/tbody>
 &lt;/table>
 &lt;h3 id="opencode-go">opencode Go
-&lt;/h3>&lt;p>opencode Go &lt;strong>$10 月费，$60 月额度，6 倍杠杆&lt;/strong>。按 4x DeepSeek 官方价计费，$60 额度折合约 $15 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 $15 范围内，&lt;strong>月费就是 $10，不会超&lt;/strong>。&lt;/p>
+&lt;/h3>&lt;p>opencode Go **10刀 月费，60刀 月额度，6 倍杠杆 **。按 4x DeepSeek 官方价计费，$60 额度折合约 $15 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 $15 范围内，&lt;strong>月费就是 $10，不会超&lt;/strong>。&lt;/p>
 &lt;p>唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 $60 额度，等效 token +300%（$15 → $60 官方 API 价值）。&lt;/p>
 &lt;h3 id="mimo">Mimo
 &lt;/h3>&lt;p>Mimo 也支持缓存折扣，但单价高很多。折算月用量：&lt;/p>
