@@ -1,9 +1,9 @@
 ---
-title: "AI 编程工具 Token 计划横评"
+title: "AI编程工具TokenPlan横评"
 slug: "cost_plan"
-description: "DeepSeek V4 Pro API 直调 vs opencode Go 订阅 vs Mimo Token Plan，哪个划算"
-date: 2026-05-26T15:30:00+08:00
-lastmod: 2026-05-26T15:30:00+08:00
+description: "token-plan 成本横评"
+date: 2026-05-26T15:00:00+08:00
+lastmod: 2026-05-26T15:00:00+08:00
 draft: false
 toc: true
 hidden: false
