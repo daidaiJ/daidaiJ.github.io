@@ -167,7 +167,7 @@
 最直接的方式，官方或兼容接口调用，按 token 计费，用多少算多少。&lt;/p>
 &lt;p>&lt;strong>opencode Go&lt;/strong>
 &lt;a class="link" href="https://opencode.ai/docs/zh-cn/go/" target="_blank" rel="noopener"
->opencode Go&lt;/a> 是个订阅计划，月费 $10（首月 $5），核心玩法是&lt;strong>花 $10 买最多 $60 的 API 使用额度&lt;/strong>，额度按节奏释放：&lt;/p>
+>opencode Go&lt;/a> 是个订阅计划，月费 &lt;code>$10&lt;/code>（首月 &lt;code>$5&lt;/code>），核心玩法是花 &lt;code>$10&lt;/code> 买最多 &lt;code>$60&lt;/code> 的 API 使用额度，额度按节奏释放：&lt;/p>
 &lt;table>
 &lt;thead>
 &lt;tr>
@@ -190,10 +190,10 @@
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>5 小时最多花 $12，一周最多 $30，连续高强度写代码偶尔会碰到 5 小时上限。模型挺全的：DeepSeek V4 Pro/Flash、MiMo V2.5 Pro、Kimi K2.5/K2.6、GLM-5、Qwen3.5/3.6 Plus 等等，十几个模型随便切。额度用完还能用免费模型续命。&lt;/p>
-&lt;p>&lt;strong>但要注意它的计费倍率&lt;/strong>：opencode 对 DeepSeek 的计价大约是官方价的 &lt;strong>4 倍&lt;/strong>（零售标价 6x，订阅折后约 4x）。$60 额度 ÷ 4x = 约 &lt;strong>$15 的 DeepSeek 官方 API 价值&lt;/strong>，相对 $10 订阅费是 &lt;strong>1.5 倍&lt;/strong>。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 $60 额度能多用 300% 的 token。&lt;a class="link" href="https://github.com/anomalyco/opencode/issues/28846" target="_blank" rel="noopener"
+&lt;p>5 小时最多花 &lt;code>$12&lt;/code>，一周最多 &lt;code>$30&lt;/code>，连续高强度写代码偶尔会碰到 5 小时上限。模型挺全的：DeepSeek V4 Pro/Flash、MiMo V2.5 Pro、Kimi K2.5/K2.6、GLM-5、Qwen3.5/3.6 Plus 等等，十几个模型随便切。额度用完还能用免费模型续命。&lt;/p>
+&lt;p>&lt;strong>但要注意它的计费倍率&lt;/strong>：opencode 对 DeepSeek 的计价大约是官方价的 &lt;strong>4 倍&lt;/strong>（零售标价 6x，订阅折后约 4x）。&lt;code>$60&lt;/code> 额度 ÷ 4x = 约 &lt;strong>$15 的 DeepSeek 官方 API 价值&lt;/strong>，相对 &lt;code>$10&lt;/code> 订阅费是 &lt;strong>1.5 倍&lt;/strong>。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 &lt;code>$60&lt;/code> 额度能多用 300% 的 token。&lt;a class="link" href="https://github.com/anomalyco/opencode/issues/28846" target="_blank" rel="noopener"
 >issue #28846&lt;/a> 里发现的计费差异就是未同步导致的。&lt;/p>
-&lt;p>&lt;strong>如果 opencode 后续同步了 DeepSeek 的 25% 永久折扣&lt;/strong>，4x 倍率不变但基数变小，同样的 $60 额度能多用 &lt;strong>300% 的 token&lt;/strong>。同步前 $10 ≈ $15 官方 API，同步后 $10 ≈ $60 官方 API，越等越值。&lt;/p>
+&lt;p>&lt;strong>如果 opencode 后续同步了 DeepSeek 的 25% 永久折扣&lt;/strong>，4x 倍率不变但基数变小，同样的 &lt;code>$60&lt;/code> 额度能多用 &lt;strong>300% 的 token&lt;/strong>。同步前 &lt;code>$10&lt;/code> ≈ &lt;code>$15&lt;/code> 官方 API，同步后 &lt;code>$10&lt;/code> ≈ &lt;code>$60&lt;/code> 官方 API，越等越值。&lt;/p>
 &lt;p>&lt;strong>Mimo Token Plan Max&lt;/strong>
 Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token 额度。以下用量数据是该套餐 &lt;strong>40% 额度&lt;/strong>的消耗量。&lt;/p>
 &lt;h2 id="算钱折算月用量">算钱（折算月用量）
@@ -231,8 +231,8 @@ Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token
 &lt;/tbody>
 &lt;/table>
 &lt;h3 id="opencode-go">opencode Go
-&lt;/h3>&lt;p>opencode Go **10刀 月费，60刀 月额度，6 倍杠杆 **。按 4x DeepSeek 官方价计费，$60 额度折合约 $15 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 $15 范围内，&lt;strong>月费就是 $10，不会超&lt;/strong>。&lt;/p>
-&lt;p>唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 $60 额度，等效 token +300%（$15 → $60 官方 API 价值）。&lt;/p>
+&lt;/h3>&lt;p>opencode Go **10刀 月费，60刀 月额度，6 倍杠杆 **。按 4x DeepSeek 官方价计费，&lt;code>$60&lt;/code> 额度折合约 &lt;code>$15&lt;/code> 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 &lt;code>$15&lt;/code> 范围内，&lt;strong>月费就是 &lt;code>$10&lt;/code>，不会超&lt;/strong>。&lt;/p>
+&lt;p>唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 &lt;code>$60&lt;/code> 额度，等效 token +300%（&lt;code>$15&lt;/code> → &lt;code>$60&lt;/code> 官方 API 价值）。&lt;/p>
 &lt;h3 id="mimo">Mimo
 &lt;/h3>&lt;p>Mimo 也支持缓存折扣，但单价高很多。折算月用量：&lt;/p>
 &lt;table>
@@ -286,7 +286,7 @@ Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token
 &lt;h2 id="总结">总结
 &lt;/h2>&lt;ul>
 &lt;li>&lt;strong>按量弹性首选&lt;/strong>：DeepSeek V4 Pro API 直调，¥90/月，缓存红利吃满&lt;/li>
-&lt;li>&lt;strong>性价比订阅&lt;/strong>：opencode Go，&lt;strong>$10 月费、$60 月额度、6 倍杠杆&lt;/strong>，折算月用量完全覆盖，倍率仅 1.5x。唯一变数是 DeepSeek 25% 折扣同步进度&lt;/li>
+&lt;li>&lt;strong>性价比订阅&lt;/strong>：opencode Go，&lt;strong>&lt;code>$10&lt;/code> 月费、&lt;code>$60&lt;/code> 月额度、6 倍杠杆&lt;/strong>，折算月用量完全覆盖，倍率仅 1.5x。唯一变数是 DeepSeek 25% 折扣同步进度&lt;/li>
 &lt;li>&lt;strong>Mimo 套餐的尴尬&lt;/strong>：Pro（¥329）额度不够用，被迫升 Max（¥659）成本直接翻倍，中间没有过渡档。60% 用量下 Max 比 API 直调省 ¥198，但和 DeepSeek 比仍是 7.3 倍&lt;/li>
 &lt;li>&lt;strong>缓存是核心变量&lt;/strong>：DeepSeek 缓存价 ¥0.025/M vs Mimo ¥1.40/M，差 56 倍，95% 缓存命中率下 DeepSeek 的成本优势碾压级&lt;/li>
 &lt;/ul></description></item><item><title>结合lora和离线学习的llm蒸馏策略</title><link>https://daidaij.github.io/p/llm/</link><pubDate>Fri, 05 Dec 2025 16:29:45 +0800</pubDate><guid>https://daidaij.github.io/p/llm/</guid><description>&lt;img src="https://picsum.photos/seed/b6a2445d/800/600" alt="Featured image of post 结合lora和离线学习的llm蒸馏策略" />&lt;h1 id="大模型的lora-想法">大模型的lora 想法
