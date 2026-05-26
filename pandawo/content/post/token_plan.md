@@ -40,7 +40,7 @@ image: https://picsum.photos/seed/tokenplan/800/600
 
 **结论**
 - DeepSeek API 直调 ¥90/月，缓存红利吃满，成本碾压
-- opencode Go **$10 月费、$60 月额度、6 倍杠杆**，折合约 $15 （135元） 等效DeepSeek API 价值，折算月用量完全覆盖。唯一问题是 DeepSeek 25% 折扣没同步，同步后等效 token +300%
+- opencode Go ** 72 月费、420 月额度、6 倍杠杆**，折合约 $15 （135元） 等效DeepSeek API 价值，折算月用量完全覆盖。唯一问题是 DeepSeek 25% 折扣没同步，同步后等效 token +300%
 - Mimo Plan Pro（¥329）额度不够，被迫升 Max（¥659）成本翻倍，中间没过渡档
 - Mimo Plan Max 7.3 倍，缓存价差 56 倍是根本原因
 
