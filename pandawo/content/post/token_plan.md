@@ -40,7 +40,7 @@ image: https://picsum.photos/seed/tokenplan/800/600
 
 **结论**
 - DeepSeek API 直调 ¥90/月，缓存红利吃满，成本碾压
-- opencode Go **$10 月费、$60 月额度、6 倍杠杆**，折合约 $15 （135元） 等效DeepSeek API 价值，折算月用量完全覆盖。唯一问题是 DeepSeek 25% 折扣没同步，同步后等效 token +33%
+- opencode Go **$10 月费、$60 月额度、6 倍杠杆**，折合约 $15 （135元） 等效DeepSeek API 价值，折算月用量完全覆盖。唯一问题是 DeepSeek 25% 折扣没同步，同步后等效 token +300%
 - Mimo Plan Pro（¥329）额度不够，被迫升 Max（¥659）成本翻倍，中间没过渡档
 - Mimo Plan Max 7.3 倍，缓存价差 56 倍是根本原因
 
@@ -99,9 +99,9 @@ Mimo 也支持缓存折扣，但单价整体比 DeepSeek 贵不少——缓存�
 
 5 小时最多花 $12，一周最多 $30，连续高强度写代码偶尔会碰到 5 小时上限。模型挺全的：DeepSeek V4 Pro/Flash、MiMo V2.5 Pro、Kimi K2.5/K2.6、GLM-5、Qwen3.5/3.6 Plus 等等，十几个模型随便切。额度用完还能用免费模型续命。
 
-**但要注意它的计费倍率**：opencode 对 DeepSeek 的计价大约是官方价的 **4 倍**（零售标价 6x，订阅折后约 4x）。$60 额度 ÷ 4x = 约 **$15 的 DeepSeek 官方 API 价值**，相对 $10 订阅费是 **1.5 倍**。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 $60 额度能多用 33% 的 token。[issue #28846](https://github.com/anomalyco/opencode/issues/28846) 里发现的计费差异就是未同步导致的。
+**但要注意它的计费倍率**：opencode 对 DeepSeek 的计价大约是官方价的 **4 倍**（零售标价 6x，订阅折后约 4x）。$60 额度 ÷ 4x = 约 **$15 的 DeepSeek 官方 API 价值**，相对 $10 订阅费是 **1.5 倍**。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 $60 额度能多用 300% 的 token。[issue #28846](https://github.com/anomalyco/opencode/issues/28846) 里发现的计费差异就是未同步导致的。
 
-**如果 opencode 后续同步了 DeepSeek 的 25% 永久折扣**，4x 倍率不变但基数变小，同样的 $60 额度能多用 **33% 的 token**。同步前 $10 ≈ $15 官方 API，同步后 $10 ≈ $20 官方 API，越等越值。
+**如果 opencode 后续同步了 DeepSeek 的 25% 永久折扣**，4x 倍率不变但基数变小，同样的 $60 额度能多用 **300% 的 token**。同步前 $10 ≈ $15 官方 API，同步后 $10 ≈ $60 官方 API，越等越值。
 
 **Mimo Token Plan Max**
 Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token 额度。以下用量数据是该套餐 **40% 额度**的消耗量。
@@ -123,7 +123,7 @@ Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token
 
 opencode Go **$10 月费，$60 月额度，6 倍杠杆**。按 4x DeepSeek 官方价计费，$60 额度折合约 $15 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 $15 范围内，**月费就是 $10，不会超**。
 
-唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 $60 额度因为单价降低，等效 token +33%（$15 → $20 官方 API 价值）。
+唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 $60 额度，等效 token +300%（$15 → $60 官方 API 价值）。
 
 ### Mimo
 
