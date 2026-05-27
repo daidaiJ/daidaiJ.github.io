@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Deepseek on 潘达窝</title><link>https://daidaij.github.io/tags/deepseek/</link><description>Recent content in Deepseek on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Tue, 26 May 2026 15:00:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/deepseek/index.xml" rel="self" type="application/rss+xml"/><item><title>AI编程工具TokenPlan横评</title><link>https://daidaij.github.io/p/cost_plan/</link><pubDate>Tue, 26 May 2026 15:00:00 +0800</pubDate><guid>https://daidaij.github.io/p/cost_plan/</guid><description>&lt;img src="https://picsum.photos/seed/tokenplan/800/600" alt="Featured image of post AI编程工具TokenPlan横评" />&lt;h1 id="ai-编程工具-token-计划横评">AI 编程工具 Token 计划横评
 &lt;/h1>&lt;hr>
 &lt;blockquote>
-&lt;p>用同一份月度用量，算算 DeepSeek V4 Pro API 直调、opencode Go、Mimo Token Plan Max 这三种方案到底差多少钱。&lt;/p>
+&lt;p>用同一份月度用量，算算 DeepSeek V4 Pro API 直调、opencode Go、Mimo Token Plan 这三种方案到底差多少钱。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="tldr-省流">TLDR 省流
-&lt;/h2>&lt;p>以个人本月预估用量 484.2M 为基准：&lt;/p>
+&lt;/h2>&lt;p>以个人本月预估用量 538M 为基准：&lt;/p>
 &lt;table>
 &lt;thead>
 &lt;tr>
@@ -20,95 +20,101 @@
 &lt;tr>
 &lt;td>DeepSeek V4 Pro API&lt;/td>
 &lt;td>按量&lt;/td>
-&lt;td>¥90.32&lt;/td>
+&lt;td>&lt;code>¥100.34&lt;/code>&lt;/td>
 &lt;td>1.0x&lt;/td>
 &lt;td>—&lt;/td>
-&lt;td>缓存 ¥0.025/M&lt;/td>
+&lt;td>缓存 &lt;code>¥0.025&lt;/code>/M&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>opencode Go&lt;/td>
-&lt;td>$10&lt;/td>
-&lt;td>$10 / ¥72&lt;/td>
-&lt;td>0.8x&lt;/td>
-&lt;td>✅ $60 额度（6 倍杠杆）&lt;/td>
+&lt;td>&lt;code>$10&lt;/code>&lt;/td>
+&lt;td>&lt;code>$10&lt;/code> / &lt;code>¥72&lt;/code>&lt;/td>
+&lt;td>0.72x&lt;/td>
+&lt;td>✅ &lt;code>$60&lt;/code> 额度（6 倍杠杆）&lt;/td>
 &lt;td>⚠️ DS 折扣未同步，同步后等效 token +300%&lt;/td>
 &lt;/tr>
 &lt;tr>
-&lt;td>Mimo API 直调&lt;/td>
+&lt;td>Mimo API 直调（新价）&lt;/td>
 &lt;td>按量&lt;/td>
-&lt;td>¥857.54&lt;/td>
-&lt;td>~9.5x&lt;/td>
+&lt;td>&lt;code>¥100.34&lt;/code>&lt;/td>
+&lt;td>1.0x&lt;/td>
 &lt;td>—&lt;/td>
-&lt;td>缓存 ¥1.40/M&lt;/td>
+&lt;td>🆕 已降至和 DeepSeek 同价&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Mimo Token Plan Standard&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>&lt;/td>
+&lt;td>&lt;strong>0.99x&lt;/strong>&lt;/td>
+&lt;td>✅ 110 亿积分，用量占 91%&lt;/td>
+&lt;td>🆕 99 折包月预付&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>Mimo Token Plan Pro&lt;/td>
-&lt;td>¥329&lt;/td>
-&lt;td>¥329&lt;/td>
-&lt;td>~3.6x&lt;/td>
-&lt;td>❌ 额度仅 ~353M，不够&lt;/td>
-&lt;td>需升级 Max&lt;/td>
+&lt;td>&lt;code>¥329&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥329&lt;/code>&lt;/td>
+&lt;td>3.3x&lt;/td>
+&lt;td>❌ 380 亿积分，用量仅占 26%&lt;/td>
+&lt;td>用量不足，单价反升&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>Mimo Token Plan Max&lt;/td>
-&lt;td>¥659&lt;/td>
-&lt;td>¥659&lt;/td>
-&lt;td>~7.3x&lt;/td>
-&lt;td>✅ 用量占 60%，有余量&lt;/td>
-&lt;td>比 API 直调省 ¥198&lt;/td>
+&lt;td>&lt;code>¥659&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥659&lt;/code>&lt;/td>
+&lt;td>6.6x&lt;/td>
+&lt;td>❌ 820 亿积分，用量仅占 12%&lt;/td>
+&lt;td>用量严重不足&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
 &lt;p>&lt;strong>结论&lt;/strong>&lt;/p>
 &lt;ul>
-&lt;li>DeepSeek API 直调 ¥90/月，缓存红利吃满，成本碾压&lt;/li>
-&lt;li>opencode Go &lt;strong>72 月费、420 月额度、6 倍杠杆&lt;/strong>，折合约 &lt;code>$15&lt;/code> （135元） 等效DeepSeek API 价值，折算月用量完全覆盖。唯一问题是 DeepSeek 25% 折扣没同步，同步后等效 token +300%&lt;/li>
-&lt;li>Mimo Plan Pro（¥329）额度不够，被迫升 Max（¥659）成本翻倍，中间没过渡档&lt;/li>
-&lt;li>Mimo Plan Max 7.3 倍，缓存价差 56 倍是根本原因&lt;/li>
+&lt;li>Mimo API 和 Token Plan &lt;strong>同时降价&lt;/strong>，API 降到和 DeepSeek 同价，Token Plan 三档套餐（Standard &lt;code>¥99&lt;/code> / Pro &lt;code>¥329&lt;/code> / Max &lt;code>¥659&lt;/code>）&lt;/li>
+&lt;li>月度用量 538M 换算约 100.34 亿积分，Standard 档 110 亿刚好覆盖（91%），&lt;strong>成本从旧 Max &lt;code>¥659&lt;/code> 降到 &lt;code>¥99&lt;/code>，降了 85%&lt;/strong>&lt;/li>
+&lt;li>Token Plan &lt;code>¥99&lt;/code> vs API &lt;code>¥100.34&lt;/code> = &lt;strong>0.99x&lt;/strong>（99 折），本质上就是 API 的包月预付版&lt;/li>
+&lt;li>Pro/Max 满额单价更低（8.7 折/8 折），但当前用量下额度严重过剩，单价反而更高，适合重度用户&lt;/li>
+&lt;li>opencode Go 仍是最低价选项（&lt;code>¥72&lt;/code>），但差距从原来的数量级缩小到了 &lt;code>¥27&lt;/code>&lt;/li>
 &lt;/ul>
 &lt;p>下面是详细计算过程。&lt;/p>
 &lt;h2 id="用量基准">用量基准
-&lt;/h2>&lt;p>以下数据来自 &lt;strong>20 天&lt;/strong>的实际使用（≈月度 66%），同时是 Mimo Token Plan Max 的 &lt;strong>40% 额度用量&lt;/strong>。按比例换算完整月度用量（÷66% ≈ ×1.5）：&lt;/p>
+&lt;/h2>&lt;p>以下数据来自 &lt;strong>20 天&lt;/strong>的实际使用。由于前期用量偏低，20 天实际用量约占月度的 &lt;strong>60%&lt;/strong>，按比例换算完整月度用量（÷60% ≈ ×1.67）：&lt;/p>
 &lt;table>
 &lt;thead>
 &lt;tr>
 &lt;th>类别&lt;/th>
 &lt;th>20 天实际&lt;/th>
 &lt;th>折算月用量&lt;/th>
-&lt;th>Mimo 额度占比&lt;/th>
+&lt;th>占比&lt;/th>
 &lt;/tr>
 &lt;/thead>
 &lt;tbody>
 &lt;tr>
 &lt;td>缓存命中&lt;/td>
 &lt;td>307.887 M&lt;/td>
-&lt;td>461.831 M&lt;/td>
-&lt;td>—&lt;/td>
+&lt;td>513.145 M&lt;/td>
+&lt;td>95.4%&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>未命中（输入）&lt;/td>
 &lt;td>12.323 M&lt;/td>
-&lt;td>18.485 M&lt;/td>
-&lt;td>—&lt;/td>
+&lt;td>20.539 M&lt;/td>
+&lt;td>3.8%&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输出&lt;/td>
 &lt;td>2.590 M&lt;/td>
-&lt;td>3.885 M&lt;/td>
-&lt;td>—&lt;/td>
+&lt;td>4.316 M&lt;/td>
+&lt;td>0.8%&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>&lt;strong>合计&lt;/strong>&lt;/td>
 &lt;td>&lt;strong>322.800 M&lt;/strong>&lt;/td>
-&lt;td>&lt;strong>484.200 M&lt;/strong>&lt;/td>
-&lt;td>&lt;strong>~60%&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>538.000 M&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>100%&lt;/strong>&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>缓存命中率大概 95%，编程助手场景的常态——项目文件、system prompt 每轮对话都在重复。&lt;/p>
-&lt;blockquote>
-&lt;p>折算月用量 484.2M 占 Mimo 套餐额度的 60%，说明这个套餐对当前用量来说偏大，还有 40% 余量。&lt;/p>
-&lt;/blockquote>
+&lt;p>缓存命中率 &lt;strong>96.2%&lt;/strong>，编程助手场景的常态——项目文件、system prompt 每轮对话都在重复。&lt;/p>
 &lt;h2 id="定价对比">定价对比
 &lt;/h2>&lt;h3 id="deepseek-v4-pro25-永久降价后">DeepSeek V4 Pro（25% 永久降价后）
 &lt;/h3>&lt;table>
@@ -122,46 +128,184 @@
 &lt;tbody>
 &lt;tr>
 &lt;td>缓存命中&lt;/td>
-&lt;td>¥0.025&lt;/td>
-&lt;td>¥0.1&lt;/td>
+&lt;td>&lt;code>¥0.025&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥0.1&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输入（未命中）&lt;/td>
-&lt;td>¥3.00&lt;/td>
-&lt;td>¥12.00&lt;/td>
+&lt;td>&lt;code>¥3.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥12.00&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输出&lt;/td>
-&lt;td>¥6.00&lt;/td>
-&lt;td>¥24.00&lt;/td>
+&lt;td>&lt;code>¥6.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥24.00&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>缓存价格只有输入价格的 &lt;strong>0.83%&lt;/strong>，命中率从 80% 拉到 95%，输入成本砍一大半。&lt;/p>
-&lt;h3 id="mimo-v25-pro">Mimo v2.5 Pro
+&lt;p>缓存价格只有输入价格的 &lt;strong>0.83%&lt;/strong>，命中率从 80% 拉到 96%，输入成本砍一大半。&lt;/p>
+&lt;h3 id="mimo-v25-pro-已降价和-deepseek-同价">Mimo v2.5 Pro（🆕 已降价，和 DeepSeek 同价）
 &lt;/h3>&lt;table>
 &lt;thead>
 &lt;tr>
 &lt;th>类别&lt;/th>
-&lt;th>单价（¥/M）&lt;/th>
+&lt;th>当前单价（¥/M）&lt;/th>
+&lt;th>降价前&lt;/th>
 &lt;/tr>
 &lt;/thead>
 &lt;tbody>
 &lt;tr>
 &lt;td>缓存命中&lt;/td>
-&lt;td>¥1.40&lt;/td>
+&lt;td>&lt;code>¥0.025&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥1.40&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输入（未命中）&lt;/td>
-&lt;td>¥7.00&lt;/td>
+&lt;td>&lt;code>¥3.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥7.00&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输出&lt;/td>
-&lt;td>¥21.00&lt;/td>
+&lt;td>&lt;code>¥6.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥21.00&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>Mimo 也支持缓存折扣，但单价整体比 DeepSeek 贵不少——缓存价是 DeepSeek 的 &lt;strong>56 倍&lt;/strong>，输出价是 &lt;strong>3.5 倍&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>Mimo API 现在和 DeepSeek 完全同价&lt;/strong>——缓存、输入、输出三项全部对齐。降价前缓存价差 56 倍，现在是 1:1。&lt;/p>
+&lt;h3 id="mimo-token-plan-积分制-新计费规则">Mimo Token Plan 积分制（🆕 新计费规则）
+&lt;/h3>&lt;p>Token Plan 改用积分制计费，三档套餐：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>档位&lt;/th>
+&lt;th>月费&lt;/th>
+&lt;th>含积分&lt;/th>
+&lt;th>满额单价&lt;/th>
+&lt;th>折扣&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Standard&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>&lt;/td>
+&lt;td>110 亿&lt;/td>
+&lt;td>&lt;code>¥0.90&lt;/code>/亿&lt;/td>
+&lt;td>9 折&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Pro&lt;/td>
+&lt;td>&lt;code>¥329&lt;/code>&lt;/td>
+&lt;td>380 亿&lt;/td>
+&lt;td>&lt;code>¥0.87&lt;/code>/亿&lt;/td>
+&lt;td>8.7 折&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Max&lt;/td>
+&lt;td>&lt;code>¥659&lt;/code>&lt;/td>
+&lt;td>820 亿&lt;/td>
+&lt;td>&lt;code>¥0.80&lt;/code>/亿&lt;/td>
+&lt;td>8 折&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>计费规则（每种 token 类型消耗积分不同）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类别&lt;/th>
+&lt;th>积分/MTok&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>缓存命中&lt;/td>
+&lt;td>2.5 积分&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>输入（未命中）&lt;/td>
+&lt;td>300 积分&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>输出&lt;/td>
+&lt;td>600 积分&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>换算月度用量积分：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类别&lt;/th>
+&lt;th>月用量&lt;/th>
+&lt;th>× 积分费率&lt;/th>
+&lt;th>积分&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>缓存命中&lt;/td>
+&lt;td>513.145 M&lt;/td>
+&lt;td>× 2.5&lt;/td>
+&lt;td>12.83 亿&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>输入&lt;/td>
+&lt;td>20.539 M&lt;/td>
+&lt;td>× 300&lt;/td>
+&lt;td>61.62 亿&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>输出&lt;/td>
+&lt;td>4.316 M&lt;/td>
+&lt;td>× 600&lt;/td>
+&lt;td>25.90 亿&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>合计&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>538.000 M&lt;/strong>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;strong>100.34 亿&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>月度用量 100.34 亿积分，Standard 档 110 亿刚好覆盖（用量占 91%）。&lt;/p>
+&lt;p>验证：加权平均 1 token ≈ 1.867 积分，110 亿 ÷ 1.867 ≈ 589M token，月度 538M 在范围内。✅&lt;/p>
+&lt;p>&lt;strong>折扣计算&lt;/strong>（以当前用量 100.34 亿积分为基准，API 等价 &lt;code>¥10&lt;/code>/亿积分 = &lt;code>¥1003.40&lt;/code>）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>档位&lt;/th>
+&lt;th>月费&lt;/th>
+&lt;th>用量占比&lt;/th>
+&lt;th>实际单价&lt;/th>
+&lt;th>相对 API 折扣&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Standard&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>&lt;/td>
+&lt;td>91.2%&lt;/td>
+&lt;td>&lt;code>¥0.99&lt;/code>/亿&lt;/td>
+&lt;td>&lt;strong>99 折&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Pro&lt;/td>
+&lt;td>&lt;code>¥329&lt;/code>&lt;/td>
+&lt;td>26.4%&lt;/td>
+&lt;td>&lt;code>¥3.28&lt;/code>/亿&lt;/td>
+&lt;td>3.3 折&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Max&lt;/td>
+&lt;td>&lt;code>¥659&lt;/code>&lt;/td>
+&lt;td>12.2%&lt;/td>
+&lt;td>&lt;code>¥6.57&lt;/code>/亿&lt;/td>
+&lt;td>6.6 折&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>当前用量下只有 Standard 划算——Pro/Max 额度过剩，单价反而更高。Pro 适合月用量 200~300 亿、Max 适合 500 亿以上的重度用户。&lt;/p>
 &lt;h2 id="三个方案分别是什么">三个方案分别是什么
 &lt;/h2>&lt;p>&lt;strong>DeepSeek V4 Pro 直调 API&lt;/strong>
 最直接的方式，官方或兼容接口调用，按 token 计费，用多少算多少。&lt;/p>
@@ -178,27 +322,27 @@
 &lt;tbody>
 &lt;tr>
 &lt;td>每 5 小时&lt;/td>
-&lt;td>$12&lt;/td>
+&lt;td>&lt;code>$12&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>每周&lt;/td>
-&lt;td>$30&lt;/td>
+&lt;td>&lt;code>$30&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>每月&lt;/td>
-&lt;td>$60&lt;/td>
+&lt;td>&lt;code>$60&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
 &lt;p>5 小时最多花 &lt;code>$12&lt;/code>，一周最多 &lt;code>$30&lt;/code>，连续高强度写代码偶尔会碰到 5 小时上限。模型挺全的：DeepSeek V4 Pro/Flash、MiMo V2.5 Pro、Kimi K2.5/K2.6、GLM-5、Qwen3.5/3.6 Plus 等等，十几个模型随便切。额度用完还能用免费模型续命。&lt;/p>
-&lt;p>&lt;strong>但要注意它的计费倍率&lt;/strong>：opencode 对 DeepSeek 的计价大约是官方价的 &lt;strong>4 倍&lt;/strong>（零售标价 6x，订阅折后约 4x）。&lt;code>$60&lt;/code> 额度 ÷ 4x = 约 &lt;strong>$15 的 DeepSeek 官方 API 价值&lt;/strong>，相对 &lt;code>$10&lt;/code> 订阅费是 &lt;strong>1.5 倍&lt;/strong>。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 &lt;code>$60&lt;/code> 额度能多用 300% 的 token。&lt;a class="link" href="https://github.com/anomalyco/opencode/issues/28846" target="_blank" rel="noopener"
+&lt;p>&lt;strong>但要注意它的计费倍率&lt;/strong>：opencode 对 DeepSeek 的计价大约是官方价的 &lt;strong>4 倍&lt;/strong>（零售标价 6x，订阅折后约 4x）。&lt;code>$60&lt;/code> 额度 ÷ 4x = 约 &lt;strong>&lt;code>$15&lt;/code> 的 DeepSeek 官方 API 价值&lt;/strong>，相对 &lt;code>$10&lt;/code> 订阅费是 &lt;strong>1.5 倍&lt;/strong>。当前唯一的问题是 DeepSeek 的 25% 永久折扣还没同步，同步后同样 &lt;code>$60&lt;/code> 额度能多用 300% 的 token。&lt;a class="link" href="https://github.com/anomalyco/opencode/issues/28846" target="_blank" rel="noopener"
 >issue #28846&lt;/a> 里发现的计费差异就是未同步导致的。&lt;/p>
 &lt;p>&lt;strong>如果 opencode 后续同步了 DeepSeek 的 25% 永久折扣&lt;/strong>，4x 倍率不变但基数变小，同样的 &lt;code>$60&lt;/code> 额度能多用 &lt;strong>300% 的 token&lt;/strong>。同步前 &lt;code>$10&lt;/code> ≈ &lt;code>$15&lt;/code> 官方 API，同步后 &lt;code>$10&lt;/code> ≈ &lt;code>$60&lt;/code> 官方 API，越等越值。&lt;/p>
-&lt;p>&lt;strong>Mimo Token Plan Max&lt;/strong>
-Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token 额度。以下用量数据是该套餐 &lt;strong>40% 额度&lt;/strong>的消耗量。&lt;/p>
+&lt;p>&lt;strong>Mimo Token Plan Standard（🆕）&lt;/strong>
+Mimo 平台的入门套餐，&lt;code>¥99&lt;/code>/月，含 110 亿积分。新的积分制计费规则下，缓存命中只要 2.5 积分/MTok，编程场景 96% 缓存命中率下非常划算。之前这个用量需要 Max 档（&lt;code>¥659&lt;/code>，820 亿积分），用量仅占 12%，严重浪费；现在 Standard 档（&lt;code>¥99&lt;/code>，110 亿积分）用量占 91%，刚好匹配。&lt;/p>
 &lt;h2 id="算钱折算月用量">算钱（折算月用量）
-&lt;/h2>&lt;p>以下均按折算月用量 484.2M 计算。&lt;/p>
-&lt;h3 id="deepseek-v4-pro-api">DeepSeek V4 Pro API
+&lt;/h2>&lt;p>以下均按折算月用量 538M 计算。&lt;/p>
+&lt;h3 id="deepseek-v4-pro-api--mimo-api-同价">DeepSeek V4 Pro API / Mimo API（🆕 同价）
 &lt;/h3>&lt;table>
 &lt;thead>
 &lt;tr>
@@ -210,83 +354,140 @@ Mimo 平台的高级套餐，¥659/月，包含 MiMo v2.5 Pro 等模型的 token
 &lt;tbody>
 &lt;tr>
 &lt;td>缓存命中&lt;/td>
-&lt;td>461.831M × ¥0.025&lt;/td>
-&lt;td>¥11.55&lt;/td>
+&lt;td>513.145M × &lt;code>¥0.025&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥12.83&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输入&lt;/td>
-&lt;td>18.485M × ¥3.00&lt;/td>
-&lt;td>¥55.46&lt;/td>
+&lt;td>20.539M × &lt;code>¥3.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥61.62&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>输出&lt;/td>
-&lt;td>3.885M × ¥6.00&lt;/td>
-&lt;td>¥23.31&lt;/td>
+&lt;td>4.316M × &lt;code>¥6.00&lt;/code>&lt;/td>
+&lt;td>&lt;code>¥25.90&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>&lt;strong>合计&lt;/strong>&lt;/td>
 &lt;td>&lt;/td>
-&lt;td>&lt;strong>¥90.32（≈$12.54）&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>&lt;code>¥100.34&lt;/code>（≈&lt;code>$13.93&lt;/code>）&lt;/strong>&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
+&lt;p>Mimo API 降价后和 DeepSeek 完全同价，结果一模一样。&lt;/p>
 &lt;h3 id="opencode-go">opencode Go
-&lt;/h3>&lt;p>opencode Go &lt;strong>&lt;code>$10&lt;/code> 月费，&lt;code>$60&lt;/code> 月额度，6 倍杠杆&lt;/strong>。按 4x DeepSeek 官方价计费，&lt;code>$60&lt;/code> 额度折合约 &lt;code>$15&lt;/code> 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 $12.54，在 &lt;code>$15&lt;/code> 范围内，&lt;strong>月费就是 &lt;code>$10&lt;/code>，不会超&lt;/strong>。&lt;/p>
+&lt;/h3>&lt;p>opencode Go &lt;strong>&lt;code>$10&lt;/code> 月费，&lt;code>$60&lt;/code> 月额度，6 倍杠杆&lt;/strong>。按 4x DeepSeek 官方价计费，&lt;code>$60&lt;/code> 额度折合约 &lt;code>$15&lt;/code> 的 DeepSeek API 价值。折算月用量 DeepSeek 官方价 &lt;code>$13.93&lt;/code>，在 &lt;code>$15&lt;/code> 范围内，&lt;strong>月费就是 &lt;code>$10&lt;/code>（&lt;code>¥72&lt;/code>），不会超&lt;/strong>。&lt;/p>
 &lt;p>唯一问题是 DeepSeek 25% 折扣还没同步，用的是旧价基数。同步后同样 &lt;code>$60&lt;/code> 额度，等效 token +300%（&lt;code>$15&lt;/code> → &lt;code>$60&lt;/code> 官方 API 价值）。&lt;/p>
-&lt;h3 id="mimo">Mimo
-&lt;/h3>&lt;p>Mimo 也支持缓存折扣，但单价高很多。折算月用量：&lt;/p>
+&lt;h3 id="mimo-token-plan-standard99">Mimo Token Plan Standard（&lt;code>¥99&lt;/code>）
+&lt;/h3>&lt;p>月度用量换算积分 100.34 亿，Standard 档含 110 亿积分，用量占 91%，&lt;strong>有 10% 余量&lt;/strong>。&lt;/p>
 &lt;table>
 &lt;thead>
 &lt;tr>
-&lt;th>类别&lt;/th>
-&lt;th>计算&lt;/th>
-&lt;th>花费&lt;/th>
+&lt;th>对比&lt;/th>
+&lt;th>Token Plan Standard&lt;/th>
+&lt;th>API 直调（同价）&lt;/th>
 &lt;/tr>
 &lt;/thead>
 &lt;tbody>
 &lt;tr>
-&lt;td>缓存命中&lt;/td>
-&lt;td>461.831M × ¥1.40&lt;/td>
-&lt;td>¥646.56&lt;/td>
+&lt;td>月费&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>（固定）&lt;/td>
+&lt;td>&lt;code>¥100.34&lt;/code>（按量）&lt;/td>
 &lt;/tr>
 &lt;tr>
-&lt;td>输入&lt;/td>
-&lt;td>18.485M × ¥7.00&lt;/td>
-&lt;td>¥129.40&lt;/td>
+&lt;td>相对 DS API 倍率&lt;/td>
+&lt;td>&lt;strong>0.99x&lt;/strong>&lt;/td>
+&lt;td>1.0x&lt;/td>
 &lt;/tr>
 &lt;tr>
-&lt;td>输出&lt;/td>
-&lt;td>3.885M × ¥21.00&lt;/td>
-&lt;td>¥81.59&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>&lt;strong>API 直调合计&lt;/strong>&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>&lt;strong>¥857.54&lt;/strong>&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>&lt;strong>Token Plan Pro（¥329）&lt;/strong>&lt;/td>
-&lt;td>额度 ~353M，&lt;strong>不够覆盖 484.2M&lt;/strong>&lt;/td>
-&lt;td>&lt;strong>¥329 + 超额费&lt;/strong>&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>&lt;strong>Token Plan Max（¥659）&lt;/strong>&lt;/td>
-&lt;td>额度 ~807M，用量占 60%&lt;/td>
-&lt;td>&lt;strong>¥659&lt;/strong>&lt;/td>
+&lt;td>额度覆盖&lt;/td>
+&lt;td>✅ 110 亿，用量占 91%&lt;/td>
+&lt;td>—&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>Mimo 两个套餐的取舍：&lt;/p>
+&lt;p>在当前 96% 缓存命中率下：&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>Plan Pro ¥329&lt;/strong>：额度仅 ~353M（Max 的 7/16），折算月用量 484.2M 会超，要么降用量要么被收超额费。但倍率低（3.6x），适合用量能控制在 350M 以内的用户&lt;/li>
-&lt;li>&lt;strong>Plan Max ¥659&lt;/strong>：额度 ~807M，当前用量只占 60%，余量充足。但单价算下来 7.3 倍，为&amp;quot;余量安心&amp;quot;多付了一倍&lt;/li>
-&lt;li>套餐阶梯断层明显：Pro 够用时 ¥329（3.6x），Pro 不够被迫升 Max 就是 ¥659（7.3x），&lt;strong>中间没有 ¥400~500 的过渡档&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Token Plan（&lt;code>¥99&lt;/code>）≈ API（&lt;code>¥100.34&lt;/code>）&lt;/strong>，倍率 0.99x，几乎持平&lt;/li>
+&lt;li>Token Plan 是固定月费，API 按量浮动。如果某月缓存命中率下降（比如换了新项目、大量新代码），API 成本会上涨，Token Plan 则锁死 &lt;code>¥99&lt;/code>&lt;/li>
 &lt;/ul>
-&lt;p>但不管选哪个，和 DeepSeek V4 Pro 的 ¥90.32 比，Mimo 的成本都在 &lt;strong>3.6~9.5 倍&lt;/strong>。差距主要来自缓存价——DeepSeek ¥0.025 vs Mimo ¥1.40，&lt;strong>56 倍&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>本质上 Token Plan 就是 API 的 99 折包月预付版&lt;/strong>——积分费率完全对齐 DeepSeek 定价（&lt;code>¥10&lt;/code>/亿积分），100.34 亿积分值 &lt;code>¥1003.40&lt;/code>，Standard 档卖 &lt;code>¥99&lt;/code>（110 亿积分），按实际用量算刚好 99 折。真正的价值不在折扣，在于&lt;strong>固定月费不怕用量波动&lt;/strong>。&lt;/p>
+&lt;h3 id="三档套餐怎么选">三档套餐怎么选
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>适合用量范围&lt;/th>
+&lt;th>推荐档位&lt;/th>
+&lt;th>月费&lt;/th>
+&lt;th>按用量单价&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>~100 亿/月&lt;/td>
+&lt;td>Standard&lt;/td>
+&lt;td>&lt;code>¥99&lt;/code>&lt;/td>
+&lt;td>99 折&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>200~300 亿/月&lt;/td>
+&lt;td>Pro&lt;/td>
+&lt;td>&lt;code>¥329&lt;/code>&lt;/td>
+&lt;td>~1.3 折&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>500 亿以上/月&lt;/td>
+&lt;td>Max&lt;/td>
+&lt;td>&lt;code>¥659&lt;/code>&lt;/td>
+&lt;td>~1.3 折&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>当前用量 100.34 亿/月，Standard 是唯一合理选择。Pro/Max 额度过剩，单价反而更高。&lt;/p>
+&lt;h3 id="套餐对比新-vs-旧">套餐对比（新 vs 旧）
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>旧方案&lt;/th>
+&lt;th>新方案&lt;/th>
+&lt;th>变化&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>适用套餐&lt;/td>
+&lt;td>Max（&lt;code>¥659&lt;/code>，820 亿积分）&lt;/td>
+&lt;td>Standard（&lt;code>¥99&lt;/code>，110 亿积分）&lt;/td>
+&lt;td>&lt;strong>降 85%&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>用量覆盖&lt;/td>
+&lt;td>12%（严重浪费）&lt;/td>
+&lt;td>91%（刚好）&lt;/td>
+&lt;td>精准匹配&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>vs DS API 倍率&lt;/td>
+&lt;td>6.6x&lt;/td>
+&lt;td>0.99x&lt;/td>
+&lt;td>从 6.6 倍降到持平&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>折扣&lt;/td>
+&lt;td>8 折（但用量不足）&lt;/td>
+&lt;td>99 折（用量刚好）&lt;/td>
+&lt;td>实际更省&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
 &lt;h2 id="总结">总结
 &lt;/h2>&lt;ul>
-&lt;li>&lt;strong>按量弹性首选&lt;/strong>：DeepSeek V4 Pro API 直调，¥90/月，缓存红利吃满&lt;/li>
-&lt;li>&lt;strong>性价比订阅&lt;/strong>：opencode Go，&lt;strong>&lt;code>$10&lt;/code> 月费、&lt;code>$60&lt;/code> 月额度、6 倍杠杆&lt;/strong>，折算月用量完全覆盖，倍率仅 1.5x。唯一变数是 DeepSeek 25% 折扣同步进度&lt;/li>
-&lt;li>&lt;strong>Mimo 套餐的尴尬&lt;/strong>：Pro（¥329）额度不够用，被迫升 Max（¥659）成本直接翻倍，中间没有过渡档。60% 用量下 Max 比 API 直调省 ¥198，但和 DeepSeek 比仍是 7.3 倍&lt;/li>
-&lt;li>&lt;strong>缓存是核心变量&lt;/strong>：DeepSeek 缓存价 ¥0.025/M vs Mimo ¥1.40/M，差 56 倍，95% 缓存命中率下 DeepSeek 的成本优势碾压级&lt;/li>
+&lt;li>&lt;strong>Mimo 降价是最大变化&lt;/strong>：API 和 DeepSeek 同价，Token Plan 三档套餐，当前用量选 Standard（&lt;code>¥99&lt;/code>）比旧 Max（&lt;code>¥659&lt;/code>）省 85%&lt;/li>
+&lt;li>&lt;strong>Token Plan 就是 API 的 99 折包月预付版&lt;/strong>：积分费率完全对齐 DeepSeek 定价（&lt;code>¥10&lt;/code>/亿积分），Standard 档 110 亿积分卖 &lt;code>¥99&lt;/code>，按实际用量 100.34 亿算刚好 99 折&lt;/li>
+&lt;li>&lt;strong>三档套餐看用量选&lt;/strong>：Standard（110 亿）适合 &lt;del>100 亿/月，Pro（380 亿）适合 200&lt;/del>300 亿/月，Max（820 亿）适合 500 亿以上。额度过剩反而单价更高&lt;/li>
+&lt;li>&lt;strong>按量弹性首选&lt;/strong>：DeepSeek V4 Pro API 直调，&lt;code>¥100&lt;/code>/月，缓存红利吃满&lt;/li>
+&lt;li>&lt;strong>性价比订阅&lt;/strong>：opencode Go，&lt;strong>&lt;code>$10&lt;/code> 月费、&lt;code>$60&lt;/code> 月额度、6 倍杠杆&lt;/strong>，折算月用量完全覆盖，倍率仅 0.72x。唯一变数是 DeepSeek 25% 折扣同步进度&lt;/li>
+&lt;li>&lt;strong>Token Plan 的优势在于锁定成本&lt;/strong>：固定 &lt;code>¥99&lt;/code>/月，不怕缓存命中率波动。如果某月命中率下降，API 按量会涨，Token Plan 不变&lt;/li>
+&lt;li>&lt;strong>缓存是核心变量&lt;/strong>：命中率 96% 时 Token Plan ≈ API（0.99x），命中率越低 Token Plan 越划算&lt;/li>
 &lt;/ul></description></item></channel></rss>
