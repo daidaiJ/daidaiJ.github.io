@@ -10,6 +10,7 @@ hidden: false
 weight: false
 musicid: 5264842
 qqmusic: 
+image: https://picsum.photos/seed/ab56a490/800/600
 tags: ["ai",  "context-enginer"]
 categories: ["技术"]
 ---
