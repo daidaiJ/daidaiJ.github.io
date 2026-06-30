@@ -1,4 +1,630 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 07 Jun 2026 13:12:44 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>AI 编程助手的上下文压缩：only-cc-lite 设计与 98 个真实会话的压测分析</title><link>https://daidaij.github.io/p/only-cc-lite-context-compression/</link><pubDate>Sun, 07 Jun 2026 13:12:44 +0800</pubDate><guid>https://daidaij.github.io/p/only-cc-lite-context-compression/</guid><description>&lt;img src="https://picsum.photos/seed/ab56a490/800/600" alt="Featured image of post AI 编程助手的上下文压缩：only-cc-lite 设计与 98 个真实会话的压测分析" />&lt;h2 id="为什么需要上下文压缩">为什么需要上下文压缩
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Tue, 30 Jun 2026 13:04:01 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>Semantic_router</title><link>https://daidaij.github.io/p/ai-gateway/</link><pubDate>Tue, 30 Jun 2026 13:04:01 +0800</pubDate><guid>https://daidaij.github.io/p/ai-gateway/</guid><description>&lt;img src="https://picsum.photos/seed/d97f5b27/800/600" alt="Featured image of post Semantic_router" />&lt;h1 id="vllm-semantic-router不只是路由是-ai-请求全生命周期治理">vLLM Semantic Router：不只是路由，是 AI 请求全生命周期治理
+&lt;/h1>&lt;h2 id="背景">背景
+&lt;/h2>&lt;p>最近在研究 vLLM 项目组推出的 Semantic Router 项目，结合源码分析和官方博客的几篇文章，整理下这个项目的核心设计和一些思考。&lt;/p>
+&lt;p>参考文章：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a class="link" href="https://vllm.ai/blog/2026-06-29-micro-agent-frontier-models" target="_blank" rel="noopener"
+>Micro-Agent: Frontier Models as Micro-Agent&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://vllm.ai/blog/2026-06-05-v0.3-vllm-sr-themis-release" target="_blank" rel="noopener"
+>v0.3 Themis Release&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://vllm.ai/blog/2026-06-02-session-aware-agentic-routing" target="_blank" rel="noopener"
+>Session-Aware Agentic Routing (SAAR)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="一项目定位">一、项目定位
+&lt;/h2>&lt;p>&lt;strong>vLLM Semantic Router (VSR)&lt;/strong> 是一个信号驱动（Signal-Driven）的系统级智能路由器，面向 Mixture-of-Models (MoM) 架构。&lt;/p>
+&lt;p>它&lt;strong>不是&lt;/strong>传统 API 网关，而是一个&lt;strong>请求理解 + 内容治理 + 智能分发&lt;/strong>的中间层。&lt;/p>
+&lt;p>部署方式是 Envoy ext_proc sidecar：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Client ──► Envoy (port 8801)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ gRPC ext_proc (127.0.0.1:50051)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ┌─────────────────────────────────┐
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ vLLM Semantic Router (Go 进程) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ┌─ extproc gRPC server │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ├─ Signal Engine (18路并发) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ├─ Decision Engine │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ └─ Selection Engine │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ │ │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ CGO (Rust 动态库) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ▼ │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ┌─ candle-binding (GPU) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ├─ onnx-binding │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ ├─ openvino-binding │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ └─ ml-binding (KNN/KMeans/SVM) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> └─────────────────────────────────┘
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意：所有 ML 推理通过 CGO 调用 Rust 动态库完成，项目中的 WASM 组件仅用于 Dashboard 前端的 DSL 编译器，不参与运行时推理。&lt;/p>
+&lt;h2 id="二signal--decision--selection-三层流水线">二、Signal → Decision → Selection 三层流水线
+&lt;/h2>&lt;h3 id="信号提取层">信号提取层
+&lt;/h3>&lt;p>系统并行提取 &lt;strong>18 种信号&lt;/strong>，全部以 goroutine 并发执行：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>分类&lt;/th>
+&lt;th>信号&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>基础&lt;/td>
+&lt;td>keyword, embedding, domain&lt;/td>
+&lt;td>关键词/向量/领域&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>路由&lt;/td>
+&lt;td>complexity, modality, language, context, structure&lt;/td>
+&lt;td>复杂度/多模态/语言/上下文长度&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>安全&lt;/td>
+&lt;td>jailbreak, PII, fact-check, authz&lt;/td>
+&lt;td>越狱检测、隐私检测、事实核查、授权&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>对话&lt;/td>
+&lt;td>conversation, reask, preference, user-feedback, kb, event&lt;/td>
+&lt;td>上下文/重复提问/偏好/知识库&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="决策引擎">决策引擎
+&lt;/h3>&lt;p>基于声明式 YAML 配置的 &lt;code>Decision&lt;/code> 结构，支持布尔规则树（AND/OR/NOT 组合）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">Decision&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Name&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Rules&lt;/span> &lt;span class="nx">RuleCombination&lt;/span> &lt;span class="c1">// 递归布尔表达式树
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">ModelRefs&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">ModelRef&lt;/span> &lt;span class="c1">// 候选模型列表
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Algorithm&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">AlgorithmConfig&lt;/span> &lt;span class="c1">// 选择算法配置
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Plugins&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">DecisionPlugin&lt;/span> &lt;span class="c1">// 安全/缓存/RAG 等插件
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Emits&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">EmitDirective&lt;/span> &lt;span class="c1">// 声明式副作用指令
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="模型选择层">模型选择层
+&lt;/h3>&lt;p>实现 &lt;strong>10+ 种选择算法&lt;/strong>：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>算法&lt;/th>
+&lt;th>来源&lt;/th>
+&lt;th>机制&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Elo&lt;/td>
+&lt;td>RouteLLM&lt;/td>
+&lt;td>Bradley-Terry 加权评分&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>RouterDC&lt;/td>
+&lt;td>arXiv:2409.19886&lt;/td>
+&lt;td>双重对比学习 query-to-model&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>AutoMix&lt;/td>
+&lt;td>arXiv:2310.12963&lt;/td>
+&lt;td>POMDP 级联 + 自验证&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KNN/KMeans/SVM/MLP&lt;/td>
+&lt;td>FusionFactory&lt;/td>
+&lt;td>传统 ML + 神经网络&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>RLDriven&lt;/td>
+&lt;td>Router-R1&lt;/td>
+&lt;td>强化学习（Thompson Sampling）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>MultiFactor&lt;/td>
+&lt;td>—&lt;/td>
+&lt;td>质量 + 时延 + 成本 + 负载加权&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>SessionAware&lt;/td>
+&lt;td>—&lt;/td>
+&lt;td>会话级路由一致性&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="三ext_proc-智能路由工程实现">三、ext_proc 智能路由工程实现
+&lt;/h2>&lt;p>路由决策在 RequestBody 阶段完成，信号采集跨越整个请求生命周期，response 阶段反哺下一次决策：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Request → Headers → Body → [上游推理] → Resp Headers → Resp Body → Client
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ │ │ │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 安全门控 信号+决策+选模型 记录 TTFT TPOT/成本/缓存
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="负载感知">负载感知
+&lt;/h3>&lt;p>全局状态 &lt;code>map[model] → {map[token] → entry{start_time}}&lt;/code>，&lt;code>Begin(model) → token&lt;/code> / &lt;code>End(model, token)&lt;/code>。超过 10min 的 entry 自动淘汰（自愈机制，防 panic/断连导致计数泄漏）。&lt;/p>
+&lt;h3 id="时延感知">时延感知
+&lt;/h3>&lt;p>EMA 平滑（α=0.3）+ 滑动窗口（max=1000）+ 百分位查询（默认 p95），采集两个核心指标：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>TPOT&lt;/strong>（Time Per Output Token）：ResponseBody 阶段 &lt;code>completionLatency / completionTokens&lt;/code>&lt;/li>
+&lt;li>&lt;strong>TTFT&lt;/strong>（Time To First Token）：streaming 首个 chunk&lt;/li>
+&lt;/ul>
+&lt;h3 id="成本感知">成本感知
+&lt;/h3>&lt;p>静态配置价格 + 运行时计量：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">models&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">gpt-4o&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">pricing&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">prompt_per_1m&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">2.50&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">completion_per_1m&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">10.00&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>运行时：&lt;code>cost = prompt_tokens * prompt_rate + completion_tokens * completion_rate&lt;/code>&lt;/p>
+&lt;h3 id="multifactor-评分">MultiFactor 评分
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="err">候选模型列表&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">│&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">▼&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mf">1.&lt;/span> &lt;span class="n">SLO&lt;/span> &lt;span class="err">硬过滤（&lt;/span>&lt;span class="n">MaxTPOTMs&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="n">MaxTTFTMs&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="n">MaxCostPer1M&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="n">MaxInflight&lt;/span>&lt;span class="err">）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">│&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">▼&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mf">2.&lt;/span> &lt;span class="err">信号采集（&lt;/span>&lt;span class="n">quality&lt;/span> &lt;span class="err">静态配置&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="n">latency&lt;/span> &lt;span class="n">p95&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="n">cost&lt;/span> &lt;span class="err">配置&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="nb">load&lt;/span> &lt;span class="err">并发数）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">│&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">▼&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mf">3.&lt;/span> &lt;span class="n">Min&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="n">Max&lt;/span> &lt;span class="err">归一化到&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">│&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">▼&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mf">4.&lt;/span> &lt;span class="n">score&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">wQ&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="n">quality&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">wL&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="n">latency&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">wC&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="n">cost&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">wLoad&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nb">load&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">权重自动归一化&lt;/span> &lt;span class="n">sum&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="err">，默认等权&lt;/span> &lt;span class="mf">0.25&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="四路由的真正含义">四、路由的真正含义
+&lt;/h2>&lt;p>&amp;ldquo;选模型&amp;quot;只是 RequestBody 阶段的一个子步骤。整个系统在请求全生命周期做远不止路由的事：&lt;/p>
+&lt;h3 id="请求进入时安全门控">请求进入时：安全门控
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>能力&lt;/th>
+&lt;th>行为&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Jailbreak 检测&lt;/td>
+&lt;td>越狱攻击 → 直接返回 403&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>PII 检测&lt;/td>
+&lt;td>隐私信息 → 按策略拒绝/脱敏&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>速率限制&lt;/td>
+&lt;td>超限 → 返回 429&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="转发前请求改写">转发前：请求改写
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>能力&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>RAG 注入&lt;/td>
+&lt;td>从向量库检索相关文档，注入 messages&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Memory 注入&lt;/td>
+&lt;td>注入用户历史对话记忆&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Prompt 压缩&lt;/td>
+&lt;td>评估文本过长时压缩，减少 token&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>System Prompt 注入&lt;/td>
+&lt;td>按 decision 分支注入不同 system prompt&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>工具选择&lt;/td>
+&lt;td>按 decision 配置选择暴露哪些 tools&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="响应返回时后处理">响应返回时：后处理
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>能力&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>语义缓存&lt;/td>
+&lt;td>embedding 相似度匹配 → 直接返回缓存&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>幻觉检测&lt;/td>
+&lt;td>NLI 模型检测 → 注入警告或拦截&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>格式转换&lt;/td>
+&lt;td>OpenAI ↔ Anthropic 协议互转&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>记忆存储&lt;/td>
+&lt;td>将对话存入记忆系统供未来使用&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;strong>&amp;ldquo;Semantic&amp;rdquo; 在哪？&lt;/strong> 不在&amp;quot;路由到哪个 cluster&amp;quot;这一步，而在&amp;quot;决定怎么处理这个请求&amp;quot;这一步。它理解请求的语义，然后决定：&lt;strong>要不要发&lt;/strong>（安全门控）、&lt;strong>发给谁&lt;/strong>（模型选择）、&lt;strong>怎么发&lt;/strong>（请求改写）、&lt;strong>发完怎么处理&lt;/strong>（响应后处理）。&lt;/p>
+&lt;h2 id="五路由决策--envoy-分发链路">五、路由决策 → Envoy 分发链路
+&lt;/h2>&lt;p>路由器&lt;strong>不直接选 Pod&lt;/strong>。它选模型，通过 header mutation 告诉 Envoy 去哪个 cluster，Pod 选择由 Envoy 的 LB 完成：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">第一步：决策引擎选模型
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Signal → Decision → Selection → selectedModel = &amp;#34;deepseek-r1&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">第二步：模型 → Backend 解析
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> PreferredEndpoints = [&amp;#34;ep-vllm-rack2&amp;#34;]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ExternalModelIDs[&amp;#34;vllm&amp;#34;] → &amp;#34;deepseek-ai/DeepSeek-R1&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">第三步：构建 Header Mutation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> x-selected-model: &amp;#34;deepseek-r1&amp;#34; ← Envoy 路由匹配 key
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Authorization: &amp;#34;Bearer sk-xxx&amp;#34; ← 下游凭证
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">第四步：Body Mutation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> {&amp;#34;model&amp;#34;: &amp;#34;auto&amp;#34;} → {&amp;#34;model&amp;#34;: &amp;#34;deepseek-ai/DeepSeek-R1&amp;#34;}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">第五步：Envoy 根据 header 选择 cluster + Pod
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> x-selected-model prefix &amp;#34;claude-&amp;#34; → anthropic_api_cluster
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> x-selected-model regex /^(gpt-|o1-)/ → openai_api_cluster
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> else → vllm_backend_cluster
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> （Pod 级负载均衡由 Envoy ROUND_ROBIN 完成）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="六四大核心机制">六、四大核心机制
+&lt;/h2>&lt;h3 id="61-语义缓存">6.1 语义缓存
+&lt;/h3>&lt;p>不是精确匹配 query 文本，而是 &lt;strong>embedding 向量相似度匹配&lt;/strong>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">请求 &amp;#34;如何用 Python 排序&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">1. 提取 query
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">2. 检查跳过：含 RAG/Memory 的决策跳过缓存（防泄露用户数据）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">3. 生成 embedding
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">4. HNSW 向量搜索 (M=16, efConstruction=200, efSearch=50)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">5. similarity &amp;gt;= threshold ?
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> YES → 命中！返回缓存
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> NO → 请求发往模型，响应返回后写入缓存
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>缓存后端：内存 + HNSW 索引 / Milvus / Redis，支持按 decision 独立配置 &lt;code>similarity_threshold&lt;/code> 和 TTL。&lt;/p>
+&lt;h3 id="62-幻觉检测">6.2 幻觉检测
+&lt;/h3>&lt;p>两层检测，通过 CGO 调用 Rust Candle binding 的 NLI 模型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>基础版&lt;/strong>：&lt;code>DetectHallucination(context, question, answer)&lt;/code> → &lt;code>{detected, confidence, unsupported_spans}&lt;/code>&lt;/li>
+&lt;li>&lt;strong>NLI 增强版&lt;/strong>：&lt;code>DetectHallucinationWithNLI(...)&lt;/code> → span 级标注 &lt;code>{text, start, end, nli_label, severity, explanation}&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>检测后按 action 处理：&lt;code>header&lt;/code> 设置警告 header / &lt;code>body&lt;/code> 在响应前插入警告 / &lt;code>none&lt;/code> 仅记录 metrics。&lt;/p>
+&lt;h3 id="63-循环检测">6.3 循环检测
+&lt;/h3>&lt;p>&lt;strong>Reask 检测&lt;/strong>：计算当前 turn 与历史 turns 的 embedding cosine 相似度，倒序检查连续超过阈值的 streak：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">规则: { threshold: 0.85, lookback_turns: 3 }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">streak &amp;gt;= lookback ? 触发 : 不触发
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>Conversation 检测&lt;/strong>：检测工具调用循环（lastMessage == tool_result / assistantToolCallCount &amp;gt; toolResultCount）。&lt;/p>
+&lt;h3 id="64-记忆存储与召回">6.4 记忆存储与召回
+&lt;/h3>&lt;p>三种记忆类型：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Type&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;th>例子&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>semantic&lt;/td>
+&lt;td>事实/偏好/知识&lt;/td>
+&lt;td>&amp;ldquo;用户的夏威夷预算是 $10K&amp;rdquo;&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>procedural&lt;/td>
+&lt;td>操作步骤/指令&lt;/td>
+&lt;td>&amp;ldquo;部署 payment-service: npm build → docker push&amp;rdquo;&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>episodic&lt;/td>
+&lt;td>会话摘要/事件&lt;/td>
+&lt;td>&amp;ldquo;2024-12-29 用户规划了夏威夷旅行&amp;rdquo;&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>生命周期：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>存储&lt;/strong>：Response 阶段异步 goroutine，提取 userMessage + assistantResponse + history → &lt;code>MemoryExtractor.ProcessResponseWithHistory(...)&lt;/code>&lt;/li>
+&lt;li>&lt;strong>检索&lt;/strong>：Request 阶段，自适应阈值（找最大 score 断层，只返回强相关记忆），hybridSearch&lt;/li>
+&lt;li>&lt;strong>注入&lt;/strong>：格式 &lt;code>&amp;quot;以下是用户之前对话的相关上下文：\n- {memory.content}&amp;quot;&lt;/code>，位置在 system message 之后、第一条 user message 之前&lt;/li>
+&lt;/ul>
+&lt;p>安全设计：检索按 UserID 隔离，含 RAG/Memory 的 decision 跳过语义缓存，jailbreak 拦截的响应不存入记忆。&lt;/p>
+&lt;h2 id="七v03-themis-release-要点">七、v0.3 Themis Release 要点
+&lt;/h2>&lt;p>2026 年 6 月 5 日发布的 v0.3 是一个里程碑版本，350+ commits，核心变化：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>配置稳定&lt;/strong>：YAML 配置契约固化，生产可用&lt;/li>
+&lt;li>&lt;strong>协议兼容&lt;/strong>：新增 Anthropic 协议支持，OpenAI ↔ Anthropic 格式互转&lt;/li>
+&lt;li>&lt;strong>推理后端扩展&lt;/strong>：Intel OpenVINO 支持（x86 也能跑推理）&lt;/li>
+&lt;li>&lt;strong>性能验证&lt;/strong>：RouterArena 排名 #1（75.4 分）&lt;/li>
+&lt;li>&lt;strong>生态接入&lt;/strong>：Kubernetes Operator、Helm Chart、Grafana Dashboard&lt;/li>
+&lt;/ul>
+&lt;h2 id="八saar会话感知的-agentic-路由">八、SAAR：会话感知的 Agentic 路由
+&lt;/h2>&lt;p>Session-Aware Agentic Routing 解决的核心问题：在 Agent 场景下，路由切换模型会导致会话状态丢失。&lt;/p>
+&lt;p>SAAR 的设计：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>会话记忆由路由器管理&lt;/strong>，不是推理引擎&lt;/li>
+&lt;li>&lt;strong>硬锁定（Hard Lock）&lt;/strong>：Agent 工作流期间锁定当前模型，不切换&lt;/li>
+&lt;li>&lt;strong>重置边界（Reset Boundaries）&lt;/strong>：明确哪些操作可以重置会话状态&lt;/li>
+&lt;li>&lt;strong>切换经济学（Switch Economics）&lt;/strong>：量化切换成本（上下文重建、延迟、缓存失效），只有收益 &amp;gt; 成本才切换&lt;/li>
+&lt;li>&lt;strong>Replay Traces&lt;/strong>：切换模型时，将之前的对话历史 replay 给新模型&lt;/li>
+&lt;/ul>
+&lt;h2 id="九micro-agent多模型协作">九、Micro-Agent：多模型协作
+&lt;/h2>&lt;p>Micro-Agent 的核心理念：前沿模型不再单独工作，而是在 API 服务层实现多模型协作。&lt;/p>
+&lt;p>六大协作机制：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>机制&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Confidence&lt;/td>
+&lt;td>模型输出置信度评分&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Ratings&lt;/td>
+&lt;td>多模型对同一输出打分&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>ReMoM&lt;/td>
+&lt;td>Mixture-of-Models 的路由+混合&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Fusion&lt;/td>
+&lt;td>多模型输出融合&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Workflows&lt;/td>
+&lt;td>预定义的多模型工作流&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Auto Recipes&lt;/td>
+&lt;td>自动发现最优模型组合&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="十ai-网关演进方向">十、AI 网关演进方向
+&lt;/h2>&lt;h3 id="推理引擎正在变成无状态执行单元">推理引擎正在变成&amp;quot;无状态执行单元&amp;rdquo;
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">传统 API 网关:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Client ──► [鉴权/限流] ──► Backend ──► Response
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">AI 网关（新范式）:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Client ──► [理解层] ──► [增强层] ──► [治理层] ──► Inference ──► [审计层] ──► Response
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ │ │ │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 信号提取 RAG/记忆注入 选模型/改参数 幻觉检测
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 意图分类 prompt压缩 限流/缓存 格式转换
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 安全检测 工具选择 凭证注入 成本计量
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>以前（推理引擎为中心）&lt;/th>
+&lt;th>未来（网关为中心）&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Prompt 管理&lt;/td>
+&lt;td>应用层拼 prompt&lt;/td>
+&lt;td>网关层动态组装&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>上下文&lt;/td>
+&lt;td>应用层管理对话历史&lt;/td>
+&lt;td>网关层记忆系统自动注入&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>安全&lt;/td>
+&lt;td>模型内置 / 外挂审核服务&lt;/td>
+&lt;td>网关层内联（零延迟）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>模型选择&lt;/td>
+&lt;td>应用层硬编码&lt;/td>
+&lt;td>网关层信号驱动自动决策&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>缓存&lt;/td>
+&lt;td>应用层 Redis&lt;/td>
+&lt;td>网关层语义缓存&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="稳定前缀-vs-动态注入">稳定前缀 vs 动态注入
+&lt;/h3>&lt;p>当前设计的结构性问题：每次请求的注入内容独立检索，模型看到的&amp;quot;世界&amp;quot;每轮都在变。&lt;/p>
+&lt;p>建议的分层架构：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">┌───────────────────────────────┐
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ Session Layer（稳定） │ 创建时确定，session 内不变
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ system prompt │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ user profile snapshot │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ turn history (append-only) │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├───────────────────────────────┤
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ Request Layer（动态） │ 每轮独立
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ real-time RAG │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ safety detection │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ model selection │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├───────────────────────────────┤
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ Response Layer（后处理） │ 响应后执行
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ hallucination check │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ memory extraction │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ session history append │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└───────────────────────────────┘
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这与 OpenAI Responses API 的 &lt;code>previous_response_id&lt;/code> 设计方向一致 — 服务端维护完整上下文链，上下文是追加式的，不是每次重建的。&lt;/p>
+&lt;h3 id="待解决问题">待解决问题
+&lt;/h3>&lt;ol>
+&lt;li>&lt;strong>个性化 vs 缓存矛盾&lt;/strong>：含 RAG/Memory 的请求跳过缓存，最有价值的请求享受不到缓存收益&lt;/li>
+&lt;li>&lt;strong>延迟叠加&lt;/strong>：信号 ~10ms + RAG ~50ms + 记忆 ~30ms + 幻觉 ~100ms ≈ 190ms 额外延迟&lt;/li>
+&lt;li>&lt;strong>网关可用性瓶颈&lt;/strong>：解法是 &lt;code>failure_mode_allow: true&lt;/code>，网关故障时直通后端&lt;/li>
+&lt;/ol>
+&lt;h2 id="总结">总结
+&lt;/h2>&lt;p>vLLM Semantic Router 的核心价值不在&amp;quot;路由&amp;quot;而在&amp;quot;治理&amp;quot;。它把传统 API 网关的鉴权/限流能力，扩展到了 AI 语义理解的维度：理解请求意图、安全门控、智能选模型、请求改写、响应后处理、记忆管理。&lt;/p>
+&lt;p>从 v0.3 Themis 到 SAAR 到 Micro-Agent，这个项目在快速演进。方向很明确：推理引擎变成无状态执行单元，智能向网关层迁移。但动态注入 vs 上下文一致性、个性化 vs 缓存的矛盾，仍然是需要解决的核心问题。&lt;/p></description></item><item><title>AI 编程助手的上下文压缩：only-cc-lite 设计与 98 个真实会话的压测分析</title><link>https://daidaij.github.io/p/only-cc-lite-context-compression/</link><pubDate>Sun, 07 Jun 2026 13:12:44 +0800</pubDate><guid>https://daidaij.github.io/p/only-cc-lite-context-compression/</guid><description>&lt;img src="https://picsum.photos/seed/ab56a490/800/600" alt="Featured image of post AI 编程助手的上下文压缩：only-cc-lite 设计与 98 个真实会话的压测分析" />&lt;h2 id="为什么需要上下文压缩">为什么需要上下文压缩
 &lt;/h2>&lt;p>AI 编程助手（Claude Code、Qwen Code、Cursor 等）的工作模式是&lt;strong>累积式&lt;/strong>的：每次用户发一条消息，客户端会把从会话开始到当前的所有消息一起发送给 LLM API。&lt;/p>
 &lt;p>这意味着一个 30 轮的会话，第 30 次请求包含了前 29 轮的全部历史。如果中间执行了 &lt;code>cargo build&lt;/code>、&lt;code>npm run build&lt;/code>、grep 搜索等工具调用，大量构建日志、搜索结果会被反复发送。&lt;/p>
 &lt;blockquote>
