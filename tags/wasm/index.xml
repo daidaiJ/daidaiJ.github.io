@@ -6,7 +6,14 @@
 &lt;h2 id="需求拆解">需求拆解
 &lt;/h2>&lt;hr>
 &lt;p>LLM 端点故障和普通微服务不一样：故障持续时间从几十秒到几分钟，期间所有请求都挂在超时上；同一个集群里 A 挂了，B、C 还活着，需要快速改道；429 限流是常态而不是异常，但连续 429 说明端点已经过载。&lt;/p>
-&lt;p>需求拆出来五条规则：R1 只有上游真实响应才算失败（网关自己拦的不算）；R2 连续失败 ≥ 阈值进屏蔽名单，窗口内不参与选端；R3 过滤后候选集为空 → 不覆盖端点，走 Envoy 默认选端；R4 候选集非空时按负载策略从候选集选最优；R5 到期惰性恢复，可选健康检查加速。&lt;/p>
+&lt;p>需求拆出来五条规则：&lt;/p>
+&lt;ul>
+&lt;li>R1 只有上游真实响应才算失败（网关自己拦的不算）；&lt;/li>
+&lt;li>R2 连续失败 ≥ 阈值进屏蔽名单，窗口内不参与选端；&lt;/li>
+&lt;li>R3 过滤后候选集为空 → 不覆盖端点，走 Envoy 默认选端；&lt;/li>
+&lt;li>R4 候选集非空时按负载策略从候选集选最优；&lt;/li>
+&lt;li>R5 TTL到期惰性恢复，可选健康检查加速。&lt;/li>
+&lt;/ul>
 &lt;blockquote>
 &lt;p>R3 是这个设计最反直觉的地方。多数熔断在&amp;quot;全被屏蔽&amp;quot;时会直接吐 503，这里把控制权还给 Envoy 默认路由。我认同这个取舍：网关的职责是转发，不是裁决。宁可流量打到可能已恢复的端点，也不主动拒绝。&lt;/p>
 &lt;/blockquote>
@@ -187,11 +194,6 @@
 &lt;td>Admin 接口 &lt;code>unblock&lt;/code> / &lt;code>unblock-all&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
-&lt;td>blockDurationMs 过大&lt;/td>
-&lt;td>误配 24h，短暂故障屏蔽一整天&lt;/td>
-&lt;td>硬上限 10 分钟，加载时 clamp&lt;/td>
-&lt;/tr>
-&lt;tr>
 &lt;td>Redis 分区后本地不一致&lt;/td>
 &lt;td>各 VM 独立判定，屏蔽状态分裂&lt;/td>
 &lt;td>本地模式降阈值 + 短屏蔽时间&lt;/td>
@@ -201,5 +203,5 @@
 &lt;p>贯穿始终还有两条原则：一是 fail-open，&lt;code>GetUpstreamHosts&lt;/code> / &lt;code>SetSharedData&lt;/code> 任一出错就记日志走默认路由，熔断自身故障不能阻断流量；二是可回滚，&lt;code>enabled: false&lt;/code> 热更新即全量直通，&lt;code>failoverOnStatus: []&lt;/code> 让失败判定永不触发，已有屏蔽自然到期。&lt;/p>
 &lt;h2 id="总结">总结
 &lt;/h2>&lt;hr>
-&lt;p>整体思路是对的——把&amp;quot;换端点&amp;quot;做成可观测、可回滚、fail-open 的正交能力，而不是在 ai-load-balancer 里硬编码一个熔断。但离开箱即用还有距离：本地缓存一致性窗口、CAS 写放大、Redis 故障降级，这些参数要靠压测和灰度慢慢调。&lt;/p>
-&lt;p>如果要上生产，我关注三个点：多副本网关下 SharedData 只覆盖单实例，屏蔽状态全局一致得靠 Redis；window 触发模式的失败事件序列存 SharedData 做 CAS 更新，跨 VM 竞争比单纯计数激烈得多，也许把窗口判定直接交给 Redis 的 &lt;code>ZCount&lt;/code> 才是正解；上线前对 &lt;code>failureThreshold&lt;/code> / &lt;code>blockDurationMs&lt;/code> 做灰度验证，误配 &lt;code>failoverOnStatus&lt;/code> 的代价是全端点被拉黑。&lt;/p></description></item></channel></rss>
+&lt;p>把&amp;quot;换端点&amp;quot;做成可观测、可回滚、fail-open 的特性，而不是在 ai-load-balancer 里硬编码一个熔断。但离开箱即用还有距离：本地缓存一致性窗口、CAS 写放大、Redis 故障降级，这些参数需要在自己环境中靠压测和灰度慢慢调。&lt;/p>
+&lt;p>如果要上生产，需要多关注三个点：多副本网关下 SharedData 只覆盖单实例，所以靠不住，屏蔽状态全局一致得靠 Redis；window 触发模式的失败事件序列存 SharedData 做 CAS 更新，跨 VM 竞争比单纯计数激烈得多，也许把窗口判定直接交给 Redis 的 &lt;code>ZCount&lt;/code> 才是正解；上线前对 &lt;code>failureThreshold&lt;/code> / &lt;code>blockDurationMs&lt;/code> 做灰度验证，误配 &lt;code>failoverOnStatus&lt;/code> 的代价是全端点被拉黑。甚至可以考虑在上述设计逻辑中为特殊的上游端点配置白名单，可以是从缓存里面拿去，或者是从按配置的正则来匹配&lt;/p></description></item></channel></rss>
