@@ -1,15 +1,16 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:37:07 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:39:47 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
-&lt;p>一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。&lt;/p>
+&lt;p>一个基于 agent hook 设计的命令行工具：会话结束 hook 自动跑同步，把项目 wiki 知识、Obsidian 校对、Hugo 博客发布串成一条自动化流水线。核心思想：hook 驱动自动化，数据面与控制流分离。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="动机笔记散落十几个仓库">动机：笔记散落十几个仓库
 &lt;/h2>&lt;hr>
 &lt;p>让 agent 做源码调研和方案分析，产出物（调研 wiki、issue 分析、踩坑记录）散落在十几个仓库的角落里，格式不一、无人索引、想找的时候不知道在哪。为每个项目 fork 一个 wiki 仓库又太重。&lt;/p>
 &lt;p>my-wiki 的做法是&lt;strong>不动你的文档&lt;/strong>：笔记继续留在各自项目里（单一事实源），工具只在统一目录下维护一组目录链接，再用一张本地注册表登记每个项目的位置和介绍。任何时刻 &lt;code>grep&lt;/code> 一下就能跨项目检索，而各项目仓库保持零改动——不会把你的个人知识配置带上远程。&lt;/p>
-&lt;h2 id="核心思想数据面与控制流分离">核心思想：数据面与控制流分离
+&lt;h2 id="核心思想hook-驱动自动化优先">核心思想：hook 驱动，自动化优先
 &lt;/h2>&lt;hr>
-&lt;p>wiki 把整个系统切成两层：&lt;/p>
+&lt;p>wiki 的定位不是&amp;quot;又一个笔记工具&amp;quot;，而是 agent 工作流里的自动同步器。设计围绕一个心跳展开：每轮会话结束，Stop hook 跑一次 &lt;code>wiki check&lt;/code>——幂等、静默、非阻塞，把项目 wiki 知识自动收进知识库。人不需要记得&amp;quot;接入&amp;quot;这件事，agent 也不需要。&lt;/p>
+&lt;p>hook 驱动的前提是架构分层，wiki 把整个系统切成两层：&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>数据面&lt;/strong>：知识数据本身。笔记留在各自项目里（单一事实源），注册表、发布记录、配置在 &lt;code>WIKI_ROOT&lt;/code> 指向的本地目录，&lt;code>projects/&lt;/code> 链接是机器本地的视图&lt;/li>
 &lt;li>&lt;strong>控制流&lt;/strong>：工具逻辑与 agent 工作流。命令契约、钩子、规约注入——这部分可以开源、可以复制、可以升级，和数据互不污染&lt;/li>
@@ -130,9 +131,9 @@ L["projects/ 链接目录"]
 end
 P1 -- "symlink / junction" --> L
 P2 -- "symlink / junction" --> L
-L --> R&lt;/pre>&lt;h2 id="控制流实现为-agent-而生">控制流实现：为 agent 而生
+L --> R&lt;/pre>&lt;h2 id="控制流实现为-hook-而生">控制流实现：为 hook 而生
 &lt;/h2>&lt;hr>
-&lt;p>控制流要回答一个问题：agent 怎么和这个工具协作？两个设计贯穿始终。&lt;/p>
+&lt;p>控制流要回答一个问题：hook 和 agent 怎么和这个工具协作？两个设计贯穿始终。&lt;/p>
 &lt;p>&lt;strong>幂等 check，为钩子而生。&lt;/strong> &lt;code>wiki check&lt;/code> 被设计为对任何钩子机制都安全：&lt;/p>
 &lt;ul>
 &lt;li>stdout 恒为空（部分工具会把 stdout 当 JSON 严格校验）&lt;/li>
@@ -214,15 +215,16 @@ L --> R&lt;/pre>&lt;h2 id="控制流实现为-agent-而生">控制流实现：�
 &lt;/div>&lt;blockquote>
 &lt;p>这个函数是 agent 友好设计的缩影：CLI 的调用方是 LLM，不是人。LLM 生成命令时不会严格遵守「旗标在前」的约定，宽容解析能显著减少失败重试。&lt;/p>
 &lt;/blockquote>
-&lt;h2 id="打通知识管理和博客">打通知识管理和博客
+&lt;h2 id="打通-obsidian-和-hugo-博客仓库">打通 Obsidian 和 Hugo 博客仓库
 &lt;/h2>&lt;hr>
-&lt;p>wiki 的另一半：知识库的产出直接变成博客文章。调研笔记（wiki/issues）→ 知识库检索 → 沉淀成博客，一条链路：&lt;/p>
+&lt;p>知识库有两个出口：Obsidian 仓库（人阅读校对）和 Hugo 博客仓库（对外发布）。Obsidian 仓库根就是 wiki 根（pandawiki），&lt;code>projects/&lt;/code> 符号链接把各项目 wiki 聚合进来，人在里面阅读校对；校对通过的笔记才进博客流水线。调研笔记（wiki/issues）→ 知识库检索 → Obsidian 校对 → 沉淀成博客，一条链路：&lt;/p>
 &lt;pre class="mermaid" style="visibility:hidden">flowchart LR
 A["agent 调研产出笔记"] --> B["wiki init 接入知识库"]
 B --> C["wiki grep 跨项目检索"]
-C --> D["wiki blog new 创建文章"]
-D --> E["wiki blog publish 发布"]
-E --> F["GitHub Actions 自动部署"]&lt;/pre>&lt;p>&lt;code>blog new&lt;/code> 的完整流程：&lt;/p>
+C --> D["Obsidian 查看校对"]
+D --> E["wiki blog new 创建文章"]
+E --> F["wiki blog publish 发布"]
+F --> G["GitHub Actions 自动部署"]&lt;/pre>&lt;p>&lt;code>blog new&lt;/code> 的完整流程：&lt;/p>
 &lt;pre class="mermaid" style="visibility:hidden">flowchart TD
 A["wiki blog new"] --> B["查重：slug / 文件名"]
 B --> C["hugo new 按主题 archetype 生成模板"]
