@@ -8,7 +8,7 @@ draft: false
 toc: true
 hidden: false
 weight: false
-musicid:
+musicid: 5264842
 qqmusic:
 categories:
     - go
@@ -17,7 +17,7 @@ tags:
     - golang
     - cli
     - 知识库
-image:
+image: https://picsum.photos/seed/e782c1e9/800/600
 ---
 # wiki CLI 工具设计
 ------
