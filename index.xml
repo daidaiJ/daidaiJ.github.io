@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:39:47 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:40:53 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>一个基于 agent hook 设计的命令行工具：会话结束 hook 自动跑同步，把项目 wiki 知识、Obsidian 校对、Hugo 博客发布串成一条自动化流水线。核心思想：hook 驱动自动化，数据面与控制流分离。&lt;/p>
@@ -295,41 +295,37 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;blockquote>
 &lt;p>坦率说，这个工具离&amp;quot;通用知识管理&amp;quot;还有距离，但它解决了我自己的核心痛点：跨项目检索 + 博客发布自动化。工具的价值不在于功能多，而在于和 agent 工作流的契合度——每个命令都是为 LLM 调用方设计的。&lt;/p>
 &lt;/blockquote>
-&lt;h2 id="实践接进-obsidian-当仓库">实践：接进 Obsidian 当仓库
+&lt;h2 id="实践obsidian-仓库接入-sop">实践：Obsidian 仓库接入 SOP
 &lt;/h2>&lt;hr>
 &lt;blockquote>
-&lt;p>知识库最终要给人看。Obsidian 是现成的阅读器，但把 wiki 根接进去当仓库，踩了几个设计文档里没写的坑。结论先行：符号链接从来不是问题，仓库根才是。&lt;/p>
+&lt;p>知识库最终要给人看。Obsidian 是现成的阅读器，把 wiki 根接进去当仓库有一套固定流程：建仓库、迁数据、注册、验证。照着做一遍，十分钟收工。&lt;/p>
 &lt;/blockquote>
-&lt;h3 id="符号链接没问题仓库根才是问题">符号链接没问题，仓库根才是问题
+&lt;h3 id="1-仓库根--wiki-根">1. 仓库根 = wiki 根
 &lt;/h3>&lt;hr>
-&lt;p>先验证最担心的点：Obsidian 到底认不认 symlink。官方文档说支持，但有约束——目标必须和仓库根不相交、不能有循环。实测更直接，在仓库里建一个指向外部目录的临时链接，文件列表立刻出现：&lt;/p>
+&lt;p>Obsidian 仓库根必须包含知识库全部内容，最省心的做法是让仓库根直接等于 wiki 根。目录命名避开 &lt;code>wiki&lt;/code>——和 &lt;code>knowledgeDirs&lt;/code> 的类型名重合，自动发现时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。&lt;/p>
+&lt;h3 id="2-迁移数据显式指定-wiki_root">2. 迁移数据，显式指定 WIKI_ROOT
+&lt;/h3>&lt;hr>
+&lt;p>wiki 根靠 &lt;code>index.md&lt;/code> 标记解析（环境变量 &amp;gt; exe 目录 &amp;gt; 当前目录）。数据目录迁进仓库后必须显式指定，否则 hook 静默失效、&lt;code>wiki check&lt;/code> 空转：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
-&lt;/span>&lt;span class="lnt">2
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">ln -s /d/CODE/ai/higress/wiki &lt;span class="s2">&amp;#34;D:/wiki/pandawiki/test-link&amp;#34;&lt;/span> &lt;span class="c1"># 临时验证&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki folders &lt;span class="c1"># 索引里立刻出现 test-link 和里面的 md&lt;/span>
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">setx WIKI_ROOT &lt;span class="s2">&amp;#34;D:\wiki\pandawiki&amp;#34;&lt;/span> &lt;span class="c1"># 用户级环境变量，新终端生效&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;blockquote>
-&lt;p>链接本身没问题。真正的坑是仓库根：vault 建在 &lt;code>projects/wiki&lt;/code> 子目录时，打开只能看到欢迎.md——内容全在仓库根之外的 &lt;code>projects/&lt;/code> 链接里。Obsidian 的仓库根必须包含所有内容，这是唯一硬约束。&lt;/p>
-&lt;/blockquote>
-&lt;h3 id="obsidian-uri-不能注册仓库">obsidian:// URI 不能注册仓库
-&lt;/h3>&lt;hr>
-&lt;p>想用 URI 把新目录注册成仓库，撞了墙：&lt;/p>
+&lt;/div>&lt;p>hook 不依赖终端环境，内联设置：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
-&lt;/span>&lt;span class="lnt">2
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Vault not found.
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Unable to find a vault for the URL obsidian://open/?path=D%3A%5Cwiki%5Cprojects
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">cmd /c &lt;span class="s2">&amp;#34;set WIKI_ROOT=D:\wiki\pandawiki&amp;amp;&amp;amp; D:/CODE/ai/my-wiki/wiki.exe check&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>&lt;code>obsidian://open?path=&lt;/code> 只能解析&lt;strong>已注册&lt;/strong>仓库里的文件路径，不能按路径注册新仓库。注册的正道只有两条：UI 里 Open folder as vault，或者直接改注册表：&lt;/p>
+&lt;/div>&lt;h3 id="3-注册仓库ui-或注册表">3. 注册仓库：UI 或注册表
+&lt;/h3>&lt;hr>
+&lt;p>新目录注册成仓库只有两条路：UI 里 Open folder as vault，或者直接改注册表：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -341,32 +337,31 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;blockquote>
-&lt;p>顺带发现 Obsidian 官方 CLI（&lt;code>obsidian&lt;/code> 命令）很好用：&lt;code>obsidian vault=pandawiki folders/files&lt;/code> 直接查仓库索引，验证迁移结果不用开界面。唯一提醒：CLI 会抱怨 installer 版本过旧，需要重新下载安装器。&lt;/p>
+&lt;p>&lt;code>obsidian://open?path=&lt;/code> 只能解析已注册仓库里的文件，不能注册新仓库——别在这上面浪费时间。&lt;/p>
 &lt;/blockquote>
-&lt;h3 id="wikiroot-标记解析的迁移陷阱">wikiRoot 标记解析的迁移陷阱
+&lt;h3 id="4-符号链接直接可用">4. 符号链接直接可用
 &lt;/h3>&lt;hr>
-&lt;p>wiki 根靠 &lt;code>index.md&lt;/code> 标记解析（环境变量 &amp;gt; exe 目录 &amp;gt; 当前目录）。数据目录从 &lt;code>D:\wiki&lt;/code> 挪进仓库后，如果只搬文件不设环境变量，hook 会静默失效——解析兜底到 exe 目录，&lt;code>wiki check&lt;/code> 变成空转：&lt;/p>
+&lt;p>Obsidian 原生支持 symlink（约束：目标与仓库根不相交、无循环），&lt;code>projects/&lt;/code> 下的链接开箱即用。用官方 CLI 验证索引：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">setx WIKI_ROOT &lt;span class="s2">&amp;#34;D:\wiki\pandawiki&amp;#34;&lt;/span> &lt;span class="c1"># 用户级环境变量，新终端生效&lt;/span>
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki folders &lt;span class="c1"># 应列出 projects/&amp;lt;项目&amp;gt;/wiki&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki files &lt;span class="c1"># 应列出全部 md&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>hook 不能依赖终端环境，改成内联设置：&lt;/p>
-&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">cmd /c &lt;span class="s2">&amp;#34;set WIKI_ROOT=D:\wiki\pandawiki&amp;amp;&amp;amp; D:/CODE/ai/my-wiki/wiki.exe check&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;h3 id="命名避坑仓库目录别叫-wiki">命名避坑：仓库目录别叫 wiki
+&lt;/div>&lt;blockquote>
+&lt;p>官方 CLI 会抱怨 installer 版本过旧，功能不受影响，有空重装一次安装器即可。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="5-验证清单">5. 验证清单
 &lt;/h3>&lt;hr>
-&lt;p>仓库目录最初叫 &lt;code>wiki&lt;/code>，和 &lt;code>knowledgeDirs&lt;/code> 里的 &lt;code>wiki&lt;/code> 类型名重合——自动发现知识目录时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。改名 &lt;code>pandawiki&lt;/code> 一劳永逸。&lt;/p>
-&lt;p>最终结构：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>wiki ls&lt;/code>：项目全部在册&lt;/li>
+&lt;li>&lt;code>obsidian vault=pandawiki folders/files&lt;/code>：符号链接内容全部索引&lt;/li>
+&lt;li>最终结构：&lt;/li>
+&lt;/ul>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -392,7 +387,7 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;blockquote>
-&lt;p>这次实践最大的收获：设计里的&amp;quot;数据面&amp;quot;假设（链接、标记、环境变量）在真实阅读器面前都站得住，唯独仓库根层级这种&amp;quot;人怎么看&amp;quot;的问题，设计文档不会替你想到。Obsidian 仓库根 = wiki 根，一个目录两用，比维护两套结构省心。&lt;/p>
+&lt;p>这套 SOP 的核心就一句：Obsidian 仓库根 = wiki 根，一个目录两用。其余都是围绕它展开的固定动作。&lt;/p>
 &lt;/blockquote></description></item><item><title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</title><link>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</link><pubDate>Sat, 01 Aug 2026 23:44:36 +0800</pubDate><guid>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</guid><description>&lt;img src="https://picsum.photos/seed/1ba03f14/800/600" alt="Featured image of post Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）" />&lt;h1 id="higress-网关-llm-端点故障临时屏蔽endpoint-failover">Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）
 &lt;/h1>&lt;hr>
 &lt;blockquote>
