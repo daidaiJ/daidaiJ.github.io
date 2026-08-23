@@ -216,7 +216,7 @@ menu:
     social:
         - identifier: github
           name: GitHub
-          url: https://daidaij.github.io/
+          url: https://github.com/daidaiJ
           params:
               icon: brand-github
 

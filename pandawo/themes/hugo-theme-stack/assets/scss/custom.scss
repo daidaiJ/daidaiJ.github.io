@@ -191,7 +191,7 @@
       }
   
       @include respond(xl) {
-        max-width: 1453px; //1536px;
+        max-width: 1600px; //1536px;
         --left-sidebar-max-width: 15%;
         --right-sidebar-max-width: 25%;
       }
@@ -345,4 +345,162 @@ kbd {
   
   .sidebar header .site-avatar .site-logo:hover {
     transform: rotate(720deg); // 旋转角度为360度
+  }
+  //---------------------------------------------------
+  // 侧边栏折叠按钮
+  .sidebar-collapse-btn {
+    position: absolute;
+    top: 12px;
+    z-index: 20;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--card-background);
+    color: var(--body-text-color);
+    box-shadow: var(--shadow-l2);
+    cursor: pointer;
+    transition: transform 0.35s ease, color 0.3s ease;
+
+    &:hover {
+      color: var(--accent-color);
+    }
+
+    @include respond(md) {
+      display: flex;
+    }
+  }
+
+  .left-sidebar .sidebar-collapse-btn {
+    right: -14px;
+  }
+
+  .right-sidebar .sidebar-collapse-btn {
+    left: -14px;
+  }
+
+  // 折叠状态：收缩为 40px 窄条，仅保留按钮
+  .left-sidebar,
+  .right-sidebar {
+    transition: max-width 0.35s ease, width 0.35s ease;
+  }
+
+  body.left-collapsed .left-sidebar,
+  body.right-collapsed .right-sidebar {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px !important;
+    overflow: hidden;
+
+    > *:not(.sidebar-collapse-btn):not(header):not(.sidebar-collapsed-panel) {
+      display: none !important;
+    }
+  }
+
+  body.left-collapsed .left-sidebar .sidebar-collapse-btn {
+    right: 6px;
+    transform: rotate(180deg);
+  }
+
+  body.right-collapsed .right-sidebar .sidebar-collapse-btn {
+    left: 6px;
+    transform: rotate(180deg);
+  }
+
+  //---------------------------------------------------
+  // Mermaid 图表
+  .article-content .mermaid {
+    display: block;
+    margin: 0 auto;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    text-align: center;
+    overflow-x: auto;
+
+    svg {
+      max-width: 100%;
+      height: auto;
+      background: transparent;
+    }
+  }
+
+  //---------------------------------------------------
+  // 折叠窄条：头像 + 按钮组
+  .sidebar-collapsed-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 0 6px;
+  }
+
+  .collapsed-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    padding: 6px 4px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--body-text-color);
+    font-size: 1.2rem;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: color 0.3s ease, background 0.3s ease;
+
+    &:hover {
+      color: var(--accent-color);
+      background: var(--card-background-selected);
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  // 左栏折叠：收缩为头像宽度窄条，显示头像 + 按钮组
+  body.left-collapsed .left-sidebar {
+    width: calc(var(--sidebar-avatar-size) + 20px);
+    min-width: calc(var(--sidebar-avatar-size) + 20px);
+    max-width: calc(var(--sidebar-avatar-size) + 20px) !important;
+    overflow: hidden;
+    align-items: center;
+
+    > *:not(.sidebar-collapsed-panel):not(header) {
+      display: none !important;
+    }
+
+    header {
+      flex-direction: column;
+      align-items: center;
+
+      .site-meta {
+        display: none;
+      }
+    }
+
+    .sidebar-collapsed-panel {
+      display: flex;
+    }
+
+    .sidebar-collapse-btn {
+      display: none;
+    }
+  }
+
+  // 右栏折叠：保持窄条，减小上下留白
+  body.right-collapsed .right-sidebar {
+    min-height: 52px;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
