@@ -3,7 +3,7 @@ title: "wiki CLI 工具设计"
 slug: wiki-cli-design
 description: ""
 date: 2026-08-23T14:47:30+08:00
-lastmod: 2026-08-23T14:47:30+08:00
+lastmod: 2026-08-23T15:34:15+08:00
 draft: false
 toc: true
 hidden: false
@@ -215,3 +215,70 @@ if out, _, err := run("push", "push"); err != nil {
 - **Windows 支持**：symlink 失败自动降级 junction，无需管理员权限
 
 > 坦率说，这个工具离"通用知识管理"还有距离，但它解决了我自己的核心痛点：跨项目检索 + 博客发布自动化。工具的价值不在于功能多，而在于和 agent 工作流的契合度——每个命令都是为 LLM 调用方设计的。
+
+## 实践：接进 Obsidian 当仓库
+------
+> 知识库最终要给人看。Obsidian 是现成的阅读器，但把 wiki 根接进去当仓库，踩了几个设计文档里没写的坑。结论先行：符号链接从来不是问题，仓库根才是。
+
+### 符号链接没问题，仓库根才是问题
+------
+先验证最担心的点：Obsidian 到底认不认 symlink。官方文档说支持，但有约束——目标必须和仓库根不相交、不能有循环。实测更直接，在仓库里建一个指向外部目录的临时链接，文件列表立刻出现：
+
+```bash
+ln -s /d/CODE/ai/higress/wiki "D:/wiki/pandawiki/test-link"   # 临时验证
+obsidian vault=pandawiki folders   # 索引里立刻出现 test-link 和里面的 md
+```
+
+> 链接本身没问题。真正的坑是仓库根：vault 建在 `projects/wiki` 子目录时，打开只能看到欢迎.md——内容全在仓库根之外的 `projects/` 链接里。Obsidian 的仓库根必须包含所有内容，这是唯一硬约束。
+
+### obsidian:// URI 不能注册仓库
+------
+想用 URI 把新目录注册成仓库，撞了墙：
+
+```
+Vault not found.
+Unable to find a vault for the URL obsidian://open/?path=D%3A%5Cwiki%5Cprojects
+```
+
+`obsidian://open?path=` 只能解析**已注册**仓库里的文件路径，不能按路径注册新仓库。注册的正道只有两条：UI 里 Open folder as vault，或者直接改注册表：
+
+```json
+// %APPDATA%\obsidian\obsidian.json
+{"vaults":{"c3d4bd2d547a9675":{"path":"D:\\wiki\\pandawiki","ts":1787470151204,"open":true}},"cli":true}
+```
+
+> 顺带发现 Obsidian 官方 CLI（`obsidian` 命令）很好用：`obsidian vault=pandawiki folders/files` 直接查仓库索引，验证迁移结果不用开界面。唯一提醒：CLI 会抱怨 installer 版本过旧，需要重新下载安装器。
+
+### wikiRoot 标记解析的迁移陷阱
+------
+wiki 根靠 `index.md` 标记解析（环境变量 > exe 目录 > 当前目录）。数据目录从 `D:\wiki` 挪进仓库后，如果只搬文件不设环境变量，hook 会静默失效——解析兜底到 exe 目录，`wiki check` 变成空转：
+
+```bash
+setx WIKI_ROOT "D:\wiki\pandawiki"   # 用户级环境变量，新终端生效
+```
+
+hook 不能依赖终端环境，改成内联设置：
+
+```bash
+cmd /c "set WIKI_ROOT=D:\wiki\pandawiki&& D:/CODE/ai/my-wiki/wiki.exe check"
+```
+
+### 命名避坑：仓库目录别叫 wiki
+------
+仓库目录最初叫 `wiki`，和 `knowledgeDirs` 里的 `wiki` 类型名重合——自动发现知识目录时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。改名 `pandawiki` 一劳永逸。
+
+最终结构：
+
+```
+D:\wiki\pandawiki\            ← Obsidian 仓库根 = wiki 根
+├── .obsidian/
+├── index.md                  ← 注册表（标记）
+├── config.json / blog.json
+├── 欢迎.md
+└── projects/                 ← 各项目知识目录链接
+    ├── agentscope/wiki -> D:\CODE\ai\agentscope\wiki
+    ├── higress/wiki   -> D:\CODE\ai\higress\wiki
+    └── ...
+```
+
+> 这次实践最大的收获：设计里的"数据面"假设（链接、标记、环境变量）在真实阅读器面前都站得住，唯独仓库根层级这种"人怎么看"的问题，设计文档不会替你想到。Obsidian 仓库根 = wiki 根，一个目录两用，比维护两套结构省心。
