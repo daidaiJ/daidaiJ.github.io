@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 14:47:30 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:37:07 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。&lt;/p>
@@ -258,6 +258,31 @@ G --> H["GitHub Actions 自动构建部署"]&lt;/pre>&lt;p>几个关键设计：
 &lt;p>不重试是刻意的：push 失败几乎都是网络问题，自动重试只会放大 GitHub 的限流压力。把决定权交给人，比假装智能地重试更可靠。&lt;/p>
 &lt;/blockquote>
 &lt;p>知识管理对博客的反哺也在这里：&lt;code>blog list&lt;/code> 统计已有分类的使用频次，新文章优先复用——分类不会碎片化，知识库的元数据直接指导博客的写作决策。&lt;/p>
+&lt;h2 id="工作流设计从调研到发布">工作流设计：从调研到发布
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>工具解决&amp;quot;怎么管&amp;quot;，工作流解决&amp;quot;怎么用&amp;quot;。整条链路三段：agent 驱动总结 → Obsidian 查看校对 → Hugo 发布 / git 同步。每段有明确的产出物和交接点，中间夹一道人工关卡。&lt;/p>
+&lt;/blockquote>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A["① Agent 驱动总结"] --> B["② Obsidian 查看校对（人工关卡）"]
+B --> C["③ Hugo 发布 / git 同步"]
+C --> D["GitHub Actions 部署"]&lt;/pre>&lt;h3 id="agent-驱动总结">Agent 驱动总结
+&lt;/h3>&lt;hr>
+&lt;p>agent 调研/实践后把结论沉淀成笔记，写入项目自己的 wiki/ 目录——单一事实源，笔记跟着项目走。文风由 tech-blog skill 规范，产出物直接可读。接入零足迹：&lt;code>wiki init&lt;/code> 只写本地注册表 + 建链接；Stop hook 每轮会话结束跑 &lt;code>wiki check&lt;/code> 幂等同步，新笔记自动进知识库，不需要任何手动步骤。&lt;/p>
+&lt;h3 id="obsidian-查看校对">Obsidian 查看校对
+&lt;/h3>&lt;hr>
+&lt;p>知识库最终要给人看。Obsidian 仓库根 = wiki 根（pandawiki），&lt;code>projects/&lt;/code> 下是各项目 wiki 的符号链接，人在 Obsidian 里阅读校对：链接通不通、结论站不站得住、有没有遗漏。这是整条链路唯一的人工关卡——agent 产出再快，发布前必须过一遍人眼。&lt;/p>
+&lt;p>这个环节的关键假设是符号链接可见，实测成立（Obsidian 官方支持 symlink，约束：目标与仓库根不相交、无循环）。校对通过，笔记才进入发布。&lt;/p>
+&lt;h3 id="hugo-发布--git-同步">Hugo 发布 / git 同步
+&lt;/h3>&lt;hr>
+&lt;p>发布走 &lt;code>wiki blog new&lt;/code> → &lt;code>wiki blog publish&lt;/code>（细节见上一节），push 成功即触发 GitHub Actions 的 hugo 构建部署。失败处理是刻意的：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart TD
+E["wiki blog publish"] --> F{"git push 成功?"}
+F -- 是 --> G["GitHub Actions 构建部署"]
+F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不重试——几乎都是网络/代理问题，自动重试只会放大限流。git 同步管理是兜底：先查代理（本地代理没启动时 push 必挂），再手动补 push。&lt;/p>
+&lt;blockquote>
+&lt;p>三段产出物：笔记（项目 wiki/）→ 校对结论（人脑）→ 已发布文章（博客仓库）。交接点清晰，每段可独立重跑：agent 反复改笔记、人在 Obsidian 反复看、发布随时重来。人工关卡放在发布前而不是发布后，是这条流水线最重要的设计决定。&lt;/p>
+&lt;/blockquote>
 &lt;h2 id="一些取舍">一些取舍
 &lt;/h2>&lt;hr>
 &lt;ul>
@@ -267,6 +292,105 @@ G --> H["GitHub Actions 自动构建部署"]&lt;/pre>&lt;p>几个关键设计：
 &lt;/ul>
 &lt;blockquote>
 &lt;p>坦率说，这个工具离&amp;quot;通用知识管理&amp;quot;还有距离，但它解决了我自己的核心痛点：跨项目检索 + 博客发布自动化。工具的价值不在于功能多，而在于和 agent 工作流的契合度——每个命令都是为 LLM 调用方设计的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="实践接进-obsidian-当仓库">实践：接进 Obsidian 当仓库
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>知识库最终要给人看。Obsidian 是现成的阅读器，但把 wiki 根接进去当仓库，踩了几个设计文档里没写的坑。结论先行：符号链接从来不是问题，仓库根才是。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="符号链接没问题仓库根才是问题">符号链接没问题，仓库根才是问题
+&lt;/h3>&lt;hr>
+&lt;p>先验证最担心的点：Obsidian 到底认不认 symlink。官方文档说支持，但有约束——目标必须和仓库根不相交、不能有循环。实测更直接，在仓库里建一个指向外部目录的临时链接，文件列表立刻出现：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">ln -s /d/CODE/ai/higress/wiki &lt;span class="s2">&amp;#34;D:/wiki/pandawiki/test-link&amp;#34;&lt;/span> &lt;span class="c1"># 临时验证&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki folders &lt;span class="c1"># 索引里立刻出现 test-link 和里面的 md&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>链接本身没问题。真正的坑是仓库根：vault 建在 &lt;code>projects/wiki&lt;/code> 子目录时，打开只能看到欢迎.md——内容全在仓库根之外的 &lt;code>projects/&lt;/code> 链接里。Obsidian 的仓库根必须包含所有内容，这是唯一硬约束。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="obsidian-uri-不能注册仓库">obsidian:// URI 不能注册仓库
+&lt;/h3>&lt;hr>
+&lt;p>想用 URI 把新目录注册成仓库，撞了墙：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Vault not found.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Unable to find a vault for the URL obsidian://open/?path=D%3A%5Cwiki%5Cprojects
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>obsidian://open?path=&lt;/code> 只能解析&lt;strong>已注册&lt;/strong>仓库里的文件路径，不能按路径注册新仓库。注册的正道只有两条：UI 里 Open folder as vault，或者直接改注册表：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// %APPDATA%\obsidian\obsidian.json
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nt">&amp;#34;vaults&amp;#34;&lt;/span>&lt;span class="p">:{&lt;/span>&lt;span class="nt">&amp;#34;c3d4bd2d547a9675&amp;#34;&lt;/span>&lt;span class="p">:{&lt;/span>&lt;span class="nt">&amp;#34;path&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="s2">&amp;#34;D:\\wiki\\pandawiki&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="nt">&amp;#34;ts&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="mi">1787470151204&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="nt">&amp;#34;open&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="kc">true&lt;/span>&lt;span class="p">}},&lt;/span>&lt;span class="nt">&amp;#34;cli&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="kc">true&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>顺带发现 Obsidian 官方 CLI（&lt;code>obsidian&lt;/code> 命令）很好用：&lt;code>obsidian vault=pandawiki folders/files&lt;/code> 直接查仓库索引，验证迁移结果不用开界面。唯一提醒：CLI 会抱怨 installer 版本过旧，需要重新下载安装器。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="wikiroot-标记解析的迁移陷阱">wikiRoot 标记解析的迁移陷阱
+&lt;/h3>&lt;hr>
+&lt;p>wiki 根靠 &lt;code>index.md&lt;/code> 标记解析（环境变量 &amp;gt; exe 目录 &amp;gt; 当前目录）。数据目录从 &lt;code>D:\wiki&lt;/code> 挪进仓库后，如果只搬文件不设环境变量，hook 会静默失效——解析兜底到 exe 目录，&lt;code>wiki check&lt;/code> 变成空转：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">setx WIKI_ROOT &lt;span class="s2">&amp;#34;D:\wiki\pandawiki&amp;#34;&lt;/span> &lt;span class="c1"># 用户级环境变量，新终端生效&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>hook 不能依赖终端环境，改成内联设置：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">cmd /c &lt;span class="s2">&amp;#34;set WIKI_ROOT=D:\wiki\pandawiki&amp;amp;&amp;amp; D:/CODE/ai/my-wiki/wiki.exe check&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="命名避坑仓库目录别叫-wiki">命名避坑：仓库目录别叫 wiki
+&lt;/h3>&lt;hr>
+&lt;p>仓库目录最初叫 &lt;code>wiki&lt;/code>，和 &lt;code>knowledgeDirs&lt;/code> 里的 &lt;code>wiki&lt;/code> 类型名重合——自动发现知识目录时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。改名 &lt;code>pandawiki&lt;/code> 一劳永逸。&lt;/p>
+&lt;p>最终结构：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">D:\wiki\pandawiki\ ← Obsidian 仓库根 = wiki 根
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── .obsidian/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── index.md ← 注册表（标记）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── config.json / blog.json
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── 欢迎.md
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── projects/ ← 各项目知识目录链接
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ├── agentscope/wiki -&amp;gt; D:\CODE\ai\agentscope\wiki
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ├── higress/wiki -&amp;gt; D:\CODE\ai\higress\wiki
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> └── ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这次实践最大的收获：设计里的&amp;quot;数据面&amp;quot;假设（链接、标记、环境变量）在真实阅读器面前都站得住，唯独仓库根层级这种&amp;quot;人怎么看&amp;quot;的问题，设计文档不会替你想到。Obsidian 仓库根 = wiki 根，一个目录两用，比维护两套结构省心。&lt;/p>
 &lt;/blockquote></description></item><item><title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</title><link>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</link><pubDate>Sat, 01 Aug 2026 23:44:36 +0800</pubDate><guid>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</guid><description>&lt;img src="https://picsum.photos/seed/1ba03f14/800/600" alt="Featured image of post Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）" />&lt;h1 id="higress-网关-llm-端点故障临时屏蔽endpoint-failover">Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）
 &lt;/h1>&lt;hr>
 &lt;blockquote>
