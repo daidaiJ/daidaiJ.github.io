@@ -1,0 +1,235 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="wiki CLI 工具设计 一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。\n动机：笔记散落十几个仓库 让 agent 做源码调研和方案分析，产出物（调研 wiki、issue 分析、踩坑记录）散落在十几个仓库的角落里，格式不一、无人索引、想找的时候不知道在哪。为每个项目 fork 一个 wiki 仓库又太重。\n"><title>wiki CLI 工具设计</title>
+<link rel=canonical href=https://daidaij.github.io/p/wiki-cli-design/><link rel=stylesheet href=/scss/style.min.7c715415b9353155dfb3908d13889fc776b27eef1d6af8de36224e1dd2704c41.css><meta property='og:title' content="wiki CLI 工具设计"><meta property='og:description' content="wiki CLI 工具设计 一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。\n动机：笔记散落十几个仓库 让 agent 做源码调研和方案分析，产出物（调研 wiki、issue 分析、踩坑记录）散落在十几个仓库的角落里，格式不一、无人索引、想找的时候不知道在哪。为每个项目 fork 一个 wiki 仓库又太重。\n"><meta property='og:url' content='https://daidaij.github.io/p/wiki-cli-design/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='golang'><meta property='article:tag' content='cli'><meta property='article:tag' content='知识库'><meta property='article:published_time' content='2026-08-23T14:47:30+08:00'><meta property='article:modified_time' content='2026-08-23T14:47:30+08:00'><meta name=twitter:title content="wiki CLI 工具设计"><meta name=twitter:description content="wiki CLI 工具设计 一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。\n动机：笔记散落十几个仓库 让 agent 做源码调研和方案分析，产出物（调研 wiki、issue 分析、踩坑记录）散落在十几个仓库的角落里，格式不一、无人索引、想找的时候不知道在哪。为每个项目 fork 一个 wiki 仓库又太重。\n"><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换暗色模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span>暗色</span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#动机笔记散落十几个仓库>动机：笔记散落十几个仓库</a></li><li><a href=#核心思想数据面与控制流分离>核心思想：数据面与控制流分离</a></li><li><a href=#数据面实现注册表--目录链接>数据面实现：注册表 + 目录链接</a></li><li><a href=#控制流实现为-agent-而生>控制流实现：为 agent 而生</a></li><li><a href=#打通知识管理和博客>打通知识管理和博客</a></li><li><a href=#一些取舍>一些取舍</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/go/>Go
+</a><a href=/categories/%E5%B0%8F%E5%B7%A5%E5%85%B7/>小工具</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/wiki-cli-design/>wiki CLI 工具设计</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Aug 23, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div><div><time class=article-words>2492 字</time></div></footer></div></header><section class=article-content><h1 id=wiki-cli-工具设计>wiki CLI 工具设计</h1><hr><blockquote><p>一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。</p></blockquote><h2 id=动机笔记散落十几个仓库>动机：笔记散落十几个仓库</h2><hr><p>让 agent 做源码调研和方案分析，产出物（调研 wiki、issue 分析、踩坑记录）散落在十几个仓库的角落里，格式不一、无人索引、想找的时候不知道在哪。为每个项目 fork 一个 wiki 仓库又太重。</p><p>my-wiki 的做法是<strong>不动你的文档</strong>：笔记继续留在各自项目里（单一事实源），工具只在统一目录下维护一组目录链接，再用一张本地注册表登记每个项目的位置和介绍。任何时刻 <code>grep</code> 一下就能跨项目检索，而各项目仓库保持零改动——不会把你的个人知识配置带上远程。</p><h2 id=核心思想数据面与控制流分离>核心思想：数据面与控制流分离</h2><hr><p>wiki 把整个系统切成两层：</p><ul><li><strong>数据面</strong>：知识数据本身。笔记留在各自项目里（单一事实源），注册表、发布记录、配置在 <code>WIKI_ROOT</code> 指向的本地目录，<code>projects/</code> 链接是机器本地的视图</li><li><strong>控制流</strong>：工具逻辑与 agent 工作流。命令契约、钩子、规约注入——这部分可以开源、可以复制、可以升级，和数据互不污染</li></ul><p>分离的直接体现是 wiki 根解析：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// config.go（简化）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>WikiRoot</span><span class=p>()</span> <span class=kt>string</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>env</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Getenv</span><span class=p>(</span><span class=s>&#34;WIKI_ROOT&#34;</span><span class=p>);</span> <span class=nx>env</span> <span class=o>!=</span> <span class=s>&#34;&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>env</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 依次探测可执行文件目录、当前目录是否含 index.md 标记
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>dir</span> <span class=o>:=</span> <span class=k>range</span> <span class=p>[]</span><span class=kt>string</span><span class=p>{</span><span class=nx>exeDir</span><span class=p>,</span> <span class=nx>cwd</span><span class=p>}</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Stat</span><span class=p>(</span><span class=nx>filepath</span><span class=p>.</span><span class=nf>Join</span><span class=p>(</span><span class=nx>dir</span><span class=p>,</span> <span class=s>&#34;index.md&#34;</span><span class=p>));</span> <span class=nx>err</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=nx>dir</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>exeDir</span> <span class=c1>// 兜底
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>工具仓库可以开源（代码 + 规约），个人数据在 <code>WIKI_ROOT</code> 指向的目录，两者互不污染。换机器只要把数据目录拷过去，<code>projects/</code> 链接重建一次即可。</p></blockquote><p>数据面还有一个更重要的原则：<strong>项目仓库零足迹</strong>。接入信息只存在 wiki 根的本地注册表，不会随项目 commit/push 泄漏到远程——你的个人知识配置永远不会出现在公开仓库里。</p><h2 id=数据面实现注册表--目录链接>数据面实现：注册表 + 目录链接</h2><hr><p>注册表持久化为 <code>index.md</code> 顶部的隐藏 JSON 块，其余是渲染视图：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// registry.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>saveRegistry</span><span class=p>(</span><span class=nx>root</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>reg</span> <span class=o>*</span><span class=nx>Registry</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>b</span> <span class=nx>strings</span><span class=p>.</span><span class=nx>Builder</span>
+</span></span><span class=line><span class=cl>    <span class=nx>b</span><span class=p>.</span><span class=nf>WriteString</span><span class=p>(</span><span class=s>&#34;&lt;!-- wiki-registry\n&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>b</span><span class=p>.</span><span class=nf>Write</span><span class=p>(</span><span class=nx>data</span><span class=p>)</span>                 <span class=c1>// ← JSON 数据块（机器读）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>b</span><span class=p>.</span><span class=nf>WriteString</span><span class=p>(</span><span class=s>&#34;\n--&gt;\n\n&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>b</span><span class=p>.</span><span class=nf>WriteString</span><span class=p>(</span><span class=s>&#34;# 项目索引\n\n&#34;</span><span class=p>)</span> <span class=c1>// ← 以下是 Markdown 渲染视图（人读）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>p</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>reg</span><span class=p>.</span><span class=nx>Projects</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>fmt</span><span class=p>.</span><span class=nf>Fprintf</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>b</span><span class=p>,</span> <span class=s>&#34;| %s | %s | %s |\n&#34;</span><span class=p>,</span> <span class=nx>p</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>p</span><span class=p>.</span><span class=nx>Root</span><span class=p>,</span> <span class=nx>p</span><span class=p>.</span><span class=nx>Intro</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>os</span><span class=p>.</span><span class=nf>WriteFile</span><span class=p>(</span><span class=nf>registryPath</span><span class=p>(</span><span class=nx>root</span><span class=p>),</span> <span class=p>[]</span><span class=nb>byte</span><span class=p>(</span><span class=nx>b</span><span class=p>.</span><span class=nf>String</span><span class=p>()),</span> <span class=mi>0</span><span class=nx>o644</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>一个文件同时是数据源和视图，agent 和人都能读。JSON 藏在 HTML 注释里，Markdown 渲染器不会显示它，<code>wiki grep</code> 也不会被它干扰。</p></blockquote><p>链接层：<code>projects/&lt;项目>/</code> 下建 symlink 指向项目的 wiki/issues 目录，Windows 无权限时自动降级 junction：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>makeLink</span><span class=p>(</span><span class=nx>target</span><span class=p>,</span> <span class=nx>link</span> <span class=kt>string</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Symlink</span><span class=p>(</span><span class=nx>target</span><span class=p>,</span> <span class=nx>link</span><span class=p>);</span> <span class=nx>err</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=nx>runtime</span><span class=p>.</span><span class=nx>GOOS</span> <span class=o>==</span> <span class=s>&#34;windows&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>out</span><span class=p>,</span> <span class=nx>jerr</span> <span class=o>:=</span> <span class=nx>exec</span><span class=p>.</span><span class=nf>Command</span><span class=p>(</span><span class=s>&#34;cmd&#34;</span><span class=p>,</span> <span class=s>&#34;/c&#34;</span><span class=p>,</span> <span class=s>&#34;mklink&#34;</span><span class=p>,</span> <span class=s>&#34;/J&#34;</span><span class=p>,</span> <span class=nx>link</span><span class=p>,</span> <span class=nx>target</span><span class=p>).</span><span class=nf>CombinedOutput</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>jerr</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=kc>nil</span> <span class=c1>// ← junction 降级成功
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;symlink 失败: %v；junction 降级也失败: %v: %s&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>,</span> <span class=nx>jerr</span><span class=p>,</span> <span class=nx>out</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>整体关系：</p><pre class=mermaid style=visibility:hidden>flowchart LR
+    subgraph 项目仓库["项目仓库（零足迹）"]
+        P1["项目A/wiki"]
+        P2["项目B/issues"]
+    end
+    subgraph WR["wiki 根（WIKI_ROOT）"]
+        R["注册表 index.md"]
+        L["projects/ 链接目录"]
+    end
+    P1 -- "symlink / junction" --> L
+    P2 -- "symlink / junction" --> L
+    L --> R</pre><h2 id=控制流实现为-agent-而生>控制流实现：为 agent 而生</h2><hr><p>控制流要回答一个问题：agent 怎么和这个工具协作？两个设计贯穿始终。</p><p><strong>幂等 check，为钩子而生。</strong> <code>wiki check</code> 被设计为对任何钩子机制都安全：</p><ul><li>stdout 恒为空（部分工具会把 stdout 当 JSON 严格校验）</li><li>日志全部走 stderr，内部错误不改变退出码</li><li>不修改当前项目仓库的任何文件</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// EnsureRegistered 幂等地把项目接入知识库，init/register/check 共用
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>EnsureRegistered</span><span class=p>(</span><span class=nx>root</span><span class=p>,</span> <span class=nx>abs</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>decl</span> <span class=o>*</span><span class=nx>WikiSyncDecl</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>EnsureResult</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 1. 跳过健康链接（EvalSymlinks 比对目标）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 2. 修复失效链接
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 3. 清理声明收缩后的孤儿链接（只删链接，绝不碰真实目录）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 4. upsert 注册表——无变化则不写盘
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>关键细节：注册表无变化则不写盘。否则每轮会话结束都触发一次文件写入，既制造噪音，也让 git 工作区永远不干净。</p></blockquote><p><strong>宽容 flag 解析。</strong> agent 调用 CLI 时经常把位置参数放在旗标前（<code>init &lt;目录> --paths wiki</code>），标准库 flag 不接受这种顺序。<code>ParseWithPositionals</code> 内部重排为「旗标在前、位置参数在后」再交给标准 FlagSet：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>ParseWithPositionals</span><span class=p>(</span><span class=nx>fs</span> <span class=o>*</span><span class=nx>flag</span><span class=p>.</span><span class=nx>FlagSet</span><span class=p>,</span> <span class=nx>args</span> <span class=p>[]</span><span class=kt>string</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>flags</span><span class=p>,</span> <span class=nx>pos</span> <span class=p>[]</span><span class=kt>string</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=nb>len</span><span class=p>(</span><span class=nx>args</span><span class=p>);</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>a</span> <span class=o>:=</span> <span class=nx>args</span><span class=p>[</span><span class=nx>i</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>strings</span><span class=p>.</span><span class=nf>HasPrefix</span><span class=p>(</span><span class=nx>a</span><span class=p>,</span> <span class=s>&#34;-&#34;</span><span class=p>)</span> <span class=o>&amp;&amp;</span> <span class=nx>a</span> <span class=o>!=</span> <span class=s>&#34;-&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>flags</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>flags</span><span class=p>,</span> <span class=nx>a</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=nx>f</span> <span class=o>:=</span> <span class=nx>fs</span><span class=p>.</span><span class=nf>Lookup</span><span class=p>(</span><span class=nx>strings</span><span class=p>.</span><span class=nf>TrimLeft</span><span class=p>(</span><span class=nx>a</span><span class=p>,</span> <span class=s>&#34;-&#34;</span><span class=p>));</span> <span class=nx>f</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=nx>bv</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>Value</span><span class=p>.(</span><span class=kd>interface</span><span class=p>{</span> <span class=nf>IsBoolFlag</span><span class=p>()</span> <span class=kt>bool</span> <span class=p>});</span> <span class=p>!</span><span class=nx>ok</span> <span class=o>||</span> <span class=p>!</span><span class=nx>bv</span><span class=p>.</span><span class=nf>IsBoolFlag</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=k>if</span> <span class=nx>i</span><span class=o>+</span><span class=mi>1</span> <span class=p>&lt;</span> <span class=nb>len</span><span class=p>(</span><span class=nx>args</span><span class=p>)</span> <span class=p>{</span> <span class=c1>// 非 bool 旗标吞掉下一个 token
+</span></span></span><span class=line><span class=cl><span class=c1></span>                        <span class=nx>i</span><span class=o>++</span>
+</span></span><span class=line><span class=cl>                        <span class=nx>flags</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>flags</span><span class=p>,</span> <span class=nx>args</span><span class=p>[</span><span class=nx>i</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>                    <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>pos</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>pos</span><span class=p>,</span> <span class=nx>a</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>fs</span><span class=p>.</span><span class=nf>Parse</span><span class=p>(</span><span class=nb>append</span><span class=p>(</span><span class=nx>flags</span><span class=p>,</span> <span class=nx>pos</span><span class=o>...</span><span class=p>))</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>这个函数是 agent 友好设计的缩影：CLI 的调用方是 LLM，不是人。LLM 生成命令时不会严格遵守「旗标在前」的约定，宽容解析能显著减少失败重试。</p></blockquote><h2 id=打通知识管理和博客>打通知识管理和博客</h2><hr><p>wiki 的另一半：知识库的产出直接变成博客文章。调研笔记（wiki/issues）→ 知识库检索 → 沉淀成博客，一条链路：</p><pre class=mermaid style=visibility:hidden>flowchart LR
+    A["agent 调研产出笔记"] --> B["wiki init 接入知识库"]
+    B --> C["wiki grep 跨项目检索"]
+    C --> D["wiki blog new 创建文章"]
+    D --> E["wiki blog publish 发布"]
+    E --> F["GitHub Actions 自动部署"]</pre><p><code>blog new</code> 的完整流程：</p><pre class=mermaid style=visibility:hidden>flowchart TD
+    A["wiki blog new"] --> B["查重：slug / 文件名"]
+    B --> C["hugo new 按主题 archetype 生成模板"]
+    C --> D["填 title/slug/categories/tags 四字段"]
+    D --> E["追加正文"]
+    E --> F["wiki blog publish"]
+    F --> G["git add + commit + push"]
+    G --> H["GitHub Actions 自动构建部署"]</pre><p>几个关键设计：</p><ul><li><strong>apply 时查重</strong>：slug 罕见重复 + 文件名存在性，先于 <code>hugo new</code> 报错，避免生成一半才发现冲突</li><li><strong>push 失败不重试</strong>：原始错误透传，文章已本地提交，用户手动补一次 <code>git push</code> 即可</li><li><strong>blog.json 懒维护</strong>：发布成功后才更新四字段记录，<code>blog list</code> 据此统计分类复用频次</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// blogPublish 提交并推送；push 失败不重试
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>if</span> <span class=nx>out</span><span class=p>,</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nf>run</span><span class=p>(</span><span class=s>&#34;push&#34;</span><span class=p>,</span> <span class=s>&#34;push&#34;</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;git push 失败（不重试，原始输出透传如下）:\n%s%v\n\n&#34;</span><span class=o>+</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;GitHub 网络问题请用户手动处理：稍后在 %s 执行 git push 即可，文章已本地提交。&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>out</span><span class=p>,</span> <span class=nx>err</span><span class=p>,</span> <span class=nx>repo</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>不重试是刻意的：push 失败几乎都是网络问题，自动重试只会放大 GitHub 的限流压力。把决定权交给人，比假装智能地重试更可靠。</p></blockquote><p>知识管理对博客的反哺也在这里：<code>blog list</code> 统计已有分类的使用频次，新文章优先复用——分类不会碎片化，知识库的元数据直接指导博客的写作决策。</p><h2 id=一些取舍>一些取舍</h2><hr><ul><li><strong>注册表是单机本地的</strong>，没有多用户同步——团队共享知识库不适合</li><li><strong>刻意本地优先</strong>：要跨机器同步就用 git remote 管理数据目录，工具从不自动 push</li><li><strong>Windows 支持</strong>：symlink 失败自动降级 junction，无需管理员权限</li></ul><blockquote><p>坦率说，这个工具离"通用知识管理"还有距离，但它解决了我自己的核心痛点：跨项目检索 + 博客发布自动化。工具的价值不在于功能多，而在于和 agent 工作流的契合度——每个命令都是为 LLM 调用方设计的。</p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/golang/>Golang</a>
+<a href=/tags/cli/>Cli</a>
+<a href=/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/>知识库</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/godllno-cgo/><div class=article-image><img src=https://picsum.photos/seed/d91a0fe0/800/600 loading=lazy data-key="go,dll,no cgo" data-hash=https://picsum.photos/seed/d91a0fe0/800/600></div><div class=article-details><h2 class=article-title>纯go 调用dll 实现一些动态装载</h2></div></a></article><article class=has-image><a href=/p/video_cutter/><div class=article-image><img src=https://picsum.photos/seed/ccdc7ec6/800/600 loading=lazy data-key=video_cutter data-hash=https://picsum.photos/seed/ccdc7ec6/800/600></div><div class=article-details><h2 class=article-title>Videocutter</h2></div></a></article><article class=has-image><a href=/p/gmtls/><div class=article-image><img src=https://picsum.photos/seed/8ebdf5d2/800/600 loading=lazy data-key=gmtls data-hash=https://picsum.photos/seed/8ebdf5d2/800/600></div><div class=article-details><h2 class=article-title>Gmtls</h2></div></a></article><article class=has-image><a href=/p/sse/><div class=article-image><img src=https://picsum.photos/seed/51efc8ca/800/600 loading=lazy data-key=sse data-hash=https://picsum.photos/seed/51efc8ca/800/600></div><div class=article-details><h2 class=article-title>sse</h2></div></a></article><article class=has-image><a href=/p/otle/><div class=article-image><img src=https://picsum.photos/seed/55031e83/800/600 loading=lazy data-key=otle data-hash=https://picsum.photos/seed/55031e83/800/600></div><div class=article-details><h2 class=article-title>otle</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script type=text/javascript src=/ts/custom.eb4c6a182f37f89cd350793e35e757636b2c6892de4ae5ab0a9f2170b0e4118c.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
+    import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+        .then(({ default: mermaid }) => {
+            const elements = Array.from(document.querySelectorAll('.mermaid'));
+            if (!elements.length) return;
+            const sources = elements.map(el => el.innerHTML);
+            let currentScheme = null;
+
+            const render = () => {
+                const scheme = document.documentElement.dataset.scheme;
+                if (scheme === currentScheme) return;
+                currentScheme = scheme;
+
+                const dark = scheme === 'dark';
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: dark ? 'dark' : 'neutral',
+                    securityLevel: 'strict'
+                });
+                elements.forEach((el, i) => {
+                    el.removeAttribute('data-processed');
+                    el.innerHTML = sources[i];
+                });
+                return mermaid.run({ nodes: elements }).then(() => {
+                    elements.forEach(el => { el.style.visibility = ''; });
+                });
+            };
+
+            render();
+            window.addEventListener('onColorSchemeChange', render);
+        })
+        .catch((error) => {
+            console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
+        });
+</script></body></html>
