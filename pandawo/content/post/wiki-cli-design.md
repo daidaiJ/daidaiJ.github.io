@@ -3,7 +3,7 @@ title: "wiki CLI 工具设计"
 slug: wiki-cli-design
 description: ""
 date: 2026-08-23T14:47:30+08:00
-lastmod: 2026-08-23T15:37:07+08:00
+lastmod: 2026-08-23T15:39:47+08:00
 draft: false
 toc: true
 hidden: false
@@ -21,7 +21,7 @@ image: https://picsum.photos/seed/e782c1e9/800/600
 ---
 # wiki CLI 工具设计
 ------
-> 一个把散落在各项目里的调研笔记统一管起来的命令行工具。核心思想就两条：数据面与控制流分离，知识管理与博客发布打通。
+> 一个基于 agent hook 设计的命令行工具：会话结束 hook 自动跑同步，把项目 wiki 知识、Obsidian 校对、Hugo 博客发布串成一条自动化流水线。核心思想：hook 驱动自动化，数据面与控制流分离。
 
 ## 动机：笔记散落十几个仓库
 ------
@@ -29,9 +29,11 @@ image: https://picsum.photos/seed/e782c1e9/800/600
 
 my-wiki 的做法是**不动你的文档**：笔记继续留在各自项目里（单一事实源），工具只在统一目录下维护一组目录链接，再用一张本地注册表登记每个项目的位置和介绍。任何时刻 `grep` 一下就能跨项目检索，而各项目仓库保持零改动——不会把你的个人知识配置带上远程。
 
-## 核心思想：数据面与控制流分离
+## 核心思想：hook 驱动，自动化优先
 ------
-wiki 把整个系统切成两层：
+wiki 的定位不是"又一个笔记工具"，而是 agent 工作流里的自动同步器。设计围绕一个心跳展开：每轮会话结束，Stop hook 跑一次 `wiki check`——幂等、静默、非阻塞，把项目 wiki 知识自动收进知识库。人不需要记得"接入"这件事，agent 也不需要。
+
+hook 驱动的前提是架构分层，wiki 把整个系统切成两层：
 
 - **数据面**：知识数据本身。笔记留在各自项目里（单一事实源），注册表、发布记录、配置在 `WIKI_ROOT` 指向的本地目录，`projects/` 链接是机器本地的视图
 - **控制流**：工具逻辑与 agent 工作流。命令契约、钩子、规约注入——这部分可以开源、可以复制、可以升级，和数据互不污染
@@ -113,9 +115,9 @@ flowchart LR
     L --> R
 ```
 
-## 控制流实现：为 agent 而生
+## 控制流实现：为 hook 而生
 ------
-控制流要回答一个问题：agent 怎么和这个工具协作？两个设计贯穿始终。
+控制流要回答一个问题：hook 和 agent 怎么和这个工具协作？两个设计贯穿始终。
 
 **幂等 check，为钩子而生。** `wiki check` 被设计为对任何钩子机制都安全：
 
@@ -163,17 +165,18 @@ func ParseWithPositionals(fs *flag.FlagSet, args []string) error {
 
 > 这个函数是 agent 友好设计的缩影：CLI 的调用方是 LLM，不是人。LLM 生成命令时不会严格遵守「旗标在前」的约定，宽容解析能显著减少失败重试。
 
-## 打通知识管理和博客
+## 打通 Obsidian 和 Hugo 博客仓库
 ------
-wiki 的另一半：知识库的产出直接变成博客文章。调研笔记（wiki/issues）→ 知识库检索 → 沉淀成博客，一条链路：
+知识库有两个出口：Obsidian 仓库（人阅读校对）和 Hugo 博客仓库（对外发布）。Obsidian 仓库根就是 wiki 根（pandawiki），`projects/` 符号链接把各项目 wiki 聚合进来，人在里面阅读校对；校对通过的笔记才进博客流水线。调研笔记（wiki/issues）→ 知识库检索 → Obsidian 校对 → 沉淀成博客，一条链路：
 
 ```mermaid
 flowchart LR
     A["agent 调研产出笔记"] --> B["wiki init 接入知识库"]
     B --> C["wiki grep 跨项目检索"]
-    C --> D["wiki blog new 创建文章"]
-    D --> E["wiki blog publish 发布"]
-    E --> F["GitHub Actions 自动部署"]
+    C --> D["Obsidian 查看校对"]
+    D --> E["wiki blog new 创建文章"]
+    E --> F["wiki blog publish 发布"]
+    F --> G["GitHub Actions 自动部署"]
 ```
 
 `blog new` 的完整流程：
