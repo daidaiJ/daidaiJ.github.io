@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:40:53 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Golang on 潘达窝</title><link>https://daidaij.github.io/tags/golang/</link><description>Recent content in Golang on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 23 Aug 2026 15:43:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/golang/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>一个基于 agent hook 设计的命令行工具：会话结束 hook 自动跑同步，把项目 wiki 知识、Obsidian 校对、Hugo 博客发布串成一条自动化流水线。核心思想：hook 驱动自动化，数据面与控制流分离。&lt;/p>
@@ -298,20 +298,30 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;h2 id="实践obsidian-仓库接入-sop">实践：Obsidian 仓库接入 SOP
 &lt;/h2>&lt;hr>
 &lt;blockquote>
-&lt;p>知识库最终要给人看。Obsidian 是现成的阅读器，把 wiki 根接进去当仓库有一套固定流程：建仓库、迁数据、注册、验证。照着做一遍，十分钟收工。&lt;/p>
+&lt;p>知识库最终要给人看。Obsidian 是现成的阅读器，把 wiki 根接进去当仓库有两条路：先建仓库再配 wiki CLI（推荐），或者顺序反了之后迁移。殊途同归：Obsidian 仓库根 = wiki 根，一个目录两用。&lt;/p>
 &lt;/blockquote>
-&lt;h3 id="1-仓库根--wiki-根">1. 仓库根 = wiki 根
+&lt;h3 id="路线一先建仓库再配置-wiki-cli">路线一：先建仓库，再配置 wiki CLI
 &lt;/h3>&lt;hr>
-&lt;p>Obsidian 仓库根必须包含知识库全部内容，最省心的做法是让仓库根直接等于 wiki 根。目录命名避开 &lt;code>wiki&lt;/code>——和 &lt;code>knowledgeDirs&lt;/code> 的类型名重合，自动发现时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。&lt;/p>
-&lt;h3 id="2-迁移数据显式指定-wiki_root">2. 迁移数据，显式指定 WIKI_ROOT
+&lt;p>正确顺序是先有仓库，再让 wiki CLI 的持久化目录落进仓库：&lt;/p>
+&lt;ol>
+&lt;li>建一个空的 Obsidian 仓库，目录名避开 &lt;code>wiki&lt;/code>——和 &lt;code>knowledgeDirs&lt;/code> 的类型名重合，自动发现时可能把仓库目录自己误认成项目知识目录&lt;/li>
+&lt;li>把 wiki CLI 持久化目录配置到仓库：&lt;code>setx WIKI_ROOT &amp;quot;D:\wiki\pandawiki&amp;quot;&lt;/code>（用户级环境变量，新终端生效）&lt;/li>
+&lt;li>&lt;code>wiki init &amp;lt;项目&amp;gt;&lt;/code> 接入项目——注册表 &lt;code>index.md&lt;/code>、&lt;code>config.json&lt;/code>、&lt;code>projects/&lt;/code> 链接全部落在仓库目录里，Obsidian 里立即可见&lt;/li>
+&lt;li>验证：&lt;code>wiki ls&lt;/code> 项目在册，&lt;code>obsidian vault=pandawiki folders&lt;/code> 索引完整&lt;/li>
+&lt;/ol>
+&lt;h3 id="路线二顺序反了迁移现有持久化目录">路线二：顺序反了，迁移现有持久化目录
 &lt;/h3>&lt;hr>
-&lt;p>wiki 根靠 &lt;code>index.md&lt;/code> 标记解析（环境变量 &amp;gt; exe 目录 &amp;gt; 当前目录）。数据目录迁进仓库后必须显式指定，否则 hook 静默失效、&lt;code>wiki check&lt;/code> 空转：&lt;/p>
+&lt;p>wiki CLI 数据已经存在（比如在 &lt;code>D:\wiki&lt;/code>），迁移进 Obsidian 仓库分四步：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>迁数据&lt;/strong>：&lt;code>index.md&lt;/code>（注册表）、&lt;code>config.json&lt;/code>、&lt;code>blog.json&lt;/code>、&lt;code>projects/&lt;/code> 整个目录移进仓库&lt;/li>
+&lt;li>&lt;strong>显式指定 WIKI_ROOT&lt;/strong>：wiki 根靠 &lt;code>index.md&lt;/code> 标记解析（环境变量 &amp;gt; exe 目录 &amp;gt; 当前目录），只搬文件不设环境变量，hook 会静默失效、&lt;code>wiki check&lt;/code> 空转：&lt;/li>
+&lt;/ol>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">setx WIKI_ROOT &lt;span class="s2">&amp;#34;D:\wiki\pandawiki&amp;#34;&lt;/span> &lt;span class="c1"># 用户级环境变量，新终端生效&lt;/span>
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">setx WIKI_ROOT &lt;span class="s2">&amp;#34;D:\wiki\pandawiki&amp;#34;&lt;/span> &lt;span class="c1"># 用户级环境变量&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;p>hook 不依赖终端环境，内联设置：&lt;/p>
@@ -323,9 +333,9 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">cmd /c &lt;span class="s2">&amp;#34;set WIKI_ROOT=D:\wiki\pandawiki&amp;amp;&amp;amp; D:/CODE/ai/my-wiki/wiki.exe check&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;h3 id="3-注册仓库ui-或注册表">3. 注册仓库：UI 或注册表
-&lt;/h3>&lt;hr>
-&lt;p>新目录注册成仓库只有两条路：UI 里 Open folder as vault，或者直接改注册表：&lt;/p>
+&lt;/div>&lt;ol start="3">
+&lt;li>&lt;strong>注册仓库&lt;/strong>：UI 里 Open folder as vault，或直接改注册表：&lt;/li>
+&lt;/ol>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -339,27 +349,12 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;/div>&lt;blockquote>
 &lt;p>&lt;code>obsidian://open?path=&lt;/code> 只能解析已注册仓库里的文件，不能注册新仓库——别在这上面浪费时间。&lt;/p>
 &lt;/blockquote>
-&lt;h3 id="4-符号链接直接可用">4. 符号链接直接可用
-&lt;/h3>&lt;hr>
-&lt;p>Obsidian 原生支持 symlink（约束：目标与仓库根不相交、无循环），&lt;code>projects/&lt;/code> 下的链接开箱即用。用官方 CLI 验证索引：&lt;/p>
-&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
-&lt;/span>&lt;span class="lnt">2
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki folders &lt;span class="c1"># 应列出 projects/&amp;lt;项目&amp;gt;/wiki&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">obsidian &lt;span class="nv">vault&lt;/span>&lt;span class="o">=&lt;/span>pandawiki files &lt;span class="c1"># 应列出全部 md&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;blockquote>
-&lt;p>官方 CLI 会抱怨 installer 版本过旧，功能不受影响，有空重装一次安装器即可。&lt;/p>
-&lt;/blockquote>
-&lt;h3 id="5-验证清单">5. 验证清单
-&lt;/h3>&lt;hr>
+&lt;ol start="4">
+&lt;li>&lt;strong>验证清单&lt;/strong>：&lt;/li>
+&lt;/ol>
 &lt;ul>
 &lt;li>&lt;code>wiki ls&lt;/code>：项目全部在册&lt;/li>
-&lt;li>&lt;code>obsidian vault=pandawiki folders/files&lt;/code>：符号链接内容全部索引&lt;/li>
+&lt;li>&lt;code>obsidian vault=pandawiki folders/files&lt;/code>：符号链接内容全部索引（Obsidian 原生支持 symlink，约束：目标与仓库根不相交、无循环）&lt;/li>
 &lt;li>最终结构：&lt;/li>
 &lt;/ul>
 &lt;div class="highlight">&lt;div class="chroma">
@@ -387,7 +382,7 @@ F -- 否 --> H["本地已提交，手动补 push"]&lt;/pre>&lt;p>push 失败不�
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;blockquote>
-&lt;p>这套 SOP 的核心就一句：Obsidian 仓库根 = wiki 根，一个目录两用。其余都是围绕它展开的固定动作。&lt;/p>
+&lt;p>两条路线殊途同归：Obsidian 仓库根 = wiki 根，一个目录两用。推荐路线一，但路线二也不复杂——迁数据、设 WIKI_ROOT、注册、验证四步，十分钟收工。&lt;/p>
 &lt;/blockquote></description></item><item><title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</title><link>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</link><pubDate>Sat, 01 Aug 2026 23:44:36 +0800</pubDate><guid>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</guid><description>&lt;img src="https://picsum.photos/seed/1ba03f14/800/600" alt="Featured image of post Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）" />&lt;h1 id="higress-网关-llm-端点故障临时屏蔽endpoint-failover">Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）
 &lt;/h1>&lt;hr>
 &lt;blockquote>
