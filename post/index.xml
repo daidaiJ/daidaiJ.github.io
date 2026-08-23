@@ -1346,47 +1346,23 @@
 &lt;p>Google 开源了两套用于运行长时间智能体（Agent）的组件：&lt;strong>ax&lt;/strong> 和 &lt;strong>substrate&lt;/strong>。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：&lt;strong>一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。&lt;/strong>&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="架构总览两层设计">架构总览：两层设计
-&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
-&lt;/span>&lt;span class="lnt"> 2
-&lt;/span>&lt;span class="lnt"> 3
-&lt;/span>&lt;span class="lnt"> 4
-&lt;/span>&lt;span class="lnt"> 5
-&lt;/span>&lt;span class="lnt"> 6
-&lt;/span>&lt;span class="lnt"> 7
-&lt;/span>&lt;span class="lnt"> 8
-&lt;/span>&lt;span class="lnt"> 9
-&lt;/span>&lt;span class="lnt">10
-&lt;/span>&lt;span class="lnt">11
-&lt;/span>&lt;span class="lnt">12
-&lt;/span>&lt;span class="lnt">13
-&lt;/span>&lt;span class="lnt">14
-&lt;/span>&lt;span class="lnt">15
-&lt;/span>&lt;span class="lnt">16
-&lt;/span>&lt;span class="lnt">17
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">graph TB
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> subgraph ax[&amp;#34;ax (编排层)&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Controller[&amp;#34;Controller&amp;lt;br/&amp;gt;调谐循环&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> EventLog[&amp;#34;EventLog&amp;lt;br/&amp;gt;事件溯源&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Harness[&amp;#34;Harness&amp;lt;br/&amp;gt;执行抽象&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> end
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> subgraph substrate[&amp;#34;substrate (基础设施层)&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ControlAPI[&amp;#34;ControlAPI&amp;lt;br/&amp;gt;状态机+锁&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> WorkerPool[&amp;#34;WorkerPool&amp;lt;br/&amp;gt;K8s Pod 池&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Atelet[&amp;#34;Atelet&amp;lt;br/&amp;gt;快照 Agent&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Redis[&amp;#34;Redis&amp;lt;br/&amp;gt;Actor 状态&amp;#34;]
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> end
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Controller --&amp;gt;|gRPC| ControlAPI
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Harness --&amp;gt;|gRPC| ControlAPI
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ControlAPI --&amp;gt; Redis
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ControlAPI --&amp;gt; WorkerPool
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ControlAPI --&amp;gt; Atelet
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;blockquote>
+&lt;/h2>&lt;pre class="mermaid" style="visibility:hidden">graph TB
+subgraph ax["ax (编排层)"]
+Controller["Controller&lt;br/>调谐循环"]
+EventLog["EventLog&lt;br/>事件溯源"]
+Harness["Harness&lt;br/>执行抽象"]
+end
+subgraph substrate["substrate (基础设施层)"]
+ControlAPI["ControlAPI&lt;br/>状态机+锁"]
+WorkerPool["WorkerPool&lt;br/>K8s Pod 池"]
+Atelet["Atelet&lt;br/>快照 Agent"]
+Redis["Redis&lt;br/>Actor 状态"]
+end
+Controller -->|gRPC| ControlAPI
+Harness -->|gRPC| ControlAPI
+ControlAPI --> Redis
+ControlAPI --> WorkerPool
+ControlAPI --> Atelet&lt;/pre>&lt;blockquote>
 &lt;p>两层的职责边界很清晰：ax 知道&amp;quot;做什么&amp;quot;（业务逻辑），substrate 知道&amp;quot;怎么跑&amp;quot;（沙箱调度）。ax 通过 gRPC 调用 substrate 的 ControlAPI 来管理 Actor 的创建、恢复和挂起。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="核心概念actor-模型">核心概念：Actor 模型
@@ -1395,29 +1371,14 @@
 &lt;p>每个 Agent 会话对应一个 &lt;strong>Actor&lt;/strong>，这是整个系统的核心抽象。Actor 不是一个 Go 对象，而是一个&lt;strong>分布式状态机&lt;/strong>，状态存在 Redis 里，实际的沙箱进程跑在 K8s Worker Pod 上。&lt;/p>
 &lt;/blockquote>
 &lt;p>&lt;strong>Actor 状态流转：&lt;/strong>&lt;/p>
-&lt;div class="highlight">&lt;div class="chroma">
-&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
-&lt;/span>&lt;span class="lnt">2
-&lt;/span>&lt;span class="lnt">3
-&lt;/span>&lt;span class="lnt">4
-&lt;/span>&lt;span class="lnt">5
-&lt;/span>&lt;span class="lnt">6
-&lt;/span>&lt;span class="lnt">7
-&lt;/span>&lt;span class="lnt">8
-&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
-&lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">stateDiagram-v2
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> [*] --&amp;gt; SUSPENDED: CreateActor
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> SUSPENDED --&amp;gt; RESUMING: ResumeActor
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> RESUMING --&amp;gt; RUNNING: 成功
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> RESUMING --&amp;gt; SUSPENDED: 失败(回退)
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> RUNNING --&amp;gt; SUSPENDING: SuspendActor
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> SUSPENDING --&amp;gt; SUSPENDED: 成功
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> SUSPENDING --&amp;gt; RUNNING: 失败(回退)
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
-&lt;/div>
-&lt;/div>&lt;p>每个状态转换都是&lt;strong>幂等&lt;/strong>的，失败时回退到前一个稳定状态。状态字段定义在 Redis 里，用 &lt;code>version&lt;/code> 字段做乐观并发控制（WATCH 事务）。&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">stateDiagram-v2
+[*] --> SUSPENDED: CreateActor
+SUSPENDED --> RESUMING: ResumeActor
+RESUMING --> RUNNING: 成功
+RESUMING --> SUSPENDED: 失败(回退)
+RUNNING --> SUSPENDING: SuspendActor
+SUSPENDING --> SUSPENDED: 成功
+SUSPENDING --> RUNNING: 失败(回退)&lt;/pre>&lt;p>每个状态转换都是&lt;strong>幂等&lt;/strong>的，失败时回退到前一个稳定状态。状态字段定义在 Redis 里，用 &lt;code>version&lt;/code> 字段做乐观并发控制（WATCH 事务）。&lt;/p>
 &lt;p>&lt;strong>Actor 核心字段（Redis 存储）：&lt;/strong>&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">

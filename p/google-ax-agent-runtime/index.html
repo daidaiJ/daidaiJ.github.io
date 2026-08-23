@@ -1,66 +1,52 @@
 <!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="Google ax + substrate：智能体运行时调度架构分析 Google 开源了两套用于运行长时间智能体（Agent）的组件：ax 和 substrate。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。\n"><title>Google ax + substrate：智能体运行时调度架构分析</title>
-<link rel=canonical href=https://daidaij.github.io/p/google-ax-agent-runtime/><link rel=stylesheet href=/scss/style.min.f4530563ffe469e7b62988cf769bf39105a21ae2e978535a26077bc7f29c73d7.css><meta property='og:title' content="Google ax + substrate：智能体运行时调度架构分析"><meta property='og:description' content="Google ax + substrate：智能体运行时调度架构分析 Google 开源了两套用于运行长时间智能体（Agent）的组件：ax 和 substrate。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。\n"><meta property='og:url' content='https://daidaij.github.io/p/google-ax-agent-runtime/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='智能体'><meta property='article:tag' content='kubernetes'><meta property='article:published_time' content='2026-06-07T09:53:32+08:00'><meta property='article:modified_time' content='2026-06-07T09:53:32+08:00'><meta property='og:image' content='https://picsum.photos/seed/40aa71ea/800/600'><meta name=twitter:title content="Google ax + substrate：智能体运行时调度架构分析"><meta name=twitter:description content="Google ax + substrate：智能体运行时调度架构分析 Google 开源了两套用于运行长时间智能体（Agent）的组件：ax 和 substrate。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。\n"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/40aa71ea/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<link rel=canonical href=https://daidaij.github.io/p/google-ax-agent-runtime/><link rel=stylesheet href=/scss/style.min.7c715415b9353155dfb3908d13889fc776b27eef1d6af8de36224e1dd2704c41.css><meta property='og:title' content="Google ax + substrate：智能体运行时调度架构分析"><meta property='og:description' content="Google ax + substrate：智能体运行时调度架构分析 Google 开源了两套用于运行长时间智能体（Agent）的组件：ax 和 substrate。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。\n"><meta property='og:url' content='https://daidaij.github.io/p/google-ax-agent-runtime/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='智能体'><meta property='article:tag' content='kubernetes'><meta property='article:published_time' content='2026-06-07T09:53:32+08:00'><meta property='article:modified_time' content='2026-06-07T09:53:32+08:00'><meta property='og:image' content='https://picsum.photos/seed/40aa71ea/800/600'><meta name=twitter:title content="Google ax + substrate：智能体运行时调度架构分析"><meta name=twitter:description content="Google ax + substrate：智能体运行时调度架构分析 Google 开源了两套用于运行长时间智能体（Agent）的组件：ax 和 substrate。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。\n"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/40aa71ea/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
 <span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
-</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><ol class=menu-social><li><a href=https://daidaij.github.io/ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换暗色模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span>暗色</span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
 <span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
 <span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
 <span>Search</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
 <select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
 <svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
-<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#架构总览两层设计>架构总览：两层设计</a></li><li><a href=#核心概念actor-模型>核心概念：Actor 模型</a></li><li><a href=#workerpoolk8s-原生的-worker-管理>WorkerPool：K8s 原生的 Worker 管理</a></li><li><a href=#挂起与恢复4-步幂等工作流>挂起与恢复：4 步幂等工作流</a></li><li><a href=#快照机制gvisor-checkpointrestore>快照机制：gVisor checkpoint/restore</a></li><li><a href=#ax-编排层事件溯源与调谐循环>ax 编排层：事件溯源与调谐循环</a></li><li><a href=#针对-agent-业务的特殊设计>针对 Agent 业务的特殊设计</a><ol><li><a href=#1-进程级快照而非应用级序列化>1. 进程级快照而非应用级序列化</a></li><li><a href=#2-黄金快照golden-snapshot>2. 黄金快照（Golden Snapshot）</a></li><li><a href=#3-分布式锁保证单点写入>3. 分布式锁保证单点写入</a></li></ol></li><li><a href=#存在的问题>存在的问题</a><ol><li><a href=#1-没有空闲检测和冷却期>1. 没有空闲检测和冷却期</a></li><li><a href=#2-挂起是-fire-and-forget>2. 挂起是 Fire-and-Forget</a></li><li><a href=#3-没有快照-gc>3. 没有快照 GC</a></li><li><a href=#4-没有自动扩缩容>4. 没有自动扩缩容</a></li><li><a href=#5-worker-死亡时的状态恢复有竞态>5. Worker 死亡时的状态恢复有竞态</a></li><li><a href=#6-v2-controller-缺少执行恢复>6. v2 Controller 缺少执行恢复</a></li><li><a href=#7-没有增量快照>7. 没有增量快照</a></li></ol></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/google-ax-agent-runtime/><img src=https://picsum.photos/seed/40aa71ea/800/600 loading=lazy alt="Featured image of post Google ax + substrate：智能体运行时调度架构分析"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#架构总览两层设计>架构总览：两层设计</a></li><li><a href=#核心概念actor-模型>核心概念：Actor 模型</a></li><li><a href=#workerpoolk8s-原生的-worker-管理>WorkerPool：K8s 原生的 Worker 管理</a></li><li><a href=#挂起与恢复4-步幂等工作流>挂起与恢复：4 步幂等工作流</a></li><li><a href=#快照机制gvisor-checkpointrestore>快照机制：gVisor checkpoint/restore</a></li><li><a href=#ax-编排层事件溯源与调谐循环>ax 编排层：事件溯源与调谐循环</a></li><li><a href=#针对-agent-业务的特殊设计>针对 Agent 业务的特殊设计</a><ol><li><a href=#1-进程级快照而非应用级序列化>1. 进程级快照而非应用级序列化</a></li><li><a href=#2-黄金快照golden-snapshot>2. 黄金快照（Golden Snapshot）</a></li><li><a href=#3-分布式锁保证单点写入>3. 分布式锁保证单点写入</a></li></ol></li><li><a href=#存在的问题>存在的问题</a><ol><li><a href=#1-没有空闲检测和冷却期>1. 没有空闲检测和冷却期</a></li><li><a href=#2-挂起是-fire-and-forget>2. 挂起是 Fire-and-Forget</a></li><li><a href=#3-没有快照-gc>3. 没有快照 GC</a></li><li><a href=#4-没有自动扩缩容>4. 没有自动扩缩容</a></li><li><a href=#5-worker-死亡时的状态恢复有竞态>5. Worker 死亡时的状态恢复有竞态</a></li><li><a href=#6-v2-controller-缺少执行恢复>6. v2 Controller 缺少执行恢复</a></li><li><a href=#7-没有增量快照>7. 没有增量快照</a></li></ol></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/google-ax-agent-runtime/><img src=https://picsum.photos/seed/40aa71ea/800/600 loading=lazy alt="Featured image of post Google ax + substrate：智能体运行时调度架构分析"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记
 </a><a href=/categories/ai/>Ai</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/google-ax-agent-runtime/>Google ax + substrate：智能体运行时调度架构分析</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
 <time class=article-time--published>Jun 07, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-<time class=article-time--reading>阅读时长: 10 分钟</time></div><div><time class=article-words>4877 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=google-ax--substrate智能体运行时调度架构分析>Google ax + substrate：智能体运行时调度架构分析</h1><hr><blockquote><p>Google 开源了两套用于运行长时间智能体（Agent）的组件：<strong>ax</strong> 和 <strong>substrate</strong>。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：<strong>一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。</strong></p></blockquote><h2 id=架构总览两层设计>架构总览：两层设计</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
-</span><span class=lnt> 2
-</span><span class=lnt> 3
-</span><span class=lnt> 4
-</span><span class=lnt> 5
-</span><span class=lnt> 6
-</span><span class=lnt> 7
-</span><span class=lnt> 8
-</span><span class=lnt> 9
-</span><span class=lnt>10
-</span><span class=lnt>11
-</span><span class=lnt>12
-</span><span class=lnt>13
-</span><span class=lnt>14
-</span><span class=lnt>15
-</span><span class=lnt>16
-</span><span class=lnt>17
-</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>graph TB
-</span></span><span class=line><span class=cl>    subgraph ax[&#34;ax (编排层)&#34;]
-</span></span><span class=line><span class=cl>        Controller[&#34;Controller&lt;br/&gt;调谐循环&#34;]
-</span></span><span class=line><span class=cl>        EventLog[&#34;EventLog&lt;br/&gt;事件溯源&#34;]
-</span></span><span class=line><span class=cl>        Harness[&#34;Harness&lt;br/&gt;执行抽象&#34;]
-</span></span><span class=line><span class=cl>    end
-</span></span><span class=line><span class=cl>    subgraph substrate[&#34;substrate (基础设施层)&#34;]
-</span></span><span class=line><span class=cl>        ControlAPI[&#34;ControlAPI&lt;br/&gt;状态机+锁&#34;]
-</span></span><span class=line><span class=cl>        WorkerPool[&#34;WorkerPool&lt;br/&gt;K8s Pod 池&#34;]
-</span></span><span class=line><span class=cl>        Atelet[&#34;Atelet&lt;br/&gt;快照 Agent&#34;]
-</span></span><span class=line><span class=cl>        Redis[&#34;Redis&lt;br/&gt;Actor 状态&#34;]
-</span></span><span class=line><span class=cl>    end
-</span></span><span class=line><span class=cl>    Controller --&gt;|gRPC| ControlAPI
-</span></span><span class=line><span class=cl>    Harness --&gt;|gRPC| ControlAPI
-</span></span><span class=line><span class=cl>    ControlAPI --&gt; Redis
-</span></span><span class=line><span class=cl>    ControlAPI --&gt; WorkerPool
-</span></span><span class=line><span class=cl>    ControlAPI --&gt; Atelet
-</span></span></code></pre></td></tr></table></div></div><blockquote><p>两层的职责边界很清晰：ax 知道"做什么"（业务逻辑），substrate 知道"怎么跑"（沙箱调度）。ax 通过 gRPC 调用 substrate 的 ControlAPI 来管理 Actor 的创建、恢复和挂起。</p></blockquote><h2 id=核心概念actor-模型>核心概念：Actor 模型</h2><hr><blockquote><p>每个 Agent 会话对应一个 <strong>Actor</strong>，这是整个系统的核心抽象。Actor 不是一个 Go 对象，而是一个<strong>分布式状态机</strong>，状态存在 Redis 里，实际的沙箱进程跑在 K8s Worker Pod 上。</p></blockquote><p><strong>Actor 状态流转：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
-</span><span class=lnt>2
-</span><span class=lnt>3
-</span><span class=lnt>4
-</span><span class=lnt>5
-</span><span class=lnt>6
-</span><span class=lnt>7
-</span><span class=lnt>8
-</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>stateDiagram-v2
-</span></span><span class=line><span class=cl>    [*] --&gt; SUSPENDED: CreateActor
-</span></span><span class=line><span class=cl>    SUSPENDED --&gt; RESUMING: ResumeActor
-</span></span><span class=line><span class=cl>    RESUMING --&gt; RUNNING: 成功
-</span></span><span class=line><span class=cl>    RESUMING --&gt; SUSPENDED: 失败(回退)
-</span></span><span class=line><span class=cl>    RUNNING --&gt; SUSPENDING: SuspendActor
-</span></span><span class=line><span class=cl>    SUSPENDING --&gt; SUSPENDED: 成功
-</span></span><span class=line><span class=cl>    SUSPENDING --&gt; RUNNING: 失败(回退)
-</span></span></code></pre></td></tr></table></div></div><p>每个状态转换都是<strong>幂等</strong>的，失败时回退到前一个稳定状态。状态字段定义在 Redis 里，用 <code>version</code> 字段做乐观并发控制（WATCH 事务）。</p><p><strong>Actor 核心字段（Redis 存储）：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+<time class=article-time--reading>阅读时长: 10 分钟</time></div><div><time class=article-words>4745 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=google-ax--substrate智能体运行时调度架构分析>Google ax + substrate：智能体运行时调度架构分析</h1><hr><blockquote><p>Google 开源了两套用于运行长时间智能体（Agent）的组件：<strong>ax</strong> 和 <strong>substrate</strong>。ax 负责业务编排和会话管理，substrate 负责沙箱实例的生命周期调度。两者组合解决了 LLM 智能体运行时的核心问题：<strong>一个有状态的 Agent 进程，在空闲时如何保存全部状态并释放计算资源，新请求来了怎么快速恢复。</strong></p></blockquote><h2 id=架构总览两层设计>架构总览：两层设计</h2><pre class=mermaid style=visibility:hidden>graph TB
+    subgraph ax["ax (编排层)"]
+        Controller["Controller<br>调谐循环"]
+        EventLog["EventLog<br>事件溯源"]
+        Harness["Harness<br>执行抽象"]
+    end
+    subgraph substrate["substrate (基础设施层)"]
+        ControlAPI["ControlAPI<br>状态机+锁"]
+        WorkerPool["WorkerPool<br>K8s Pod 池"]
+        Atelet["Atelet<br>快照 Agent"]
+        Redis["Redis<br>Actor 状态"]
+    end
+    Controller -->|gRPC| ControlAPI
+    Harness -->|gRPC| ControlAPI
+    ControlAPI --> Redis
+    ControlAPI --> WorkerPool
+    ControlAPI --> Atelet</pre><blockquote><p>两层的职责边界很清晰：ax 知道"做什么"（业务逻辑），substrate 知道"怎么跑"（沙箱调度）。ax 通过 gRPC 调用 substrate 的 ControlAPI 来管理 Actor 的创建、恢复和挂起。</p></blockquote><h2 id=核心概念actor-模型>核心概念：Actor 模型</h2><hr><blockquote><p>每个 Agent 会话对应一个 <strong>Actor</strong>，这是整个系统的核心抽象。Actor 不是一个 Go 对象，而是一个<strong>分布式状态机</strong>，状态存在 Redis 里，实际的沙箱进程跑在 K8s Worker Pod 上。</p></blockquote><p><strong>Actor 状态流转：</strong></p><pre class=mermaid style=visibility:hidden>stateDiagram-v2
+    [*] --> SUSPENDED: CreateActor
+    SUSPENDED --> RESUMING: ResumeActor
+    RESUMING --> RUNNING: 成功
+    RESUMING --> SUSPENDED: 失败(回退)
+    RUNNING --> SUSPENDING: SuspendActor
+    SUSPENDING --> SUSPENDED: 成功
+    SUSPENDING --> RUNNING: 失败(回退)</pre><p>每个状态转换都是<strong>幂等</strong>的，失败时回退到前一个稳定状态。状态字段定义在 Redis 里，用 <code>version</code> 字段做乐观并发控制（WATCH 事务）。</p><p><strong>Actor 核心字段（Redis 存储）：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
 </span><span class=lnt> 2
 </span><span class=lnt> 3
 </span><span class=lnt> 4
@@ -517,18 +503,36 @@
 <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
 <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
 </button>
-<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script type=text/javascript src=/ts/custom.eb4c6a182f37f89cd350793e35e757636b2c6892de4ae5ab0a9f2170b0e4118c.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
     import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
-        .then((mermaidModule) => {
-            const mermaid = mermaidModule.default;
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: document.body.classList.contains("dark") ? "dark" : "neutral"
-            });
-            Array.from(document.getElementsByClassName("language-mermaid")).forEach((el) => {
-                el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;
-            });
-            mermaid.run();
+        .then(({ default: mermaid }) => {
+            const elements = Array.from(document.querySelectorAll('.mermaid'));
+            if (!elements.length) return;
+            const sources = elements.map(el => el.innerHTML);
+            let currentScheme = null;
+
+            const render = () => {
+                const scheme = document.documentElement.dataset.scheme;
+                if (scheme === currentScheme) return;
+                currentScheme = scheme;
+
+                const dark = scheme === 'dark';
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: dark ? 'dark' : 'neutral',
+                    securityLevel: 'strict'
+                });
+                elements.forEach((el, i) => {
+                    el.removeAttribute('data-processed');
+                    el.innerHTML = sources[i];
+                });
+                return mermaid.run({ nodes: elements }).then(() => {
+                    elements.forEach(el => { el.style.visibility = ''; });
+                });
+            };
+
+            render();
+            window.addEventListener('onColorSchemeChange', render);
         })
         .catch((error) => {
             console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
