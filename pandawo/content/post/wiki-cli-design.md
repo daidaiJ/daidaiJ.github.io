@@ -3,7 +3,7 @@ title: "wiki CLI 工具设计"
 slug: wiki-cli-design
 description: ""
 date: 2026-08-23T14:47:30+08:00
-lastmod: 2026-08-23T15:40:53+08:00
+lastmod: 2026-08-23T15:43:49+08:00
 draft: false
 toc: true
 hidden: false
@@ -257,18 +257,26 @@ push 失败不重试——几乎都是网络/代理问题，自动重试只会�
 
 ## 实践：Obsidian 仓库接入 SOP
 ------
-> 知识库最终要给人看。Obsidian 是现成的阅读器，把 wiki 根接进去当仓库有一套固定流程：建仓库、迁数据、注册、验证。照着做一遍，十分钟收工。
+> 知识库最终要给人看。Obsidian 是现成的阅读器，把 wiki 根接进去当仓库有两条路：先建仓库再配 wiki CLI（推荐），或者顺序反了之后迁移。殊途同归：Obsidian 仓库根 = wiki 根，一个目录两用。
 
-### 1. 仓库根 = wiki 根
+### 路线一：先建仓库，再配置 wiki CLI
 ------
-Obsidian 仓库根必须包含知识库全部内容，最省心的做法是让仓库根直接等于 wiki 根。目录命名避开 `wiki`——和 `knowledgeDirs` 的类型名重合，自动发现时可能把仓库目录自己误认成项目知识目录，循环引用的隐患。
+正确顺序是先有仓库，再让 wiki CLI 的持久化目录落进仓库：
 
-### 2. 迁移数据，显式指定 WIKI_ROOT
+1. 建一个空的 Obsidian 仓库，目录名避开 `wiki`——和 `knowledgeDirs` 的类型名重合，自动发现时可能把仓库目录自己误认成项目知识目录
+2. 把 wiki CLI 持久化目录配置到仓库：`setx WIKI_ROOT "D:\wiki\pandawiki"`（用户级环境变量，新终端生效）
+3. `wiki init <项目>` 接入项目——注册表 `index.md`、`config.json`、`projects/` 链接全部落在仓库目录里，Obsidian 里立即可见
+4. 验证：`wiki ls` 项目在册，`obsidian vault=pandawiki folders` 索引完整
+
+### 路线二：顺序反了，迁移现有持久化目录
 ------
-wiki 根靠 `index.md` 标记解析（环境变量 > exe 目录 > 当前目录）。数据目录迁进仓库后必须显式指定，否则 hook 静默失效、`wiki check` 空转：
+wiki CLI 数据已经存在（比如在 `D:\wiki`），迁移进 Obsidian 仓库分四步：
+
+1. **迁数据**：`index.md`（注册表）、`config.json`、`blog.json`、`projects/` 整个目录移进仓库
+2. **显式指定 WIKI_ROOT**：wiki 根靠 `index.md` 标记解析（环境变量 > exe 目录 > 当前目录），只搬文件不设环境变量，hook 会静默失效、`wiki check` 空转：
 
 ```bash
-setx WIKI_ROOT "D:\wiki\pandawiki"   # 用户级环境变量，新终端生效
+setx WIKI_ROOT "D:\wiki\pandawiki"   # 用户级环境变量
 ```
 
 hook 不依赖终端环境，内联设置：
@@ -277,9 +285,7 @@ hook 不依赖终端环境，内联设置：
 cmd /c "set WIKI_ROOT=D:\wiki\pandawiki&& D:/CODE/ai/my-wiki/wiki.exe check"
 ```
 
-### 3. 注册仓库：UI 或注册表
-------
-新目录注册成仓库只有两条路：UI 里 Open folder as vault，或者直接改注册表：
+3. **注册仓库**：UI 里 Open folder as vault，或直接改注册表：
 
 ```json
 // %APPDATA%\obsidian\obsidian.json
@@ -288,21 +294,10 @@ cmd /c "set WIKI_ROOT=D:\wiki\pandawiki&& D:/CODE/ai/my-wiki/wiki.exe check"
 
 > `obsidian://open?path=` 只能解析已注册仓库里的文件，不能注册新仓库——别在这上面浪费时间。
 
-### 4. 符号链接直接可用
-------
-Obsidian 原生支持 symlink（约束：目标与仓库根不相交、无循环），`projects/` 下的链接开箱即用。用官方 CLI 验证索引：
+4. **验证清单**：
 
-```bash
-obsidian vault=pandawiki folders   # 应列出 projects/<项目>/wiki
-obsidian vault=pandawiki files     # 应列出全部 md
-```
-
-> 官方 CLI 会抱怨 installer 版本过旧，功能不受影响，有空重装一次安装器即可。
-
-### 5. 验证清单
-------
 - `wiki ls`：项目全部在册
-- `obsidian vault=pandawiki folders/files`：符号链接内容全部索引
+- `obsidian vault=pandawiki folders/files`：符号链接内容全部索引（Obsidian 原生支持 symlink，约束：目标与仓库根不相交、无循环）
 - 最终结构：
 
 ```
@@ -317,4 +312,4 @@ D:\wiki\pandawiki\            ← Obsidian 仓库根 = wiki 根
     └── ...
 ```
 
-> 这套 SOP 的核心就一句：Obsidian 仓库根 = wiki 根，一个目录两用。其余都是围绕它展开的固定动作。
+> 两条路线殊途同归：Obsidian 仓库根 = wiki 根，一个目录两用。推荐路线一，但路线二也不复杂——迁数据、设 WIKI_ROOT、注册、验证四步，十分钟收工。
