@@ -65,7 +65,7 @@ jobs:
           URLS=""
           for slug in $CHANGED; do
             url="https://daidaij.github.io/p/${slug}/"
-            if grep -q "<loc>${url}</loc>" pandawo/public/sitemap.xml; then
+            if grep -q "<loc>${url}</loc>" pandawo/public/zh-cn/sitemap.xml; then
               URLS="${URLS}${url},"
             else
               echo "::warning::sitemap 中未找到 ${url}，已跳过（可能自定义了 slug 或页面被删除）"
