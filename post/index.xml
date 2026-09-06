@@ -1,4 +1,475 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:06:28 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>Mermaid 主题定制暗坑大全</title><link>https://daidaij.github.io/p/mermaid-theme-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:06:28 +0800</pubDate><guid>https://daidaij.github.io/p/mermaid-theme-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/8115e44d/800/600" alt="Featured image of post Mermaid 主题定制暗坑大全" />&lt;h1 id="mermaid-主题定制暗坑大全">Mermaid 主题定制暗坑大全
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:07:23 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计</title><link>https://daidaij.github.io/p/mmdx-design/</link><pubDate>Sun, 06 Sep 2026 20:07:23 +0800</pubDate><guid>https://daidaij.github.io/p/mmdx-design/</guid><description>&lt;img src="https://picsum.photos/seed/3099de4c/800/600" alt="Featured image of post mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计" />&lt;h1 id="mmdx给-ai-agent-用的-mermaid-渲染器怎么设计">mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>上一篇《Mermaid 主题定制暗坑大全》把 mermaid 主题系统里的坑挨个盘了一遍，这篇讲我把那些教训固化成的东西：mmdx，一个给 AI agent 用的 Mermaid → SVG/PNG 导出 CLI。重点写它的主题系统组织和全覆盖颜色检测——后者是我认为这个项目里最值钱的设计。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="痛点agent-写得动-mermaid交不出图">痛点：agent 写得动 mermaid，交不出图
+&lt;/h2>&lt;hr>
+&lt;p>LLM 写 mermaid 语法的准确率已经很高了，但&amp;quot;写得出&amp;quot;和&amp;quot;交得出图&amp;quot;之间隔着一条鸿沟。我在 agent 工作流里要一张架构图时，实际发生的事情是：&lt;/p>
+&lt;ul>
+&lt;li>agent 产出的 ```mermaid 块只能靠渲染器活着——聊天窗口里凑合看，发博客、贴 issue、放幻灯片就露馅&lt;/li>
+&lt;li>现有工具要么是 VSCode 插件手动导出（默认紫黄 #ECECFF 主题，上一篇吐槽过的那套），要么是 MCP 渲染服务——每个都重造一遍管线基础&lt;/li>
+&lt;li>agent 在别人的机器上跑，没有 Node、没有字体、主题不可控，渲染结果不可复现&lt;/li>
+&lt;/ul>
+&lt;p>所以 mmdx 的定位很明确：agent 拿着一段 markdown 就能出一个带主题的 SVG/PNG，不装 Node、不下 Chromium（复用系统 Edge/Chrome）、中文字体内置。package.json 里的一句话定位：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;name&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;mmdx&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;description&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;Mermaid → SVG/PNG exporter with tech-doc themes, bundled CJK font and ELK layout, built for AI agents&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>&amp;ldquo;built for AI agents&amp;rdquo; 不是营销词，它决定了后面一堆设计取舍：CLI 契约要机器可读、输出要确定性、失败要响亮不能挂住。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="主链路五个模块一条管线">主链路：五个模块，一条管线
+&lt;/h2>&lt;hr>
+&lt;p>整个 src/ 目录不到 2000 行，模块划分：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">cli.ts 入口：参数解析、围栏块提取、主题叠加、输出契约（462 行）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">render.ts 渲染核：单 Chromium + 页面池 + 截图裁切（520 行）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">themes.ts 七套主题预设 + deepMerge（667 行）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">blocks.ts table/list/card 扩展块转 HTML（193 行）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">embed.ts 内嵌资产：mermaid UMD、ELK、字体、svgo（编译期生成）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>主链路一句话：&lt;strong>提取围栏块 → 主题配置合成 → 页面池渲染 → SVG/PNG 落盘&lt;/strong>。&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[md/mmd/stdin] --> B[extractBlocks]
+B --> C[主题合成&lt;br/>preset + theme-js + config + css]
+C --> D[Renderer 页面池&lt;br/>mermaid.render]
+D --> E[SVG 重算 viewBox]
+D --> F[PNG 墨迹二次裁切]
+E --> G[svgo 压缩]
+G --> H[落盘 + --json]
+F --> H&lt;/pre>&lt;p>块提取是纯正则，&lt;code>FENCE_RE&lt;/code> 扫所有围栏语言，认识的才收（src/cli.ts:161）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// any fenced block with a recognized language (mermaid / table / list)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">FENCE_RE&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sr">/^[ \t]*```([A-Za-z0-9_-]+)[^\n]*\n([\s\S]*?)^[ \t]*```\s*$/gm&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">extractBlocks&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">input&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">raw&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Block&lt;/span>&lt;span class="p">[]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ... kind = fenceKind(m[1]); kind === &amp;#39;unknown&amp;#39; 就跳过
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// 记录 line（块在原文的行号，报错时 agent 能定位回源文件）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">blocks&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">input&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">base&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">index&lt;/span>: &lt;span class="kt">blocks.length&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">line&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">code&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">kind&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>渲染核 &lt;code>Renderer&lt;/code> 是一个类，单浏览器实例 + 页面池。每个页面初始化一次就反复渲染很多图（src/render.ts:145 的 &lt;code>initPage&lt;/code>）：注入 mermaid UMD、把 ELK 的 7MB bundle 以 base64 塞进 &lt;code>window.__elkB64&lt;/code> &lt;strong>但不解析&lt;/strong>、注入 Noto Sans SC 子集字体并强制 &lt;code>document.fonts.load&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/render.ts:154 — ELK 懒加载的关键
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">opts&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">layout&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="s1">&amp;#39;elk&amp;#39;&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">assets&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">elkJs&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// stash the payload; ELK is parsed lazily on the first flowchart render
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// (its 7MB bundle costs ~0.8s of parse per page and only flowchart/
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// graph diagrams ever use it)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">await&lt;/span> &lt;span class="nx">page&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">evaluate&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">b&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nb">window&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">__elkB64&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">b&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">},&lt;/span> &lt;span class="nx">b64&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>真正渲染发生在页面里（src/render.ts:260 的 &lt;code>page.evaluate&lt;/code>），几个值得说的点：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">mermaid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">initialize&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">...&lt;/span>&lt;span class="nx">config&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">layoutAlgorithm&lt;/span>: &lt;span class="kt">wantElk&lt;/span> &lt;span class="o">?&lt;/span> &lt;span class="s1">&amp;#39;elk&amp;#39;&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;dagre&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">startOnLoad&lt;/span>: &lt;span class="kt">false&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">suppressErrorRendering&lt;/span>: &lt;span class="kt">true&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="c1">// ← 语法错误必须 throw，不能返回&amp;#34;错误炸弹&amp;#34;SVG
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>suppressErrorRendering: true&lt;/code> 是给 agent 的：mermaid 默认把语法错误渲染成一张带错误文字的 SVG 图，agent 拿到文件看不出问题。这里强制它 throw，错误进 &lt;code>--json&lt;/code> 的 &lt;code>errors&lt;/code> 数组。&lt;/p>
+&lt;p>SVG 拿到手后 mermaid 给的 viewBox 不能信（上一篇写过：under-measures wrapped CJK labels），所以整棵树重新量一遍。量法有个坐标系陷阱——每个叶子的 &lt;code>getBBox()&lt;/code> 在自己的局部坐标系，必须经过 &lt;code>getCTM()&lt;/code> 矩阵换算到根 svg 的 user space 再 union（src/render.ts:326 的 &lt;code>toRootRect&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// getCTM maps into VIEWPORT space, which includes the (stale)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// root viewBox scale; divide it out so all leaves land in the
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// root&amp;#39;s own user space, the space the viewBox is written in.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">m&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">root&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">inverse&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="nx">multiply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">mRaw&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>PNG 则走两遍截图：第一遍按几何 bounds 截，然后 &lt;code>inkBBox&lt;/code>（src/render.ts:72）逐像素找墨迹包围盒，第二遍按墨迹裁——因为几何 bounds 会漏掉箭头 marker 和字形 overshoot。四边留白对称是这么构造出来的，不是靠猜：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// geometric bounds miss marker arrowheads and glyph overshoot; a
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// second capture clipped to the actual ink gives pixel-exact,
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// symmetric file margins
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">ink&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">inkBBox&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">first&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">ink&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="nx">first&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">mx&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">max&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">padX&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="nx">sc&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">clip&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">x&lt;/span>: &lt;span class="kt">Math.max&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">ink&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">x0&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">mx&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="nx">sc&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ... y / width / height 同理
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">return&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">await&lt;/span> &lt;span class="nx">page&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">screenshot&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">clip&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">omitBackground&lt;/span>: &lt;span class="kt">transparent&lt;/span> &lt;span class="p">}))&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="nx">Buffer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这个二次截图是我最满意的实现细节之一：留白对称性从&amp;quot;调参调出来的&amp;quot;变成&amp;quot;构造保证的&amp;quot;，测试里断言 L/R 边距差就够了，不用碰玄学。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="主题系统themevariables-集中--themecss-补刀">主题系统：themeVariables 集中 + themeCSS 补刀
+&lt;/h2>&lt;hr>
+&lt;p>七套预设：&lt;code>tech&lt;/code>（默认）、&lt;code>openai&lt;/code> / &lt;code>openai-dark&lt;/code>、&lt;code>minimal&lt;/code>、&lt;code>latte&lt;/code> / &lt;code>mocha&lt;/code>、&lt;code>sketch&lt;/code>。每个预设是一个 &lt;code>ThemePreset&lt;/code>（src/themes.ts:6）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kr">export&lt;/span> &lt;span class="kr">interface&lt;/span> &lt;span class="nx">ThemePreset&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">config&lt;/span>: &lt;span class="kt">Record&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="err">,&lt;/span> &lt;span class="na">unknown&lt;/span>&lt;span class="p">&amp;gt;;&lt;/span> &lt;span class="c1">// 直接喂 mermaid.initialize
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">background&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 页面背景，也是 edgeLabelBackground
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">dark?&lt;/span>: &lt;span class="kt">boolean&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 预设是否深色页
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">remap?&lt;/span>: &lt;span class="kt">Record&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="err">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;;&lt;/span> &lt;span class="c1">// 渲染后 hex→hex 重着色（mermaid 写死的色）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>组织原则一：&lt;strong>颜色尽量收敛进 themeVariables，走官方派生链&lt;/strong>。tech 主题的 themeVariables 有 100 多个键，按图型分组注释，核心派生键放最前面（src/themes.ts:167）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">themeVariables&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ---- core derivation chain: every diagram inherits from these.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// primaryColor in particular must be set — its default (#fff4dd cream)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// is the &amp;#34;native mermaid&amp;#34; look leaking through every unset corner.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">primaryColor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#E8F3FF&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">primaryTextColor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#1D2129&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">primaryBorderColor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#4098FC&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// ---- pie: AntV G2 default categorical palette
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">pie1&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5B8FF9&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pie2&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5AD8A6&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="cm">/* ... pie12 */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ---- xyChart: plotColorPalette (defaults start with mermaid purple #ECECFF)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">xyChart&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">plotColorPalette&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5B8FF9,#F6BD16,#5AD8A6,...&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="cm">/* ... */&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>组织原则二：&lt;strong>themeVariables 覆盖不到的用 themeCSS 补&lt;/strong>。最典型的是 flowchart 形状分色——mermaid 只给一个 &lt;code>primaryColor&lt;/code>，想要&amp;quot;矩形=流程、菱形=判定、圆=状态、圆柱=存储&amp;quot;四色语义，只能 CSS 按形状选择器上色（src/themes.ts:82）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* shape-coding: mermaid variables only offer a single primaryColor for node
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> shapes, so the rect=process / diamond=decision / circle=state / store=purple
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> colour roles are painted here */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="nt">rect&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8F3FF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="nt">polygon&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#FFF7E6&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#FF9A2E&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="nt">circle&lt;/span>&lt;span class="o">,&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="nt">ellipse&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8FFEA&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#23C343&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="nt">path&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#F5E8FF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#722ED1&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>组织原则三：&lt;strong>mermaid 写死在渲染产物的颜色，用渲染后 remap 兜底&lt;/strong>。sankey 的 tableau10 色板和 journey 的表情底色没有 themeVariables 通道，tech 预设带一张 remap 表，在 SVG 字符串进 DOM 之前做 hex 替换（src/themes.ts:359、src/render.ts:296）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">remap&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// sankey nodes/links default to the tableau10 set (no theme variables)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="s1">&amp;#39;#4e79a7&amp;#39;&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#6E94BB&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#f28e2c&amp;#39;&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#D2A36C&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="cm">/* ... */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">在 render() 里：svg 字符串 → remap 逐条 replace → 才 innerHTML 进 DOM
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这样 SVG 和 PNG 拿到的是同一份颜色，不会出现&amp;quot;PNG 对了 SVG 错了&amp;quot;的精神分裂。&lt;/p>
+&lt;p>三层的覆盖关系在 cli.ts:298 串起来，顺序是固定的：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">let&lt;/span> &lt;span class="nx">config&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">JSON&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">parse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">JSON&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stringify&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">preset&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">config&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// 1. 预设
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">themeJs&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">config&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">applyThemeJs&lt;/span>&lt;span class="p">(...,&lt;/span> &lt;span class="nx">config&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...);&lt;/span> &lt;span class="c1">// 2. --theme-js 整体改写
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">config&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">config&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">deepMerge&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">config&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">JSON&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">parse&lt;/span>&lt;span class="p">(...));&lt;/span> &lt;span class="c1">// 3. --config 深合并
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">css&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">config&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">themeCSS&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="s1">&amp;#39;\n&amp;#39;&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">css&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 4. --css 追加
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>上一篇写过的&amp;quot;assignWithDepth 对数组是追加不是替换&amp;quot;的坑，在这里的对策就是 remap + CSS 钉死（journey actor 圆点的注释直接写在 TECH_CSS 里：&lt;code>config.journey.actorColours is useless — mermaid's assignWithDepth APPENDS arrays&lt;/code>）。把踩坑结论固化成代码注释和默认行为，比写博客本身更重要——博客是给人看的，注释是给三个月后的自己看的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="全覆盖检测像素级颜色普查">全覆盖检测：像素级颜色普查
+&lt;/h2>&lt;hr>
+&lt;p>主题系统最大的风险不是&amp;quot;某个变量设错了值&amp;quot;，而是&amp;quot;某个角落根本没被任何变量覆盖&amp;quot;。20 种图型 × 100 多个主题变量，人眼看不过来——改一个变量得把 20 张图全渲染一遍肉眼扫，而且人眼对&amp;quot;这个蓝和那个蓝差了 5%&amp;ldquo;毫无办法。&lt;/p>
+&lt;p>所以检测必须系统化，分两步。&lt;/p>
+&lt;p>&lt;strong>第一步：全图型渲染筛查&lt;/strong>（tests/run.ts）。tests/diagrams/ 下每图型一个 fixture——block、c4、class、er、flowchart、gantt、gitgraph、journey、kanban、mindmap、pie、quadrant、radar、requirement、sankey、sequence、state、timeline、treemap、xychart，正好 20 个。全部渲染成 PNG 后做像素分析：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// tests/run.ts:95 — 库级筛查的三个断言
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">lr&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">abs&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">l&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="c1">// 左右边距差
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">tb&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">abs&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">t&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">b&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="c1">// 上下边距差
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">lr&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">16&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">problems&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`L/R margins &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">l&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">/&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">margins&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ink&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mf">0.005&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">problems&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;near-blank&amp;#39;&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="c1">// 白图检测
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ink&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mf">0.85&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">!==&lt;/span> &lt;span class="s1">&amp;#39;treemap&amp;#39;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">problems&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;overfull&amp;#39;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这一层只筛&amp;quot;结构性坏了&amp;rdquo;（边距不对称、空白、糊满），颜色对不对它管不了。&lt;/p>
+&lt;p>&lt;strong>第二步：颜色普查&lt;/strong>（scripts/theme-census.ts），这才是全覆盖的核心。思路：渲染出的 PNG 里每个像素都应该能溯源到主题调色板——溯源不了的就是漏网之鱼。&lt;/p>
+&lt;p>&lt;strong>坏值清单必须有定义来源&lt;/strong>。检测的&amp;quot;合法色集合&amp;quot;不是手工罗列的，而是从 themes.ts 源码里正则抽出来的全部 hex 字面量（theme-census.ts:16）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 1. allowed palette = every hex literal in themes.ts + black/white
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">themeSrc&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">fs&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">readFileSync&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">path&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ROOT&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;src&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;themes.ts&amp;#39;&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="s1">&amp;#39;utf8&amp;#39;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">allowed&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Set&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">&amp;gt;([&lt;/span>&lt;span class="s1">&amp;#39;#000000&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#FFFFFF&amp;#39;&lt;/span>&lt;span class="p">]);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">m&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">themeSrc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">matchAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sr">/#([0-9a-fA-F]{6})\b/g&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="nx">allowed&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">add&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;#&amp;#39;&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">toUpperCase&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这一步是整个设计的命门。如果合法集合只写&amp;quot;已知踩过的坑&amp;quot;（比如 #ECECFF），那换个没踩过的默认色漏出来就漏报了。从主题源码抽取，等于声明：&lt;strong>凡是主题作者没写进源码的颜色，都是非法的&lt;/strong>——新增图型用了新默认色、主题改版引入漂移，都会被同一张网捞住。&lt;/p>
+&lt;p>然后逐像素统计，跳过半透明抗锯齿边缘（theme-census.ts:38）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">length&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">250&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">continue&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// AA fringe
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">key&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s1">&amp;#39;#&amp;#39;&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">],&lt;/span> &lt;span class="nx">data&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">],&lt;/span> &lt;span class="nx">data&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">]]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="nx">map&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">v&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nx">v&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">toString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">16&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">padStart&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;0&amp;#39;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">toUpperCase&lt;/span>&lt;span class="p">()).&lt;/span>&lt;span class="nx">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;&amp;#39;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">counts&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">counts&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">get&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">??&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>问题来了：抗锯齿和半透明填充会产生&lt;strong>调色板色的合成产物&lt;/strong>——比如 35% 透明度的雷达曲线叠在白底上，逐像素值不在调色板里，但它是合法的。硬把抗锯齿当坏值，工具会误报到没法用。所以有个合成容差判定 &lt;code>isDerived&lt;/code>：某颜色 c 合法，当且仅当存在调色板色 P 和 alpha a，使 &lt;code>P*a + 255*(1-a)&lt;/code> 在每通道 ±3 内还原出 c（theme-census.ts:48）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">isDerived&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">hex&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kr">boolean&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">c&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">g&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">b&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">p&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">pal&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 反解三个通道各自的 alpha，要求自洽（差 &amp;lt; 0.06）且在合理范围
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">alphas&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">map&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">255&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">c&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">])&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">255&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">p&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">a&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">alphas&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mf">0.08&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">a&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">continue&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">alphas&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">every&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">x&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">abs&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">x&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">a&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mf">0.06&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">[&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">every&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">abs&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">round&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">p&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">a&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">255&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">c&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">])&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这个反解 alpha 的写法有点取巧：假设合成发生在白底上（&lt;code>255*(1-a)&lt;/code>）。页面背景不是白色时（比如 mocha 的 #1E1E2E）它会误判——目前的普查脚本只跑默认 tech 主题所以没事，这是个已知的边界，见文末。&lt;/p>
+&lt;/blockquote>
+&lt;p>最后一层是&lt;strong>刺眼默认色黑名单&lt;/strong>：有些 mermaid 默认色面积很小（journey 的 actor 圆点、单条错误的连线），按面积阈值会漏掉，但它们恰恰是最扎眼的。黑名单里的颜色&lt;strong>任何覆盖率都报&lt;/strong>（theme-census.ts:61）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// known garish mermaid defaults — flag at ANY coverage (tiny elements
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// like journey actor dots fall below the area threshold)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">loud&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s1">&amp;#39;#7CFC00&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#00FFFF&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#8FBC8F&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#ECECFF&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#9370DB&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s1">&amp;#39;#191970&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#8B008B&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#FF0000&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#00BFFF&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#FF8888&amp;#39;&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">off&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[...&lt;/span>&lt;span class="nx">counts&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">entries&lt;/span>&lt;span class="p">()].&lt;/span>&lt;span class="nx">filter&lt;/span>&lt;span class="p">(([&lt;/span>&lt;span class="nx">c&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">n&lt;/span>&lt;span class="p">])&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">!&lt;/span>&lt;span class="nx">allowed&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">has&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">c&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="nx">isDerived&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">c&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nx">n&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="nx">total&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mf">0.0015&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">loud&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">includes&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">c&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">n&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="nx">total&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mf">0.0001&lt;/span>&lt;span class="p">)));&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意黑名单的角色和 allowed 集合不同：allowed 是&lt;strong>定义合法性&lt;/strong>（源头是 themes.ts），loud 是&lt;strong>提高灵敏度&lt;/strong>（源头是已知刺眼色的经验清单）。前者漏报新形态，后者只是让小面积的已知坏值更早暴露——两层缺一不可，但只有第一层是完备的。&lt;/p>
+&lt;p>这套检测的真实战绩：xyChart 的 &lt;code>plotColorPalette&lt;/code> 默认以 mermaid 紫 #ECECFF 打头、radar 曲线的 cScale 粉彩在网格线上几乎隐形、treemap 各分区色几乎不可区分——全是普查跑出来的，不是肉眼。另外一个隐蔽案例印证了上一篇&amp;quot;配置嵌套层级&amp;quot;的教训：批量补丁曾把 &lt;code>todayLineColor&lt;/code>、&lt;code>quadrant*Fill&lt;/code> 等键错误地插进 &lt;code>themeVariables.xyChart&lt;/code> 内部，键还在、值也对，就是层级错了导致静默失效——这类错误肉眼 review 配置文件根本看不出来，但普查会直接报&amp;quot;pie 图出现了 off-palette 默认色&amp;quot;，因为变量没生效、默认色就漏出来了。&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>变量&amp;quot;不生效&amp;quot;的头号症状就是嵌套位置错，而像素普查是唯一能兜住这种静默失效的网&lt;/strong>——它不检查你写了什么配置，它检查渲染结果长什么样。配置对不对是手段，像素对不对才是目的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="agent-友好性cli-契约的取舍">agent 友好性：CLI 契约的取舍
+&lt;/h2>&lt;hr>
+&lt;p>给 agent 用的 CLI 和给人用的差别很大，几个明确的取舍：&lt;/p>
+&lt;p>&lt;strong>1. stdout 只有一份 JSON，进度全走 stderr。&lt;/strong> &lt;code>--json&lt;/code> 打开时人类可读的进度行全部静默，stdout 是单个 JSON（cli.ts:432）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">JSON&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stringify&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">theme&lt;/span>: &lt;span class="kt">o.theme&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">layout&lt;/span>: &lt;span class="kt">o.layout&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">format&lt;/span>: &lt;span class="kt">o.format&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">background&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">blocks&lt;/span>: &lt;span class="kt">blocks.length&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">rendered&lt;/span>: &lt;span class="kt">results.length&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nx">failed&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">length&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">failed&lt;/span>: &lt;span class="kt">failed.length&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">files&lt;/span>: &lt;span class="kt">written&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">errors&lt;/span>: &lt;span class="kt">failed.map&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">f&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">({&lt;/span> &lt;span class="nx">input&lt;/span>: &lt;span class="kt">f.input&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">index&lt;/span>: &lt;span class="kt">f.index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">error&lt;/span>: &lt;span class="kt">f.error&lt;/span> &lt;span class="p">})),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">...(&lt;/span>&lt;span class="nx">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">profile&lt;/span> &lt;span class="o">?&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">profile&lt;/span>: &lt;span class="kt">profileSummary&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="p">{}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">},&lt;/span> &lt;span class="kc">null&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>agent 解析 &lt;code>files&lt;/code> 数组核对产物、解析 &lt;code>errors[].input/index/error&lt;/code> 定位坏块，不用猜输出格式。&lt;/p>
+&lt;p>&lt;strong>2. 失败隔离 + 确定性退出码。&lt;/strong> 一个块渲染失败不拖垮整批，&lt;code>--json&lt;/code> 里如实记录；退出码三档：&lt;code>0&lt;/code> 全成、&lt;code>1&lt;/code> 有渲染失败（其余照常出图）、&lt;code>2&lt;/code> 用法错误。agent 看到 1 就读 errors 数组，看到 2 就改命令行。&lt;/p>
+&lt;p>&lt;strong>3. 挂死必须响亮。&lt;/strong> 每次渲染包一层 &lt;code>Promise.race&lt;/code>，60 秒必报错（render.ts:505）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// a wedged renderer (bad diagram, crashed tab) must fail loud, never hang
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">return&lt;/span> &lt;span class="k">await&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">race&lt;/span>&lt;span class="p">([&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fn&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">page&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">never&lt;/span>&lt;span class="p">&amp;gt;((&lt;/span>&lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">rej&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">timer&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nx">rej&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;render timed out after 60s&amp;#39;&lt;/span>&lt;span class="p">)),&lt;/span> &lt;span class="mi">60&lt;/span>&lt;span class="nx">_000&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">]);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>并发下浏览器的瞬时抽风（截图超时之类）则由外层自动重试一次（cli.ts:400）——agent 不该为这类抖动买单，但真正的语法错误重试也没用，两次都失败才进 errors。&lt;/p>
+&lt;p>&lt;strong>4. 确定性输出命名。&lt;/strong> 同一输入永远产出同名文件：&lt;code>README-m1.svg&lt;/code>、&lt;code>README-m2.svg&lt;/code>……&lt;code>--index 2&lt;/code> 筛选后仍保留 &lt;code>-m2&lt;/code> 后缀（cli.ts:292 的注释：&lt;code>keep the -m&amp;lt;n&amp;gt; suffix ... so blocks don't masquerade as the whole file's diagram&lt;/code>），agent 引用文件名不会漂移。&lt;/p>
+&lt;p>&lt;strong>5. 观测性。&lt;/strong> &lt;code>--profile&lt;/code> 输出各阶段耗时（browser-launch / page-init / mermaid-render / screenshot / svgo），典型单图 95ms 渲染 + 90ms 截图。agent 调优 &lt;code>--jobs&lt;/code> 或怀疑卡顿时有数据可依。&lt;/p>
+&lt;p>&lt;strong>6. 不下载任何东西。&lt;/strong> 浏览器按 Edge → Chrome 常见路径探测（render.ts:36 的 &lt;code>detectBrowser&lt;/code>），找不到快速报错并列出搜索路径——绝不拉 Chromium。icon 包从 unpkg 拉一次就缓存到临时目录。agent 在别人机器上跑，网络行为必须可预期。&lt;/p>
+&lt;blockquote>
+&lt;p>这几条里最费心思的是&amp;quot;响亮失败&amp;quot;和&amp;quot;重试&amp;quot;的边界：重试 absorb 的只该是瞬时故障，语法错误重试是浪费。现在的实现是简单粗暴的无差别重试一次——够用但不精致，理想情况应该按错误类型分流，比如超时重试、语法错误不重试。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="结语">结语
+&lt;/h2>&lt;hr>
+&lt;p>回头看，这个项目一半的代码在渲染，另一半在&amp;quot;证明渲染是对的&amp;quot;。主题系统的三层结构（themeVariables 派生链 / themeCSS 形状语义 / remap 兜底）本质上是在跟 mermaid 的历史包袱做分层妥协；而像素普查则是把&amp;quot;主题改完了没漏&amp;quot;从人眼工程变成可回归的断言。&lt;/p>
+&lt;p>还有几块明显欠账：普查脚本只覆盖默认 tech 主题、没有接进 CI 自动跑、合成容差假设白底、&amp;ndash;theme-js 用 &lt;code>new Function&lt;/code> 执行用户代码没做任何沙箱。这些都不影响它作为一个 agent 工具完成本职，但离&amp;quot;可以放心让别人依赖的渲染服务&amp;quot;还有距离。&lt;/p>
+&lt;blockquote>
+&lt;p>我现在的判断是：给 agent 造工具，最难的不是功能，是&lt;strong>让失败的路径和成功的路径一样被设计过&lt;/strong>——JSON 契约、退出码、超时、坏块隔离这些东西写起来毫无乐趣，但 agent 每天 80% 的时间活在这些路径上。接下来值得想的问题是：像素普查这套思路能不能反哺给 agent 本身——agent 自己产图、自己跑一遍普查、自己修，直到 ALL CLEAN？那才是&amp;quot;built for AI agents&amp;quot;的完全体。&lt;/p>
+&lt;/blockquote></description></item><item><title>Mermaid 主题定制暗坑大全</title><link>https://daidaij.github.io/p/mermaid-theme-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:06:28 +0800</pubDate><guid>https://daidaij.github.io/p/mermaid-theme-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/8115e44d/800/600" alt="Featured image of post Mermaid 主题定制暗坑大全" />&lt;h1 id="mermaid-主题定制暗坑大全">Mermaid 主题定制暗坑大全
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>我给 mmdx（自己的 Mermaid 导出器）做了一套完整主题预设，过程中在 mermaid 的主题机制上反复撞墙：变量改了不生效、CSS 写了被盖、颜色改了换了个地方又冒出来。这篇把踩过的坑整理成 checklist，每条都是&amp;quot;现象 → 为什么 → 怎么绕&amp;quot;，代码全部来自真实仓库。&lt;/p>
