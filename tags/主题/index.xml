@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>主题 on 潘达窝</title><link>https://daidaij.github.io/tags/%E4%B8%BB%E9%A2%98/</link><description>Recent content in 主题 on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:06:28 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E4%B8%BB%E9%A2%98/index.xml" rel="self" type="application/rss+xml"/><item><title>Mermaid 主题定制暗坑大全</title><link>https://daidaij.github.io/p/mermaid-theme-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:06:28 +0800</pubDate><guid>https://daidaij.github.io/p/mermaid-theme-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/8115e44d/800/600" alt="Featured image of post Mermaid 主题定制暗坑大全" />&lt;h1 id="mermaid-主题定制暗坑大全">Mermaid 主题定制暗坑大全
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>我给 mmdx（自己的 Mermaid 导出器）做了一套完整主题预设，过程中在 mermaid 的主题机制上反复撞墙：变量改了不生效、CSS 写了被盖、颜色改了换了个地方又冒出来。这篇把踩过的坑整理成 checklist，每条都是&amp;quot;现象 → 为什么 → 怎么绕&amp;quot;，代码全部来自真实仓库。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="先立结论themevariables-根上的键永远生效">先立结论：themeVariables 根上的键永远生效
+&lt;/h2>&lt;hr>
+&lt;p>这是整个主题定制的第一原则，反过来用就是最重要的排错手段。&lt;/p>
+&lt;p>mermaid 的主题计算（&lt;code>Theme.calculate&lt;/code>）流程是三步：用户覆盖 → 推导派生色 → 再覆盖。也就是说 &lt;code>themeVariables&lt;/code> &lt;strong>根上&lt;/strong>的键永远赢——不管后面的推导链怎么算，你写在根上的值是最后生效的。所以：&lt;/p>
+&lt;ul>
+&lt;li>变量&amp;quot;不生效&amp;quot;，九成不是机制问题，而是&lt;strong>嵌套位置错&lt;/strong>——键被插到了某个图型的子配置里，而不是 &lt;code>themeVariables&lt;/code> 根上。&lt;/li>
+&lt;li>例外只有一种：渲染器根本不读这个变量（走了硬编码），那是另一类坑，后面单说。&lt;/li>
+&lt;/ul>
+&lt;p>我真实踩过的版本：用 python 脚本给主题补丁批量插入 &lt;code>pie1&lt;/code>~&lt;code>pie12&lt;/code>、&lt;code>quadrant1Fill&lt;/code>、&lt;code>todayLineColor&lt;/code> 十几个键，锚点缩进算错一层，整批键被插进了 &lt;code>themeVariables.xyChart&lt;/code> 对象&lt;strong>内部&lt;/strong>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">themeVariables&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">primaryColor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#E8F3FF&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ...几十个根级键...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">xyChart&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">plotColorPalette&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5B8FF9,#F6BD16,...&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pie1&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5B8FF9&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="c1">// ← 全在这里，静默失效
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">pie2&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#5AD8A6&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="c1">// pie 图根本不读 xyChart 命名空间
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">todayLineColor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#FF9A2E&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配置是合法 JSON，渲染不报错，颜色就是不变。排错半天以为是变量名写错或 mermaid 版本问题，最后把配置 dump 出来做括号深度计数才发现层级错了。&lt;/p>
+&lt;blockquote>
+&lt;p>&amp;ldquo;变量不生效 = 先查嵌套位置&amp;rdquo;，这条现在是我排 mermaid 主题问题的第一反应。批量改配置结构后，写个脚本断言每个键的括号深度，或者干脆整段重写而不是锚点替换——锚点替换省的那几分钟会在排错时十倍还回来。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="assignwithdepth数组是追加不是替换">assignWithDepth：数组是追加不是替换
+&lt;/h2>&lt;hr>
+&lt;p>第二个大坑在 mermaid 合并用户配置的入口函数 &lt;code>assignWithDepth&lt;/code> 里。看 mermaid 源码（&lt;code>src/assignWithDepth.ts&lt;/code>，dist 产物 &lt;code>chunk-DU6HZSFF.mjs&lt;/code> 原样保留）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">var&lt;/span> &lt;span class="nx">assignWithDepth&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">dst&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">src&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">depth&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{})&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">isArray&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">src&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">isArray&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dst&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">src&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="nx">assignWithDepth&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dst&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">config2&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">dst&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">isArray&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">src&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">isArray&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dst&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">src&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">dst&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">includes&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="c1">// ← 追加，不是替换
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">dst&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">dst&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 对象走递归合并，标量直接覆盖 —— 这部分行为正常
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>对象合并符合直觉，标量覆盖也正常，唯独&lt;strong>数组是 push&lt;/strong>。dst 里已经有默认值时，你配置的数组元素会追加在默认值后面。&lt;/p>
+&lt;p>具体受害场景是 journey 图的 actor 圆点。journey 配置里有 &lt;code>actorColours&lt;/code> 数组，我配置成：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">journey&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">actorColours&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s1">&amp;#39;#6E94BB&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#7FB08A&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#63A8A4&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#D2A36C&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#8B99A8&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s1">&amp;#39;#C48BA6&amp;#39;&lt;/span>&lt;span class="p">],&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>结果圆点颜色纹丝不动。原因是 mermaid 默认的 6 个 actor 颜色已经占了 &lt;code>0-5&lt;/code> 槽位，我的 6 个颜色被 append 到第 7-12 位——而 journey 只有 6 个 actor，永远读不到追加的段。同理 &lt;code>journey.actorColours&lt;/code> 在 &lt;code>themeVariables.cScaleInv&lt;/code> 那条路上也有类似问题。&lt;/p>
+&lt;p>怎么绕？journey 圆点的 fill 是 SVG presentation attribute（&lt;code>fill=&amp;quot;cornsilk&amp;quot;&lt;/code> 这类），而 presentation attribute 的优先级低于&lt;strong>任何&lt;/strong> CSS 规则。所以用 themeCSS 直接压：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* src/themes.ts — journey actor dots: config.journey.actorColours is useless —
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> mermaid&amp;#39;s assignWithDepth APPENDS arrays, so the hardcoded defaults keep
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> slots 0-5. Presentation-attribute fills lose to plain CSS, so pin the dots here. */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">actor-0&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#6E94BB&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#FFFFFF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">actor-1&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#7FB08A&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#FFFFFF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* ... .actor-2 到 .actor-5 同理 */&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>&amp;ldquo;presentation attribute 输给任何 CSS&amp;quot;是 SVG 规范行为，不是 mermaid 的锅，但它决定了绕法的方向：凡是 fill 写死在元素属性上的地方，别试图找主题变量了，直接 CSS 压，稳赢。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="themecss-的-svgid-前缀svg-根类匹配不到">themeCSS 的 #svgId 前缀：svg 根类匹配不到
+&lt;/h2>&lt;hr>
+&lt;p>第三个坑在 themeCSS 本身。mermaid 拿到 &lt;code>themeCSS&lt;/code> 后不是原样注入 &lt;code>&amp;lt;style&amp;gt;&lt;/code>，而是给&lt;strong>每条规则&lt;/strong>加一个 &lt;code>#svgId&lt;/code> 前缀（svg 元素的 id 选择器），把作用域限定在当前图里。&lt;/p>
+&lt;p>这意味着你的选择器实际生效形式是：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* 你写的 */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">erDiagram&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">entityBox&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8F3FF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* 实际注入的 */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">#&lt;/span>&lt;span class="nn">svgId&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">erDiagram&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">entityBox&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8F3FF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>问题来了：&lt;code>.erDiagram&lt;/code> 这个类挂在 &lt;strong>svg 根元素&lt;/strong>上，而 &lt;code>#svgId&lt;/code> 就是这个根元素。CSS 里&amp;quot;X 的后代 Y&amp;quot;要求 X 是 Y 的祖先——svg 根不可能是自己的后代，所以 &lt;code>#svgId .erDiagram ...&lt;/code> 永远匹配不到任何元素。凡是想以 svg 根类做后代选择器中间环节的写法，全部静默失效。&lt;/p>
+&lt;p>绕法：跳过根类，直接锚定根类&lt;strong>内部&lt;/strong>的结构类：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* src/themes.ts — ER 实体外壳是 .node path，属性行走 themeVariables */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">outer-path&lt;/span> &lt;span class="nt">path&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8F3FF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">row-rect-odd&lt;/span> &lt;span class="nt">path&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#FFFFFF&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">row-rect-even&lt;/span> &lt;span class="nt">path&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#F7F8FA&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* class 图的分隔线也会撞上 .node path 规则，单独钉住 */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">divider&lt;/span> &lt;span class="nt">path&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意上面还有个连锁坑：ER 实体外壳和 class 图的分隔线都是 &lt;code>.node path&lt;/code>，会被 flowchart 的通用 &lt;code>.node path&lt;/code> 填色规则误伤（我把通用 path 涂成紫色代表&amp;quot;存储&amp;rdquo;，结果 ER 实体全紫了）。主题 CSS 里每加一条宽泛规则，都要想一遍哪些图型的哪些元素也满足这个选择器。&lt;/p>
+&lt;blockquote>
+&lt;p>官方文档完全没提 #svgId 前缀这回事，themeCSS 的行为只能靠 dump 生成的 SVG &lt;code>&amp;lt;style&amp;gt;&lt;/code> 反推。我怀疑没几个人成功用过 &lt;code>.erDiagram&lt;/code> 开头的 themeCSS 选择器。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="内联-style-importantcss-的尽头是改数据">内联 style !important：CSS 的尽头是改数据
+&lt;/h2>&lt;hr>
+&lt;p>第四个坑是优先级天花板。C4 图的元素标签文字是&lt;strong>硬编码白色内联样式&lt;/strong>——渲染器里直接 &lt;code>color: fontColor ?? '#FFFFFF'&lt;/code> 且带 &lt;code>!important&lt;/code> 写进元素的 &lt;code>style&lt;/code> 属性。内联样式加 &lt;code>!important&lt;/code>，是 CSS 层叠里赢不了的东西：任何外部样式表规则，不管特异性多高，都输给它。&lt;/p>
+&lt;p>所以我给 C4 换浅色主题的第一次尝试：&lt;code>themeCSS&lt;/code> 里写 &lt;code>text { fill: #1D2129 !important }&lt;/code> 之类，全部无效。&lt;/p>
+&lt;p>绕法只有一条：&lt;strong>改数据源头&lt;/strong>。不动文字颜色，把 C4 的填充色调到足够深，让白字可读。官方通道是 &lt;code>config.c4&lt;/code> 段（这也是 C4 填充色的正确出处，不在 themeVariables 里）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/themes.ts — C4 element palette: official channel is the c4 config section
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// NOTE: c4 label text is hardcoded white inline (c4ShapeAdapter: color:
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// fontColor ?? &amp;#39;#FFFFFF&amp;#39;, applied with !important) — no theme variable
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// can change it, so fills must stay dark enough for white text
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">c4&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">person_bg_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#4A6F94&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">person_border_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#3A5A78&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">external_person_bg_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#76828F&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">external_person_border_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#6A7581&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container_bg_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#4A6F94&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">container_border_color&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s1">&amp;#39;#3A5A78&amp;#39;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这条给了我一个方法论上的提醒：遇到&amp;quot;怎么写 CSS 都不生效&amp;quot;时，先确认目标元素上有没有内联 &lt;code>!important&lt;/code>（dump SVG 看 &lt;code>style&lt;/code> 属性）。有，就别在 CSS 层纠缠了，往上找数据源——改不了数据源（比如白字是 mermaid 写死的），就把自己的设计往数据源头让步，而不是继续堆选择器。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="直接命中-beats-继承压到实际文字元素上">直接命中 beats 继承：压到实际文字元素上
+&lt;/h2>&lt;hr>
+&lt;p>第五个坑是层叠里最不起眼的一类。我想统一图内文字颜色，在容器层设置：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">label&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">color&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#1D2129&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>.label&lt;/code> 是 foreignObject 里的 div，直觉上 color 会继承到内部所有文字。但 mindmap 某些节点的文字元素（&lt;code>span&lt;/code>、&lt;code>.text-inner-tspan&lt;/code>）上挂着&lt;strong>直接命中&lt;/strong>的规则（比如 root 节点的 tspan 通过 section-root 规则拿到 &lt;code>gitBranchLabel0&lt;/code> 的白色），直接命中永远赢过继承——父元素的 color 设得再对，子元素自己有规则就轮不到继承。&lt;/p>
+&lt;p>绕法：选择器覆盖到&lt;strong>实际渲染文字的元素&lt;/strong>，一层都别省：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* src/themes.ts — mindmap 标签是 HTML（foreignObject）——
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> 颜色必须钉到 span/p/tspan 级别，root 的 text-inner-tspan 否则会
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> 经 section-root 规则拿到 gitBranchLabel0（白色） */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">label&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">label&lt;/span> &lt;span class="nt">div&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">label&lt;/span> &lt;span class="nt">span&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">label&lt;/span> &lt;span class="nt">p&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nc">text-inner-tspan&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">color&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#1D2129&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#1D2129&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这里 &lt;code>fill&lt;/code> 也要一起设——SVG 文字的着色走 &lt;code>fill&lt;/code> 而不是 &lt;code>color&lt;/code>，混排（HTML 标签 + SVG tspan）的图两种都要覆盖。&lt;/p>
+&lt;blockquote>
+&lt;p>层叠顺序&amp;quot;直接命中 beats 继承&amp;quot;是 CSS 基本功，但在 mermaid 里特别容易栽：图型渲染器往内部元素上撒直接规则的习惯比一般网页重得多。div 上设 color &amp;ldquo;看起来生效了一部分&amp;rdquo;（普通节点对了，root 节点没对）比全不生效更迷惑人。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="同特异性看插入顺序neo-主题的渐变遮蔽">同特异性看插入顺序：neo 主题的渐变遮蔽
+&lt;/h2>&lt;hr>
+&lt;p>前面几条都是&amp;quot;我的规则被别人盖&amp;quot;，这一条反过来：mermaid 自己生成的规则会盖掉 themeVariables。&lt;/p>
+&lt;p>开 &lt;code>look: 'neo'&lt;/code> 后（切换到 theme-neo 那套渲染），mermaid 会为 mindmap 每个分区生成带渐变填充的规则，并&lt;strong>追加在 themeCSS 之后&lt;/strong>注入。同特异性时后者赢，结果就是我在 &lt;code>themeVariables.cScale0-5&lt;/code> 里精心配的分区色全部被 &lt;code>mainBkg + gradient stroke&lt;/code> 的统一渐变盖掉，mindmap 各分支变成同一种颜色。&lt;/p>
+&lt;p>绕法是在 themeCSS 里显式恢复，并用 &lt;code>!important&lt;/code> 对抗插入顺序（规则来源无法控制顺序时，特异性又相同，只能加权重）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-css" data-lang="css">&lt;span class="line">&lt;span class="cl">&lt;span class="c">/* src/themes.ts — under look:&amp;#39;neo&amp;#39; the generated gradient rule (appended
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> later, same specificity) paints EVERY section box mainBkg + gradient
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"> stroke, masking the cScale section colours; restore per-branch pastels */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nc">section--1&lt;/span> &lt;span class="nt">rect&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nc">section--1&lt;/span> &lt;span class="nt">path&lt;/span>&lt;span class="o">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nc">section--1&lt;/span> &lt;span class="nt">circle&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">fill&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#E8F3FF&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mh">#4098FC&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">stroke-width&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mf">2.5&lt;/span>&lt;span class="kt">px&lt;/span> &lt;span class="cp">!important&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">.&lt;/span>&lt;span class="nc">mindmap-node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nc">section-0&lt;/span> &lt;span class="nt">rect&lt;/span>&lt;span class="o">,&lt;/span> &lt;span class="c">/* ...0-5 各分区同理... */&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意根节点是 &lt;code>section--1&lt;/code>（双横线），分区是 &lt;code>section-0&lt;/code> 到 &lt;code>section-N&lt;/code>——这个命名也是 dump SVG 才能确认的。&lt;/p>
+&lt;blockquote>
+&lt;p>mermaid 的规则注入顺序是&amp;quot;基础 themeCSS → 图型生成规则 → neo 渐变&amp;quot;，我方永远在下游被动挨打。能用 themeVariables 根键解决的绝不用 CSS，因为 CSS 要跟生成规则抢位置；根键走的是 Theme.calculate 的覆盖链，不受注入顺序影响。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="验证方法论dump--反查不靠记忆猜">验证方法论：dump + 反查，不靠记忆猜
+&lt;/h2>&lt;hr>
+&lt;p>以上每个坑的定位过程都指向同一套验证手段，值得单独总结。主题排错&lt;strong>不要对着记忆猜优先级&lt;/strong>，两步拿到事实：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>dump SVG 的 &lt;code>&amp;lt;style&amp;gt;&lt;/code> 全部规则&lt;/strong>：把渲染产物 SVG 存下来，看 &lt;code>&amp;lt;style&amp;gt;&lt;/code> 里到底注入了什么、顺序如何、有没有 &lt;code>#svgId&lt;/code> 前缀、目标元素上挂着哪些规则。内联样式直接看元素的 &lt;code>style&lt;/code> 属性。&lt;/li>
+&lt;li>&lt;strong>getComputedStyle 反查&lt;/strong>：在浏览器 console 里对目标元素跑 &lt;code>getComputedStyle(el)&lt;/code>，看 &lt;code>fill&lt;/code>/&lt;code>color&lt;/code> 的最终值，再沿匹配规则定位来源。&lt;/li>
+&lt;/ol>
+&lt;p>在 mmdx 里我把这个思路固化成了全覆盖检测脚本（&lt;code>scripts/theme-census.ts&lt;/code>）：渲染全部图型，像素级统计颜色，凡是落在主题调色板和合成容差之外的都报警，外加一张&amp;quot;mermaid 原生刺眼默认色&amp;quot;黑名单按任意覆盖率标记（小元素如 journey 圆点面积太小，覆盖率阈值会漏报，只能靠黑名单兜）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// scripts/theme-census.ts — allowed palette = themes.ts 里每个 hex 字面量 + 黑白
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">m&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">themeSrc&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">matchAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sr">/#([0-9a-fA-F]{6})\b/g&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="nx">allowed&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">add&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s1">&amp;#39;#&amp;#39;&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">toUpperCase&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// ...渲染后逐像素计数，接受&amp;#34;调色板色以某 alpha 合成到白底&amp;#34;的结果（抗锯齿/半透明填充）
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>关键设计：黑名单必须有&lt;strong>定义来源&lt;/strong>（主题调色板全集），只列已知坏值（比如 &lt;code>#ECECFF&lt;/code> 这个 mermaid 紫）会漏掉&amp;quot;自家主题色被误用&amp;quot;这类新形态——这也是我从教训里烧出来的：第一版检测脚本只黑名单了 &lt;code>#ECECFF&lt;/code>，结果自己的 Arco 色被另一条规则覆盖了照样漏。&lt;/p>
+&lt;blockquote>
+&lt;p>手工排错靠 dump + 反查，批量验收靠像素普查。两者缺一不可：前者定位单点，后者保证&amp;quot;改 A 没顺手弄坏 B&amp;quot;——主题这种全联动的东西，没有全覆盖检测就是在打地鼠。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="颜色散落地图">颜色散落地图
+&lt;/h2>&lt;hr>
+&lt;p>最后一个 checklist 是&amp;quot;哪里能改哪个颜色&amp;quot;。mermaid 的颜色配置入口散落在至少四个地方，找对入口能省掉前五节大半的斗争：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>图型/元素&lt;/th>
+&lt;th>颜色入口&lt;/th>
+&lt;th>备注&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>全局派生链&lt;/td>
+&lt;td>&lt;code>themeVariables&lt;/code> 根（primaryColor 等）&lt;/td>
+&lt;td>根键永远生效，配这里优先&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>C4 元素填充&lt;/td>
+&lt;td>&lt;code>config.c4.*&lt;/code>&lt;/td>
+&lt;td>不在 themeVariables；白字硬编码，填充必须够深&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>journey 分段&lt;/td>
+&lt;td>&lt;code>themeVariables.fillType0-7&lt;/code>&lt;/td>
+&lt;td>圆点例外，见 assignWithDepth 一节&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>xyChart 调色板&lt;/td>
+&lt;td>&lt;code>themeVariables.xyChart.plotColorPalette&lt;/code>&lt;/td>
+&lt;td>逗号分隔字符串，不是数组；默认头一个就是 &lt;code>#ECECFF&lt;/code> 紫&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>radar 曲线&lt;/td>
+&lt;td>&lt;code>themeVariables.cScale&lt;/code> + &lt;code>config.radar&lt;/code>&lt;/td>
+&lt;td>cScale 粉彩在刻度网上不可读，我用 CSS 覆盖成 AntV 色&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mindmap 根节点&lt;/td>
+&lt;td>&lt;code>themeVariables.git0&lt;/code> / &lt;code>gitBranchLabel0&lt;/code>&lt;/td>
+&lt;td>是的，mindmap 借用 gitgraph 的变量名&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>treemap&lt;/td>
+&lt;td>&lt;code>cScale&lt;/code>（类目）+ &lt;code>cScalePeer&lt;/code>&lt;/td>
+&lt;td>相邻分区色差太小，CSS 单独配&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>sankey&lt;/td>
+&lt;td>无主题变量&lt;/td>
+&lt;td>走 tableau10 硬编码，mmdx 里用渲染后 hex→hex remap 补救&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>neo look 渐变&lt;/td>
+&lt;td>&lt;code>themeVariables.gradientStart/Stop&lt;/code>&lt;/td>
+&lt;td>注意 genGradient 遮蔽 mindmap 分区色&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>look: 'neo'&lt;/code> 这个开关单独提醒：它不只是加圆角，是整套渲染走 theme-neo 的新代码路径，渐变生成、阴影、mindmap 分区行为都变了。我最后是 neo + 显式 CSS 恢复分区色的组合。&lt;/p>
+&lt;blockquote>
+&lt;p>sankey 那行值得多说一句：连主题变量都没有的图型，唯一出路是渲染后处理。mmdx 的 &lt;code>ThemePreset.remap&lt;/code> 就是为此存在的——PNG 出来前对 SVG 里的硬编码 hex 做一次映射表替换。丑，但比魔改 mermaid 源码可持续。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="最后是工程坑批量补丁怎么不翻车">最后是工程坑：批量补丁怎么不翻车
+&lt;/h2>&lt;hr>
+&lt;p>上面的坑里有两类（补 themeVariables 大批键、补 themeCSS 大段规则）都涉及&amp;quot;往配置文件里批量插入大块内容&amp;quot;，这里踩的坑不在 mermaid 而在工具链：&lt;/p>
+&lt;p>&lt;strong>坑一：超长 heredoc 截断。&lt;/strong> 用 bash heredoc 往文件里写整段 CSS/配置模板，内容一长（几百行）会被静默截断，文件尾部缺失。绕法：大块内容用 Write 工具（或编辑器）写成独立文件，再用小脚本拼接进去，heredoc 只留给几行的东西。&lt;/p>
+&lt;p>&lt;strong>坑二：python 补丁必须带断言和回滚。&lt;/strong> 批量插入用锚点替换时，锚点选错（缩进差一层）就是我第一节那个 pie1-12 插错层的事故。防线两条：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 每个 replace 前断言锚点恰好出现一次&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">assert&lt;/span> &lt;span class="n">src&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">anchor&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;anchor not unique: &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">anchor&lt;/span>&lt;span class="p">[:&lt;/span>&lt;span class="mi">40&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">src&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">src&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">replace&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">anchor&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">patched&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 任何一步失败，整体回滚，不许半成品落盘&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>插入后立刻做&lt;strong>层级断言&lt;/strong>：括号深度计数，断言新键在预期嵌套层级上。锚点替换赌的是&amp;quot;锚点文本唯一且位置如我所想&amp;quot;，断言是把这个赌注变成显式检查。&lt;/p>
+&lt;blockquote>
+&lt;p>这两条是纯工程纪律，但和 mermaid 的坑叠加起来杀伤力最大：插错层是静默失效，heredoc 截断也是静默截断——两个静默叠在一起，你还以为自己的主题配置&amp;quot;试过了没用&amp;quot;。所有静默失败的工具链环节，都值得配一道显式断言。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>总结成一句话：mermaid 主题定制的所有坑，本质是&amp;quot;三层优先级体系 + 散落的配置入口&amp;quot;——themeVariables 根键 &amp;gt; CSS（受 #svgId 前缀、注入顺序、内联 !important 制约）&amp;gt; presentation attribute，而 C4 白字、sankey 配色这类硬编码点只能改数据或后处理。排错永远从 dump SVG 开始，不要猜。下一篇写 mmdx 本身的设计，以及那套全覆盖像素检测是怎么建的。&lt;/p>
+&lt;/blockquote></description></item></channel></rss>
