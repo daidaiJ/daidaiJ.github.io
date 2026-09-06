@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+
+Sitemap: https://daidaij.github.io/sitemap.xml

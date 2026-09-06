@@ -15537,5 +15537,5 @@ alt="benchmark 测试结果"
 &lt;li>轻量级，代码简洁封装少，使用原生操作实现&lt;/li>
 &lt;li>多缓冲，使用sync.Pool 实现多级缓冲&lt;/li>
 &lt;li>安全并发， 虽然使用了互斥锁，但是仅用在write 方法上，对性能影响足够小&lt;/li>
-&lt;/ul></description></item><item><title>Archives</title><link>https://daidaij.github.io/archives/</link><pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/archives/</guid><description/></item><item><title>Search</title><link>https://daidaij.github.io/search/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/search/</guid><description/></item><item><title>关于</title><link>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</guid><description>&lt;p>这是潘达张的个人博客：&lt;br>
+&lt;/ul></description></item><item><title>Archives</title><link>https://daidaij.github.io/archives/</link><pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/archives/</guid><description/></item><item><title>关于</title><link>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://daidaij.github.io/%E5%85%B3%E4%BA%8E/</guid><description>&lt;p>这是潘达张的个人博客：&lt;br>
 收录知识，记述人生&lt;/p></description></item></channel></rss>
