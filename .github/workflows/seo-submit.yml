@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'pandawo/content/**'
+  # 每天定时主动推送（UTC 02:00 = 北京时间 10:00）
+  schedule:
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # 定时模式要按 git 提交历史挑最近更新的文章，需要完整历史
+          fetch-depth: 0
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
@@ -31,16 +35,33 @@ jobs:
         working-directory: ./pandawo
         run: hugo --baseURL https://daidaij.github.io/ --minify
 
-      - name: Collect changed post URLs
+      - name: Collect URLs to submit
         id: collect
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
-          CHANGED=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD -- 'pandawo/content/post' \
-            | sed -e 's|^pandawo/content/post/||' \
-                  -e 's|/index\.md$||' \
-                  -e 's|\.md$||' \
-                  -e 's|\.zh-cn$||' \
-                  -e 's|/$||' \
-            | tr '[:upper:]' '[:lower:]' | sort -u)
+          if [ "$EVENT" = "push" ]; then
+            echo "模式：推送触发，只提交本次变更的文章"
+            CHANGED=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD -- 'pandawo/content/post' \
+              | sed -e 's|^pandawo/content/post/||' \
+                    -e 's|/index\.md$||' \
+                    -e 's|\.md$||' \
+                    -e 's|\.zh-cn$||' \
+                    -e 's|/$||' \
+              | tr '[:upper:]' '[:lower:]' | sort -u)
+          else
+            echo "模式：定时/手动触发，提交最近更新的 10 篇文章"
+            CHANGED=$(git ls-files 'pandawo/content/post' | grep '\.md$' \
+              | while read -r f; do
+                  ts=$(git log -1 --format=%ct -- "$f")
+                  echo "$ts $f"
+                done \
+              | sort -rn | head -10 | awk '{print $2}' \
+              | sed -e 's|^pandawo/content/post/||' \
+                    -e 's|\.md$||' \
+                    -e 's|\.zh-cn$||' \
+              | tr '[:upper:]' '[:lower:]' | sort -u)
+          fi
           URLS=""
           for slug in $CHANGED; do
             url="https://daidaij.github.io/p/${slug}/"
@@ -51,7 +72,7 @@ jobs:
             fi
           done
           echo "urls=${URLS%,}" >> "$GITHUB_OUTPUT"
-          echo "变更文章: ${URLS%,}"
+          echo "本次提交: ${URLS%,}"
 
       - name: Submit to IndexNow (Bing / Yandex / Seznam)
         if: steps.collect.outputs.urls != ''
