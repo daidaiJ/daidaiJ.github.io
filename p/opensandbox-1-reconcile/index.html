@@ -1,0 +1,447 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环 最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把"沙箱"建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 kubernetes/ 目录的走读笔记：从 POST /sandboxes 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。\n'><title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</title>
+<link rel=canonical href=https://daidaij.github.io/p/opensandbox-1-reconcile/><link rel=stylesheet href=/scss/style.min.7c715415b9353155dfb3908d13889fc776b27eef1d6af8de36224e1dd2704c41.css><meta property='og:title' content="OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环"><meta property='og:description' content='OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环 最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把"沙箱"建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 kubernetes/ 目录的走读笔记：从 POST /sandboxes 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。\n'><meta property='og:url' content='https://daidaij.github.io/p/opensandbox-1-reconcile/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='opensandbox'><meta property='article:tag' content='k8s'><meta property='article:tag' content='sandbox'><meta property='article:tag' content='ai-agent'><meta property='article:published_time' content='2026-09-06T20:10:26+08:00'><meta property='article:modified_time' content='2026-09-06T20:10:26+08:00'><meta property='og:image' content='https://picsum.photos/seed/c9e1e1dc/800/600'><meta name=twitter:title content="OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环"><meta name=twitter:description content='OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环 最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把"沙箱"建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 kubernetes/ 目录的走读笔记：从 POST /sandboxes 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。\n'><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/c9e1e1dc/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换暗色模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span>暗色</span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#全景三个-crd两条回路>全景：三个 CRD，两条回路</a></li><li><a href=#create-请求怎么变成-batchsandbox>create 请求怎么变成 BatchSandbox</a></li><li><a href=#batchsandbox-的-specstatus-长什么样>BatchSandbox 的 spec/status 长什么样</a></li><li><a href=#reconcile-主循环一轮到底干了什么>Reconcile 主循环：一轮到底干了什么</a></li><li><a href=#状态机phase-不是存的是算的>状态机：phase 不是存的，是算的</a></li><li><a href=#扩容确定性命名--期望机制防重复>扩容：确定性命名 + 期望机制防重复</a></li><li><a href=#与-k8s-原生机制的耦合点>与 K8s 原生机制的耦合点</a></li><li><a href=#失败怎么重试三层-requeue-机制>失败怎么重试：三层 requeue 机制</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/opensandbox-1-reconcile/><img src=https://picsum.photos/seed/c9e1e1dc/800/600 loading=lazy alt="Featured image of post OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记
+</a><a href=/categories/kubernetes/>Kubernetes</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/opensandbox-1-reconcile/>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Sep 06, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 11 分钟</time></div><div><time class=article-words>5027 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=opensandbox-源码走读一crd-controller-与-reconcile-循环>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</h1><hr><blockquote><p>最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把"沙箱"建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 <code>kubernetes/</code> 目录的走读笔记：从 <code>POST /sandboxes</code> 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。</p></blockquote><h2 id=全景三个-crd两条回路>全景：三个 CRD，两条回路</h2><hr><p>算子一共定义了 3 个 CRD（API 组 <code>sandbox.opensandbox.io/v1alpha1</code>），对应 3 个 Reconciler：</p><div class=table-wrapper><table><thead><tr><th>CRD</th><th>Reconciler</th><th>并发默认</th><th>干什么</th></tr></thead><tbody><tr><td>BatchSandbox（<code>bsbx</code>）</td><td>BatchSandboxReconciler</td><td>32</td><td>沙箱本体：建 Pod、跑任务、pause/resume</td></tr><tr><td>Pool</td><td>PoolReconciler</td><td>16</td><td>预热 Pod 池：分配/回收/滚动更新/驱逐</td></tr><tr><td>SandboxSnapshot（<code>sbxsnap</code>）</td><td>SandboxSnapshotReconciler</td><td>1</td><td>rootfs 快照提交（pause/resume 的底层依赖）</td></tr></tbody></table></div><p>整个控制面就两条互相咬合的回路：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>任务回路：BatchSandbox reconcile → TaskScheduler → HTTP 推任务到 pod 内 task-executor(:5758)
+</span></span><span class=line><span class=cl>         → 轮询任务状态 → 写回 status
+</span></span><span class=line><span class=cl>分配回路：Pool reconcile → Allocator → 写 alloc-status 注解 + 内存 store
+</span></span><span class=line><span class=cl>         → 注解变化经 watch 触发对方 reconcile → 闭环
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>注意第二条回路的关键设计：<strong>分配状态的持久化真相源是 BatchSandbox 上的注解，不是 Pool 的 status</strong>。Pool 的内存 store 只是个可重建的缓存。这个设计后面还会反复出现——很多"奇怪"的代码都是在为注解契约服务。</p></blockquote><h2 id=create-请求怎么变成-batchsandbox>create 请求怎么变成 BatchSandbox</h2><hr><p>业务侧调 <code>POST /sandboxes</code>，server（Python）把它翻译成一个 BatchSandbox CR。池化模式的核心在 <code>server/opensandbox_server/services/k8s/batchsandbox_provider.py</code> 的 <code>_create_workload_from_pool</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>_create_workload_from_pool</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>batchsandbox_name</span><span class=p>,</span> <span class=n>namespace</span><span class=p>,</span> <span class=n>labels</span><span class=p>,</span> <span class=n>pool_ref</span><span class=p>,</span> <span class=n>expires_at</span><span class=p>,</span> <span class=n>entrypoint</span><span class=p>,</span> <span class=n>env</span><span class=p>,</span> <span class=o>...</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>entrypoint</span> <span class=o>=</span> <span class=n>entrypoint</span> <span class=ow>or</span> <span class=n>DEFAULT_ENTRYPOINT</span>
+</span></span><span class=line><span class=cl>    <span class=n>spec</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;replicas&#34;</span><span class=p>:</span> <span class=mi>1</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;poolRef&#34;</span><span class=p>:</span> <span class=n>pool_ref</span><span class=p>,</span>          <span class=c1># ← 池化模式的开关，指向预热池</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>env</span> <span class=ow>or</span> <span class=n>entrypoint</span> <span class=o>!=</span> <span class=n>DEFAULT_ENTRYPOINT</span> <span class=ow>or</span> <span class=bp>self</span><span class=o>.</span><span class=n>execd_run_as_init</span><span class=p>:</span>   <span class=c1># needs_task_template</span>
+</span></span><span class=line><span class=cl>        <span class=n>spec</span><span class=p>[</span><span class=s2>&#34;taskTemplate&#34;</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_build_task_template</span><span class=p>(</span><span class=n>entrypoint</span><span class=p>,</span> <span class=n>env</span><span class=p>,</span> <span class=n>batchsandbox_name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>expires_at</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>spec</span><span class=p>[</span><span class=s2>&#34;expireTime&#34;</span><span class=p>]</span> <span class=o>=</span> <span class=n>expires_at</span><span class=o>.</span><span class=n>isoformat</span><span class=p>()</span>   <span class=c1># ← timeout 参数的归宿</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 再包一层 apiVersion/kind/metadata，create_custom_object 直接落一个 BatchSandbox CR</span>
+</span></span></code></pre></td></tr></table></div></div><p>几个 create 参数的映射关系值得记一下：</p><div class=table-wrapper><table><thead><tr><th>API 参数</th><th>落到 CR 的哪里</th><th>备注</th></tr></thead><tbody><tr><td><code>extensions.poolRef</code></td><td><code>spec.poolRef</code></td><td>特殊值 <code>*</code> = 让控制器自动选池</td></tr><tr><td><code>env</code> / <code>entrypoint</code></td><td><code>spec.taskTemplate</code></td><td><strong>非空即触发</strong> taskTemplate 生成</td></tr><tr><td><code>timeout</code></td><td><code>spec.expireTime</code></td><td>不传 = 不自动到期，靠手动 delete</td></tr><tr><td><code>metadata</code></td><td><code>metadata.labels</code></td><td>用于 <code>GET /sandboxes?metadata=...</code> 过滤</td></tr><tr><td><code>image</code> / <code>resourceLimits</code></td><td><strong>被忽略</strong></td><td>池化 pod 预创建，模板锁死在 Pool 上</td></tr></tbody></table></div><p><code>env</code> 这条最有意思：server 会把 env 包进一个 shell 包装命令（<code>_build_task_template</code> 里 <code>shlex.quote</code> 转义后拼进 <code>/bin/sh -c "/opt/opensandbox/bootstrap.sh &lt;entrypoint> &"</code>），再把 <code>OPENSANDBOX_ID</code> 追加进 env 列表，最终挂到 <code>taskTemplate.spec.process</code>。</p><blockquote><p>这里有个容易踩的坑：<strong>不传 env 也不传 entrypoint 时走"快路径"</strong>，不生成 taskTemplate——池 pod 继续跑自己的 warm entrypoint，代价是任何分配时的 env 都注入不进去。所以"为什么我的环境变量没生效"十有八九是这个分支判断没过。</p></blockquote><p>最终生成的 CR 大概长这样：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>kind: BatchSandbox            # apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>sandbox.opensandbox.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>poolRef</span><span class=p>:</span><span class=w> </span><span class=l>my-pool           </span><span class=w> </span><span class=c># 二选一：poolRef（池化）或 template（直建）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>taskTemplate</span><span class=p>:</span><span class=w>               </span><span class=c># 可选；决定要不要走任务调度</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>process</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;/bin/sh&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;-c&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;/opt/opensandbox/bootstrap.sh python /app/main.py &amp;&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>env</span><span class=p>:</span><span class=w> </span><span class=p>[</span>{<span class=nt>name: OSB_USER_ID, value</span><span class=p>:</span><span class=w> </span><span class=l>user-12345}]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>expireTime</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2026-09-06T12:00:00Z&#34;</span><span class=w>   </span><span class=c># timeout 的归宿</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p>注意 spec 里 <code>template</code> 和 <code>poolRef</code> 互斥：直建模式自己带 PodTemplateSpec，池化模式只有 poolRef，Pod 的长相完全由 Pool 的模板决定。server 还会把一批参数（volumes、networkPolicy、snapshotId+poolRef 组合等）直接 400 拒掉，因为池化 pod 是预创建的，事后没法改。</p></blockquote><h2 id=batchsandbox-的-specstatus-长什么样>BatchSandbox 的 spec/status 长什么样</h2><hr><p><code>apis/sandbox/v1alpha1/batchsandbox_types.go</code>，关键字段摘出来：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>BatchSandboxSpec</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Replicas</span>    <span class=o>*</span><span class=kt>int32</span>                <span class=c1>// 默认 1
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>PoolRef</span>     <span class=kt>string</span>                <span class=c1>// 与 Template 互斥
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>Template</span>    <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>PodTemplateSpec</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ShardPatches</span> <span class=p>[]</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>RawExtension</span>  <span class=c1>// 按 index 给每个 pod 打 strategic merge patch
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>ExpireTime</span>  <span class=o>*</span><span class=nx>metav1</span><span class=p>.</span><span class=nx>Time</span>          <span class=c1>// 到了就删，控制器负责执行
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>TaskTemplate</span> <span class=o>*</span><span class=nx>TaskTemplateSpec</span>    <span class=c1>// 非 nil = 需要 TaskScheduler
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>Pause</span>       <span class=o>*</span><span class=kt>bool</span>                 <span class=c1>// pause/resume 意图，Server 写、Controller 执行
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// +kubebuilder:validation:Enum=Pending;Succeed;Pausing;Paused;Resuming;Failed
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>BatchSandboxPhase</span> <span class=kt>string</span>
+</span></span></code></pre></td></tr></table></div></div><p>phase 一共 6 个：<code>Pending / Succeed</code> 是稳态，<code>Pausing / Paused / Resuming</code> 是暂停链路，<code>Failed</code> 是终态。status 侧除了 replicas/ready 计数，还有一组任务计数和两个特殊字段：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>BatchSandboxStatus</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ObservedGeneration</span> <span class=kt>int64</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Replicas</span><span class=p>,</span> <span class=nx>Allocated</span><span class=p>,</span> <span class=nx>Ready</span> <span class=kt>int32</span>
+</span></span><span class=line><span class=cl>    <span class=nx>TaskRunning</span><span class=p>,</span> <span class=nx>TaskSucceed</span><span class=p>,</span> <span class=nx>TaskFailed</span><span class=p>,</span> <span class=nx>TaskPending</span><span class=p>,</span> <span class=nx>TaskUnknown</span> <span class=kt>int32</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Phase</span> <span class=nx>BatchSandboxPhase</span>
+</span></span><span class=line><span class=cl>    <span class=nx>PauseObservedGeneration</span> <span class=kt>int64</span>       <span class=c1>// pause/resume 幂等闸门：最近一次 ACK 的 generation
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>Conditions</span> <span class=p>[]</span><span class=nx>BatchSandboxCondition</span>  <span class=c1>// Ready/Progressing/Paused/PauseFailed/ResumeFailed/PodFailed
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p><code>PauseObservedGeneration</code> 这个设计我第一次看有点绕：spec.pause 只是个布尔意图，Controller 靠"generation 是否前进 + 我 ACK 到哪个 generation 了"来判断这是不是一次新请求。这是把 K8s 原生的 observedGeneration 惯例复用到了 pause/resume 这条命令通道上，避免了额外的 ACK 子资源。</p></blockquote><h2 id=reconcile-主循环一轮到底干了什么>Reconcile 主循环：一轮到底干了什么</h2><hr><p>核心在 <code>internal/controller/batchsandbox_controller.go</code> 的 <code>Reconcile</code>，按执行顺序拆开：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>BatchSandboxReconciler</span><span class=p>)</span> <span class=nf>Reconcile</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>req</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>(</span><span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>batchSbx</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandbox</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>client</span><span class=p>.</span><span class=nx>ObjectKey</span><span class=p>{</span><span class=o>...</span><span class=p>},</span> <span class=nx>batchSbx</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>errors</span><span class=p>.</span><span class=nf>IsNotFound</span><span class=p>(</span><span class=nx>err</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=kc>nil</span>   <span class=c1>// 对象没了，不用管
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=nx>err</span>       <span class=c1>// 其他错误 → 交给退避重试
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 1. ExpireTime：过期就删，没过期把剩余时间记进 requeue 计划
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>expireAt</span> <span class=o>:=</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ExpireTime</span><span class=p>;</span> <span class=nx>expireAt</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>expireAt</span><span class=p>.</span><span class=nx>Time</span><span class=p>.</span><span class=nf>Before</span><span class=p>(</span><span class=nx>now</span><span class=p>)</span> <span class=o>&amp;&amp;</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>DeletionTimestamp</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>r</span><span class=p>.</span><span class=nf>Delete</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=p>!</span><span class=nx>expireAt</span><span class=p>.</span><span class=nx>Time</span><span class=p>.</span><span class=nf>Before</span><span class=p>(</span><span class=nx>now</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>DurationStore</span><span class=p>.</span><span class=nf>Push</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>expireAt</span><span class=p>.</span><span class=nx>Time</span><span class=p>.</span><span class=nf>Sub</span><span class=p>(</span><span class=nx>now</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 2. poolRef=&#34;*&#34;：自动选池，List 全 namespace 的 Pool 挑一个 patch 回 spec.poolRef
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>updated</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>assignPool</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>profileName</span><span class=p>);</span> <span class=nx>updated</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nx>Result</span><span class=p>{},</span> <span class=kc>nil</span>   <span class=c1>// ← spec 变了，generation 前进，等下一轮
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 3. finalizer：有 taskTemplate 才挂 task-cleanup，防删除时残留任务
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 4. pause/resume 分发：优先级最高的命令通道
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>result</span><span class=p>,</span> <span class=nx>handled</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>dispatchPauseResume</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>);</span> <span class=nx>handled</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nx>result</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 5. 列出 pod（两种模式实现完全不同，见下）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>pods</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>listPods</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>poolStrategy</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 池化模式下分配的 pod 消失了 → failClosedOnMissingAllocatedPods：fail-closed 标 Failed
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 6. 扩容（池化和 Paused 状态跳过；只有扩没有缩）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>!</span><span class=nx>poolStrategy</span><span class=p>.</span><span class=nf>IsPooledMode</span><span class=p>()</span> <span class=o>&amp;&amp;</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>!=</span> <span class=nx>Paused</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>r</span><span class=p>.</span><span class=nf>scaleBatchSandbox</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Template</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 7. 从 pod 现状推 phase
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>runtimeView</span> <span class=o>:=</span> <span class=nf>buildRuntimeView</span><span class=p>(</span><span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 8. 任务调度（taskTemplate != nil 才进），结果写进 status 任务计数
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>taskStrategy</span><span class=p>.</span><span class=nf>NeedTaskScheduling</span><span class=p>()</span> <span class=o>&amp;&amp;</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>!=</span> <span class=nx>Paused</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ts</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>reconcileTasks</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=o>...</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 9. 落盘：endpoints/runtime-id 注解 + status patch
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>requeue</span><span class=p>,</span> <span class=nx>persistErrors</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>persistRuntimeView</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>runtimeView</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 10. requeue：多来源取最短（Pop 返回各处 Push 的最短值，再与 persist 阶段合并）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>requeueAfter</span> <span class=o>:=</span> <span class=nx>DurationStore</span><span class=p>.</span><span class=nf>Pop</span><span class=p>(</span><span class=nx>req</span><span class=p>.</span><span class=nf>String</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>reconcile</span><span class=p>.</span><span class=nx>Result</span><span class=p>{</span><span class=nx>RequeueAfter</span><span class=p>:</span> <span class=nx>requeueAfter</span><span class=p>},</span> <span class=nx>gerrors</span><span class=p>.</span><span class=nf>Join</span><span class=p>(</span><span class=nx>aggErrors</span><span class=o>...</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>第 6 步的 guard 值得细品：池化模式直接跳过 scale——池化 sandbox 没有 template，pod 的生死由 Pool 的分配/回收决定，控制器自己建删只会打架。<code>Paused</code> 跳过是因为暂停后的沙箱 pod 应该保持不存在，等 resume 重写镜像再拉起来。</p></blockquote><p><code>listPods</code> 在两种模式下的实现完全不同：直建模式按 ownerRefUID 的 field index 一次 <code>List</code> 拿齐；池化模式先解析 <code>alloc-status</code> 和 <code>alloc-released</code> 两个注解做差集，再对剩下的 pod <strong>逐个 <code>Get</code></strong>——代码里就带着 <code>// TODO maybe performance is problem</code> 的原话注释。池化 sandbox 的 replicas 一大，这每轮 R 次深拷贝 Get 的成本就线性往上叠。</p><h2 id=状态机phase-不是存的是算的>状态机：phase 不是存的，是算的</h2><hr><p>走读里印象最深的设计：<strong>phase 没有独立的状态存储，每轮 reconcile 都从 pod 现状重新推导</strong>（<code>batchsandbox_status.go</code> 的 <code>buildRuntimeView</code>）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=nf>buildRuntimeView</span><span class=p>(</span><span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span> <span class=nx>runtimeView</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>newStatus</span> <span class=o>:=</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nf>DeepCopy</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pods</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>newStatus</span><span class=p>.</span><span class=nx>Replicas</span><span class=o>++</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>utils</span><span class=p>.</span><span class=nf>IsAssigned</span><span class=p>(</span><span class=nx>pod</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>newStatus</span><span class=p>.</span><span class=nx>Allocated</span><span class=o>++</span>       <span class=c1>// 池化模式下&#34;分配了&#34;的 pod
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nf>podReady</span><span class=p>(</span><span class=nx>pod</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>newStatus</span><span class=p>.</span><span class=nx>Ready</span><span class=o>++</span>           <span class=c1>// Running + Ready 且未在删除
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>switch</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=nx>Pausing</span><span class=p>,</span> <span class=nx>Paused</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 生命周期稳态，不动
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>case</span> <span class=nx>Resuming</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nf>applyResumingRuntimePhase</span><span class=p>(</span><span class=nx>newStatus</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>default</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nf>applySteadyRuntimePhase</span><span class=p>(</span><span class=nx>batchSbx</span><span class=p>,</span> <span class=nx>newStatus</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>applySteadyRuntimePhase</span><span class=p>(</span><span class=o>...</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>summary</span><span class=p>,</span> <span class=nx>hasFailures</span> <span class=o>:=</span> <span class=nf>summarizePodFailures</span><span class=p>(</span><span class=nx>pods</span><span class=p>);</span> <span class=nx>hasFailures</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// CrashLoopBackOff / ImagePullBackOff / ErrImagePull / CreateContainerConfigError → Failed
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>status</span><span class=p>.</span><span class=nx>Phase</span> <span class=p>=</span> <span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandboxPhaseFailed</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>status</span><span class=p>.</span><span class=nx>Ready</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>status</span><span class=p>.</span><span class=nx>Phase</span> <span class=p>=</span> <span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandboxPhaseSucceed</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>status</span><span class=p>.</span><span class=nx>Phase</span> <span class=p>=</span> <span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandboxPhasePending</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>状态流转画出来：</p><pre class=mermaid style=visibility:hidden>stateDiagram-v2
+    [*] --> Pending: 创建
+    Pending --> Succeed: ready > 0
+    Pending --> Failed: pod 进入 BackOff 类状态
+    Succeed --> Failed: pod 故障
+    Succeed --> Pausing: spec.pause=true 且 generation 前进
+    Pausing --> Paused: 内部 Snapshot Succeed，删 Pod、去 finalizer
+    Pausing --> Failed: Snapshot Failed 且 Pod 丢失
+    Paused --> Resuming: spec.pause=false 且 generation 前进
+    Resuming --> Succeed: 快照镜像重建的 pod ready
+    Resuming --> Failed: resume pod 失败</pre><blockquote><p>&ldquo;状态是推导出来的而不是记录下来的&rdquo;，这是 K8s 控制器的正统做法（level-triggered），好处是任何状态丢失都能自愈。代价是 <code>Failed</code> 这种"终态"必须靠条件分支保护——代码里到处是 <code>if phase != Failed</code> 的短路判断，不然一个 ready pod 的短暂波动就会把 Failed 翻回去。另外 <code>PauseFailed</code>/<code>ResumeFailed</code> 两个 condition 由 <code>mergeLifecycleConditions</code> 单独保护，不被运行时推导覆盖。</p></blockquote><h2 id=扩容确定性命名--期望机制防重复>扩容：确定性命名 + 期望机制防重复</h2><hr><p><code>scaleBatchSandbox</code> 是直建模式下 pod 的唯一出生点，两个细节都值得学：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>BatchSandboxReconciler</span><span class=p>)</span> <span class=nf>scaleBatchSandbox</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSandbox</span><span class=p>,</span> <span class=nx>podTemplateSpec</span><span class=p>,</span> <span class=nx>pods</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 1. 对现有 pod 做 ObserveScale，然后查期望是否满足
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=nx>satisfied</span><span class=p>,</span> <span class=nx>unsatisfiedDuration</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>BatchSandboxScaleExpectations</span><span class=p>.</span><span class=nf>SatisfiedExpectations</span><span class=p>(</span><span class=nx>key</span><span class=p>);</span> <span class=p>!</span><span class=nx>satisfied</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 上一轮的 Create 还没被 informer 观察到 → 跳过本轮扩容，防重复建 pod
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>DurationStore</span><span class=p>.</span><span class=nf>Push</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>expectations</span><span class=p>.</span><span class=nx>ExpectationTimeout</span><span class=o>-</span><span class=nx>unsatisfiedDuration</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 2. 算缺哪些 index
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>var</span> <span class=nx>needCreateIndex</span> <span class=p>[]</span><span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// TODO var needDeleteIndex []int   ← 缩容压根没实现，只留了个空注释
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=nb>int</span><span class=p>(</span><span class=o>*</span><span class=nx>batchSandbox</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Replicas</span><span class=p>);</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>indexedPodMap</span><span class=p>[</span><span class=nx>i</span><span class=p>];</span> <span class=p>!</span><span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>needCreateIndex</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>needCreateIndex</span><span class=p>,</span> <span class=nx>i</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>idx</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>needCreateIndex</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>pod</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>utils</span><span class=p>.</span><span class=nf>GetPodFromTemplate</span><span class=p>(</span><span class=nx>podTemplateSpec</span><span class=p>,</span> <span class=nx>batchSandbox</span><span class=p>,</span> <span class=nx>controllerRef</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 3. 按 index 打 shard patch（每个副本可以不一样）
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>podBytes</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>json</span><span class=p>.</span><span class=nf>Marshal</span><span class=p>(</span><span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nx>modifiedPodBytes</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>strategicpatch</span><span class=p>.</span><span class=nf>StrategicMergePatch</span><span class=p>(</span><span class=nx>podBytes</span><span class=p>,</span> <span class=nx>batchSandbox</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ShardPatches</span><span class=p>[</span><span class=nx>idx</span><span class=p>].</span><span class=nx>Raw</span><span class=p>,</span> <span class=o>&amp;</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>        <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span> <span class=p>=</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;%s-%d&#34;</span><span class=p>,</span> <span class=nx>batchSandbox</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>idx</span><span class=p>)</span>   <span class=c1>// 4. 确定性命名，天然幂等
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>BatchSandboxScaleExpectations</span><span class=p>.</span><span class=nf>ExpectScale</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>expectations</span><span class=p>.</span><span class=nx>Create</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nx>r</span><span class=p>.</span><span class=nf>Create</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>pod</span><span class=p>)</span>   <span class=c1>// 失败则 ObserveScale 回滚期望 + 记 Warning Event
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>确定性命名 + ScaleExpectations 是一对组合拳：名字确定让"建了又看不见"（informer 滞后）不会变成重复创建，期望机制让这个等待变得显式。但缩容那句 <code>TODO var needDeleteIndex []int</code> 很扎眼——<code>spec.replicas</code> 调小不会删任何 pod，这可是 ReplicaSet 十年前的基本功。想缩副本只能删整个 sandbox，或者走 Pool 模式。</p></blockquote><h2 id=与-k8s-原生机制的耦合点>与 K8s 原生机制的耦合点</h2><hr><p>这个控制器重度依赖 K8s 原生设施，汇总成一张表：</p><div class=table-wrapper><table><thead><tr><th>机制</th><th>用法</th></tr></thead><tbody><tr><td>ownerReference + Owns</td><td>Pod/Snapshot 挂 BatchSandbox 为 owner，<code>Owns(Pod)</code> watch 级联</td></tr><tr><td>Finalizer</td><td><code>task-cleanup</code>（停任务）/ <code>pool-allocation</code>（等 pod 归还池）/ <code>cleanup</code>（清 commit Job）</td></tr><tr><td>Annotation</td><td>alloc-status / alloc-release / alloc-released / endpoints / runtime-id，五条内部契约</td></tr><tr><td>Generation</td><td>spec 变更自增，配合 observedGeneration / pauseObservedGeneration 做幂等</td></tr><tr><td>Subresource status</td><td><code>Status().Patch</code> 单独写状态，与 spec 写路径隔离</td></tr></tbody></table></div><p>注解契约里最容易混淆的是池化三件套，语义上有时序：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>alloc-status    (Pool 写)：&#34;这些 pod 分给这个 sandbox 了&#34; —— 已生效
+</span></span><span class=line><span class=cl>alloc-release   (BatchSandbox 写)：&#34;我请求释放这些 pod&#34;   —— 释放请求
+</span></span><span class=line><span class=cl>alloc-released  (Pool 写)：&#34;确认已回收&#34;                  —— 释放完成
+</span></span></code></pre></td></tr></table></div></div><p><code>releasePods</code> 的实现就是把释放请求 MergePatch 到 BatchSandbox 的 <code>alloc-release</code> 注解上（<code>batchsandbox_controller.go</code>），然后靠 Pool 侧的 watch 谓词感知这次变化。Pool 侧的 watch 装配（<code>pool_controller.go</code> 的 <code>SetupWithManager</code>）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=k>return</span> <span class=nx>ctrl</span><span class=p>.</span><span class=nf>NewControllerManagedBy</span><span class=p>(</span><span class=nx>mgr</span><span class=p>).</span>
+</span></span><span class=line><span class=cl>    <span class=nf>For</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>Pool</span><span class=p>{},</span> <span class=nx>builder</span><span class=p>.</span><span class=nf>WithPredicates</span><span class=p>(</span><span class=nx>predicate</span><span class=p>.</span><span class=nx>GenerationChangedPredicate</span><span class=p>{})).</span>
+</span></span><span class=line><span class=cl>    <span class=nf>Owns</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>{}).</span>                        <span class=c1>// ← 无谓词，任何 pod 事件都全量 reconcile
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nf>Watches</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandbox</span><span class=p>{},</span> <span class=nx>handler</span><span class=p>.</span><span class=nf>EnqueueRequestsFromMapFunc</span><span class=p>(</span><span class=nx>findPoolForBatchSandbox</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>builder</span><span class=p>.</span><span class=nf>WithPredicates</span><span class=p>(</span><span class=nx>filterBatchSandbox</span><span class=p>)).</span>  <span class=c1>// 只放行 release 注解变化/replicas 变化/进入删除
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nf>Watches</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>BatchSandbox</span><span class=p>{},</span> <span class=nx>enqueueOldPoolForDetachedBatchSandbox</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>builder</span><span class=p>.</span><span class=nf>WithPredicates</span><span class=p>(</span><span class=nx>filterBatchSandboxDetached</span><span class=p>)).</span>  <span class=c1>// poolRef 非空→空：通知旧池重新平衡
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nf>Complete</span><span class=p>(</span><span class=nx>r</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>这个谓词设计其实很精细：普通 <code>alloc-status</code> 变化不会惊动 Pool（不然分配回路就是死循环），只有 release/replicas/删除这三类"需要 Pool 动手"的信号才入队。对比之下 <code>For(BatchSandbox)</code> 连谓词都没有——status 更新会自己触发自己的 reconcile，每笔状态变更约等于两次 reconcile。一边抠得极细，一边完全裸奔，观感有点割裂。</p></blockquote><h2 id=失败怎么重试三层-requeue-机制>失败怎么重试：三层 requeue 机制</h2><hr><p>控制器里的重试其实分三层。<strong>第一层：返回 error，走 controller-runtime 默认指数退避。</strong> 任何 <code>return ctrl.Result{}, err</code> 都进 workqueue 的 rate limiter。最省事但也最不可控——网络抖动和业务逻辑失败在这里没有区别。</p><p><strong>第二层：RequeueAfter 定时轮询，多来源取最短。</strong> 这是最重的一层，配套了一个小工具 <code>DurationStore</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// internal/utils/requeueduration —— 多个来源都往里 Push，取最短值
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>rd</span> <span class=o>*</span><span class=nx>Duration</span><span class=p>)</span> <span class=nf>Update</span><span class=p>(</span><span class=nx>newDuration</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>newDuration</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=o>&amp;&amp;</span> <span class=p>(</span><span class=nx>rd</span><span class=p>.</span><span class=nx>duration</span> <span class=o>&lt;=</span> <span class=mi>0</span> <span class=o>||</span> <span class=nx>newDuration</span> <span class=p>&lt;</span> <span class=nx>rd</span><span class=p>.</span><span class=nx>duration</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>rd</span><span class=p>.</span><span class=nx>duration</span> <span class=p>=</span> <span class=nx>newDuration</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>往里 Push 的来源我数了一下，至少有这几类：| 场景 | 间隔 | 出处 |
+|&mdash;|&mdash;|&mdash;|
+| 任务调度轮询 | <strong>3s，无条件</strong> | <code>reconcileTasks</code> |
+| ExpireTime 到期兜底 | 剩余时间 | <code>Reconcile</code> 开头 |
+| ScaleExpectations 未满足 | 剩余超时窗口 | <code>scaleBatchSandbox</code> |
+| pause/resume 各阶段推进 | 1s | <code>batchsandbox_pause_resume.go</code> |
+| Snapshot 状态轮询 | 100ms / 1s / 5s | <code>sandboxsnapshot_controller.go</code> |
+| Pool 缺 pod 补货 | 5s | <code>pool_controller.go</code> |</p><p>其中 3s 任务轮询是这个设计的命门：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>BatchSandboxReconciler</span><span class=p>)</span> <span class=nf>reconcileTasks</span><span class=p>(</span><span class=o>...</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>taskScheduleResult</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// Because tasks are in-memory and there is no event mechanism, periodic reconciliation is required.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>DurationStore</span><span class=p>.</span><span class=nf>Push</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=mi>3</span><span class=o>*</span><span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>   <span class=c1>// ← 注释写得明明白白：没事件机制，只能轮询
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>第三层：RetryOnConflict，只管写冲突。</strong> Pool 控制器把整个 reconcilePool 包在 <code>retry.RetryOnConflict(retry.DefaultBackoff, ...)</code> 里，冲突就整段重跑。</p><blockquote><p>三层里最要命的是第二层的两个特性叠加：任务型 sandbox <strong>不管有没有变化每 3s 必 reconcile 一次</strong>，而 <code>RequeueAfter</code> 走 <code>AddAfter</code> 直接入队，<strong>完全绕过 rate limiter</strong>（默认指数退避只保护返回 error 的路径）。1000 个任务型 sandbox 就是稳态 333 次 reconcile/s，退避机制对它一筹莫展。任务状态纯内存、task-executor 又没有状态上报事件，这个 3s 是代码注释里自己承认的无奈之举。pause/resume 期间还有一堆 1s 轮询在推进中间态，控制器一过载这些中间态就会集体变慢——轮询式状态机的通病。</p></blockquote><hr><blockquote><p>整体看下来，这个控制器的骨架是很标准的 controller-runtime 姿势，状态推导、finalizer、期望机制都用得中规中矩；真正让我犹豫的是它把注解当 IPC 用（五个注解键、JSON 整表覆盖式写入、跨控制器 watch 级联）和 3s 无条件轮询这两个选择——单机 demo 没问题，规模上去之后这两处就是最先崩的地方。下一篇拆 Pool 的分配/回收/滚动更新，那里能看到注解契约的完整写路径。（下一篇：Lease 与生命周期）</p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/opensandbox/>Opensandbox</a>
+<a href=/tags/k8s/>K8s</a>
+<a href=/tags/sandbox/>Sandbox</a>
+<a href=/tags/ai-agent/>Ai-Agent</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/cbm-mcp-to-cli/><div class=article-image><img src=https://picsum.photos/seed/a7855219/800/600 loading=lazy data-key=cbm-mcp-to-cli data-hash=https://picsum.photos/seed/a7855219/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造</h2></div></a></article><article class=has-image><a href=/p/cbm-toolset-pruning/><div class=article-image><img src=https://picsum.photos/seed/e7f46986/800/600 loading=lazy data-key=cbm-toolset-pruning data-hash=https://picsum.photos/seed/e7f46986/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</h2></div></a></article><article class=has-image><a href=/p/higress-endpoint-breaker-all-black/><div class=article-image><img src=https://picsum.photos/seed/43e49826/800/600 loading=lazy data-key=higress-endpoint-breaker-all-black data-hash=https://picsum.photos/seed/43e49826/800/600></div><div class=article-details><h2 class=article-title>Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策</h2></div></a></article><article class=has-image><a href=/p/higress-endpoint-breaker-ttl/><div class=article-image><img src=https://picsum.photos/seed/bdbb9d5f/800/600 loading=lazy data-key=higress-endpoint-breaker-ttl data-hash=https://picsum.photos/seed/bdbb9d5f/800/600></div><div class=article-details><h2 class=article-title>Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制</h2></div></a></article><article class=has-image><a href=/p/higress_llm_server_failover_in_router/><div class=article-image><img src=https://picsum.photos/seed/1ba03f14/800/600 loading=lazy data-key=higress_llm_server_failover_in_router data-hash=https://picsum.photos/seed/1ba03f14/800/600></div><div class=article-details><h2 class=article-title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script type=text/javascript src=/ts/custom.eb4c6a182f37f89cd350793e35e757636b2c6892de4ae5ab0a9f2170b0e4118c.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
+    import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+        .then(({ default: mermaid }) => {
+            const elements = Array.from(document.querySelectorAll('.mermaid'));
+            if (!elements.length) return;
+            const sources = elements.map(el => el.innerHTML);
+            let currentScheme = null;
+
+            const render = () => {
+                const scheme = document.documentElement.dataset.scheme;
+                if (scheme === currentScheme) return;
+                currentScheme = scheme;
+
+                const dark = scheme === 'dark';
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: dark ? 'dark' : 'neutral',
+                    securityLevel: 'strict'
+                });
+                elements.forEach((el, i) => {
+                    el.removeAttribute('data-processed');
+                    el.innerHTML = sources[i];
+                });
+                return mermaid.run({ nodes: elements }).then(() => {
+                    elements.forEach(el => { el.style.visibility = ''; });
+                });
+            };
+
+            render();
+            window.addEventListener('onColorSchemeChange', render);
+        })
+        .catch((error) => {
+            console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
+        });
+</script></body></html>

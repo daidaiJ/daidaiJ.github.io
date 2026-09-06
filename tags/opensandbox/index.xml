@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Opensandbox on 潘达窝</title><link>https://daidaij.github.io/tags/opensandbox/</link><description>Recent content in Opensandbox on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:10:26 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/opensandbox/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</title><link>https://daidaij.github.io/p/opensandbox-1-reconcile/</link><pubDate>Sun, 06 Sep 2026 20:10:26 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-1-reconcile/</guid><description>&lt;img src="https://picsum.photos/seed/c9e1e1dc/800/600" alt="Featured image of post OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环" />&lt;h1 id="opensandbox-源码走读一crd-controller-与-reconcile-循环">OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把&amp;quot;沙箱&amp;quot;建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 &lt;code>kubernetes/&lt;/code> 目录的走读笔记：从 &lt;code>POST /sandboxes&lt;/code> 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="全景三个-crd两条回路">全景：三个 CRD，两条回路
+&lt;/h2>&lt;hr>
+&lt;p>算子一共定义了 3 个 CRD（API 组 &lt;code>sandbox.opensandbox.io/v1alpha1&lt;/code>），对应 3 个 Reconciler：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>CRD&lt;/th>
+&lt;th>Reconciler&lt;/th>
+&lt;th>并发默认&lt;/th>
+&lt;th>干什么&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>BatchSandbox（&lt;code>bsbx&lt;/code>）&lt;/td>
+&lt;td>BatchSandboxReconciler&lt;/td>
+&lt;td>32&lt;/td>
+&lt;td>沙箱本体：建 Pod、跑任务、pause/resume&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Pool&lt;/td>
+&lt;td>PoolReconciler&lt;/td>
+&lt;td>16&lt;/td>
+&lt;td>预热 Pod 池：分配/回收/滚动更新/驱逐&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>SandboxSnapshot（&lt;code>sbxsnap&lt;/code>）&lt;/td>
+&lt;td>SandboxSnapshotReconciler&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>rootfs 快照提交（pause/resume 的底层依赖）&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>整个控制面就两条互相咬合的回路：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">任务回路：BatchSandbox reconcile → TaskScheduler → HTTP 推任务到 pod 内 task-executor(:5758)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 轮询任务状态 → 写回 status
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">分配回路：Pool reconcile → Allocator → 写 alloc-status 注解 + 内存 store
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 注解变化经 watch 触发对方 reconcile → 闭环
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>注意第二条回路的关键设计：&lt;strong>分配状态的持久化真相源是 BatchSandbox 上的注解，不是 Pool 的 status&lt;/strong>。Pool 的内存 store 只是个可重建的缓存。这个设计后面还会反复出现——很多&amp;quot;奇怪&amp;quot;的代码都是在为注解契约服务。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="create-请求怎么变成-batchsandbox">create 请求怎么变成 BatchSandbox
+&lt;/h2>&lt;hr>
+&lt;p>业务侧调 &lt;code>POST /sandboxes&lt;/code>，server（Python）把它翻译成一个 BatchSandbox CR。池化模式的核心在 &lt;code>server/opensandbox_server/services/k8s/batchsandbox_provider.py&lt;/code> 的 &lt;code>_create_workload_from_pool&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_create_workload_from_pool&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="bp">self&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">batchsandbox_name&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">namespace&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">labels&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">pool_ref&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">entrypoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">env&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">entrypoint&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">entrypoint&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="n">DEFAULT_ENTRYPOINT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">spec&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;replicas&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;poolRef&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">pool_ref&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="c1"># ← 池化模式的开关，指向预热池&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">env&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="n">entrypoint&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">DEFAULT_ENTRYPOINT&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">execd_run_as_init&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="c1"># needs_task_template&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">spec&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;taskTemplate&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_build_task_template&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">entrypoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">env&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">batchsandbox_name&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">expires_at&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">spec&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;expireTime&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">isoformat&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1"># ← timeout 参数的归宿&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># 再包一层 apiVersion/kind/metadata，create_custom_object 直接落一个 BatchSandbox CR&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>几个 create 参数的映射关系值得记一下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>API 参数&lt;/th>
+&lt;th>落到 CR 的哪里&lt;/th>
+&lt;th>备注&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>extensions.poolRef&lt;/code>&lt;/td>
+&lt;td>&lt;code>spec.poolRef&lt;/code>&lt;/td>
+&lt;td>特殊值 &lt;code>*&lt;/code> = 让控制器自动选池&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>env&lt;/code> / &lt;code>entrypoint&lt;/code>&lt;/td>
+&lt;td>&lt;code>spec.taskTemplate&lt;/code>&lt;/td>
+&lt;td>&lt;strong>非空即触发&lt;/strong> taskTemplate 生成&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>timeout&lt;/code>&lt;/td>
+&lt;td>&lt;code>spec.expireTime&lt;/code>&lt;/td>
+&lt;td>不传 = 不自动到期，靠手动 delete&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>metadata&lt;/code>&lt;/td>
+&lt;td>&lt;code>metadata.labels&lt;/code>&lt;/td>
+&lt;td>用于 &lt;code>GET /sandboxes?metadata=...&lt;/code> 过滤&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>image&lt;/code> / &lt;code>resourceLimits&lt;/code>&lt;/td>
+&lt;td>&lt;strong>被忽略&lt;/strong>&lt;/td>
+&lt;td>池化 pod 预创建，模板锁死在 Pool 上&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>env&lt;/code> 这条最有意思：server 会把 env 包进一个 shell 包装命令（&lt;code>_build_task_template&lt;/code> 里 &lt;code>shlex.quote&lt;/code> 转义后拼进 &lt;code>/bin/sh -c &amp;quot;/opt/opensandbox/bootstrap.sh &amp;lt;entrypoint&amp;gt; &amp;amp;&amp;quot;&lt;/code>），再把 &lt;code>OPENSANDBOX_ID&lt;/code> 追加进 env 列表，最终挂到 &lt;code>taskTemplate.spec.process&lt;/code>。&lt;/p>
+&lt;blockquote>
+&lt;p>这里有个容易踩的坑：&lt;strong>不传 env 也不传 entrypoint 时走&amp;quot;快路径&amp;quot;&lt;/strong>，不生成 taskTemplate——池 pod 继续跑自己的 warm entrypoint，代价是任何分配时的 env 都注入不进去。所以&amp;quot;为什么我的环境变量没生效&amp;quot;十有八九是这个分支判断没过。&lt;/p>
+&lt;/blockquote>
+&lt;p>最终生成的 CR 大概长这样：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">kind: BatchSandbox # apiVersion&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">sandbox.opensandbox.io/v1alpha1&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">replicas&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">1&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">poolRef&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">my-pool &lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 二选一：poolRef（池化）或 template（直建）&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">taskTemplate&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 可选；决定要不要走任务调度&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">process&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">command&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;/bin/sh&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;-c&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;/opt/opensandbox/bootstrap.sh python /app/main.py &amp;amp;&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">env&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>{&lt;span class="nt">name: OSB_USER_ID, value&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">user-12345}]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">expireTime&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;2026-09-06T12:00:00Z&amp;#34;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># timeout 的归宿&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>注意 spec 里 &lt;code>template&lt;/code> 和 &lt;code>poolRef&lt;/code> 互斥：直建模式自己带 PodTemplateSpec，池化模式只有 poolRef，Pod 的长相完全由 Pool 的模板决定。server 还会把一批参数（volumes、networkPolicy、snapshotId+poolRef 组合等）直接 400 拒掉，因为池化 pod 是预创建的，事后没法改。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="batchsandbox-的-specstatus-长什么样">BatchSandbox 的 spec/status 长什么样
+&lt;/h2>&lt;hr>
+&lt;p>&lt;code>apis/sandbox/v1alpha1/batchsandbox_types.go&lt;/code>，关键字段摘出来：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">BatchSandboxSpec&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Replicas&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="kt">int32&lt;/span> &lt;span class="c1">// 默认 1
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">PoolRef&lt;/span> &lt;span class="kt">string&lt;/span> &lt;span class="c1">// 与 Template 互斥
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Template&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">corev1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">PodTemplateSpec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ShardPatches&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">runtime&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">RawExtension&lt;/span> &lt;span class="c1">// 按 index 给每个 pod 打 strategic merge patch
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">ExpireTime&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">metav1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span> &lt;span class="c1">// 到了就删，控制器负责执行
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">TaskTemplate&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">TaskTemplateSpec&lt;/span> &lt;span class="c1">// 非 nil = 需要 TaskScheduler
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Pause&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="kt">bool&lt;/span> &lt;span class="c1">// pause/resume 意图，Server 写、Controller 执行
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// +kubebuilder:validation:Enum=Pending;Succeed;Pausing;Paused;Resuming;Failed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">type&lt;/span> &lt;span class="nx">BatchSandboxPhase&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>phase 一共 6 个：&lt;code>Pending / Succeed&lt;/code> 是稳态，&lt;code>Pausing / Paused / Resuming&lt;/code> 是暂停链路，&lt;code>Failed&lt;/code> 是终态。status 侧除了 replicas/ready 计数，还有一组任务计数和两个特殊字段：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">BatchSandboxStatus&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ObservedGeneration&lt;/span> &lt;span class="kt">int64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Replicas&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">Allocated&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">Ready&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">TaskRunning&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">TaskSucceed&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">TaskFailed&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">TaskPending&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">TaskUnknown&lt;/span> &lt;span class="kt">int32&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Phase&lt;/span> &lt;span class="nx">BatchSandboxPhase&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">PauseObservedGeneration&lt;/span> &lt;span class="kt">int64&lt;/span> &lt;span class="c1">// pause/resume 幂等闸门：最近一次 ACK 的 generation
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">Conditions&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">BatchSandboxCondition&lt;/span> &lt;span class="c1">// Ready/Progressing/Paused/PauseFailed/ResumeFailed/PodFailed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>&lt;code>PauseObservedGeneration&lt;/code> 这个设计我第一次看有点绕：spec.pause 只是个布尔意图，Controller 靠&amp;quot;generation 是否前进 + 我 ACK 到哪个 generation 了&amp;quot;来判断这是不是一次新请求。这是把 K8s 原生的 observedGeneration 惯例复用到了 pause/resume 这条命令通道上，避免了额外的 ACK 子资源。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="reconcile-主循环一轮到底干了什么">Reconcile 主循环：一轮到底干了什么
+&lt;/h2>&lt;hr>
+&lt;p>核心在 &lt;code>internal/controller/batchsandbox_controller.go&lt;/code> 的 &lt;code>Reconcile&lt;/code>，按执行顺序拆开：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">BatchSandboxReconciler&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">Reconcile&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Context&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">req&lt;/span> &lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Request&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Result&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">batchSbx&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandbox&lt;/span>&lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Get&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ObjectKey&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">},&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">errors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">IsNotFound&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Result&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="c1">// 对象没了，不用管
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Result&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="c1">// 其他错误 → 交给退避重试
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 1. ExpireTime：过期就删，没过期把剩余时间记进 requeue 计划
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">expireAt&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ExpireTime&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">expireAt&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">expireAt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Before&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">now&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">DeletionTimestamp&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Delete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nx">expireAt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Before&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">now&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">expireAt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sub&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">now&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 2. poolRef=&amp;#34;*&amp;#34;：自动选池，List 全 namespace 的 Pool 挑一个 patch 回 spec.poolRef
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">updated&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">assignPool&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">profileName&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">updated&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Result&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="c1">// ← spec 变了，generation 前进，等下一轮
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 3. finalizer：有 taskTemplate 才挂 task-cleanup，防删除时残留任务
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="c1">// 4. pause/resume 分发：优先级最高的命令通道
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">handled&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">dispatchPauseResume&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">handled&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 5. 列出 pod（两种模式实现完全不同，见下）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">listPods&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">poolStrategy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 池化模式下分配的 pod 消失了 → failClosedOnMissingAllocatedPods：fail-closed 标 Failed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 6. 扩容（池化和 Paused 状态跳过；只有扩没有缩）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nx">poolStrategy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">IsPooledMode&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="nx">Paused&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">scaleBatchSandbox&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Template&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 7. 从 pod 现状推 phase
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">runtimeView&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">buildRuntimeView&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 8. 任务调度（taskTemplate != nil 才进），结果写进 status 任务计数
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">taskStrategy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">NeedTaskScheduling&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="nx">Paused&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ts&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">reconcileTasks&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 9. 落盘：endpoints/runtime-id 注解 + status patch
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">requeue&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">persistErrors&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">persistRuntimeView&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">runtimeView&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 10. requeue：多来源取最短（Pop 返回各处 Push 的最短值，再与 persist 阶段合并）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">requeueAfter&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Pop&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">req&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">String&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">reconcile&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Result&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">RequeueAfter&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">requeueAfter&lt;/span>&lt;span class="p">},&lt;/span> &lt;span class="nx">gerrors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">aggErrors&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>第 6 步的 guard 值得细品：池化模式直接跳过 scale——池化 sandbox 没有 template，pod 的生死由 Pool 的分配/回收决定，控制器自己建删只会打架。&lt;code>Paused&lt;/code> 跳过是因为暂停后的沙箱 pod 应该保持不存在，等 resume 重写镜像再拉起来。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;code>listPods&lt;/code> 在两种模式下的实现完全不同：直建模式按 ownerRefUID 的 field index 一次 &lt;code>List&lt;/code> 拿齐；池化模式先解析 &lt;code>alloc-status&lt;/code> 和 &lt;code>alloc-released&lt;/code> 两个注解做差集，再对剩下的 pod &lt;strong>逐个 &lt;code>Get&lt;/code>&lt;/strong>——代码里就带着 &lt;code>// TODO maybe performance is problem&lt;/code> 的原话注释。池化 sandbox 的 replicas 一大，这每轮 R 次深拷贝 Get 的成本就线性往上叠。&lt;/p>
+&lt;h2 id="状态机phase-不是存的是算的">状态机：phase 不是存的，是算的
+&lt;/h2>&lt;hr>
+&lt;p>走读里印象最深的设计：&lt;strong>phase 没有独立的状态存储，每轮 reconcile 都从 pod 现状重新推导&lt;/strong>（&lt;code>batchsandbox_status.go&lt;/code> 的 &lt;code>buildRuntimeView&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">buildRuntimeView&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">runtimeView&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">newStatus&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">DeepCopy&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pod&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">pods&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">newStatus&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Replicas&lt;/span>&lt;span class="o">++&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">utils&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">IsAssigned&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pod&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">newStatus&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Allocated&lt;/span>&lt;span class="o">++&lt;/span> &lt;span class="c1">// 池化模式下&amp;#34;分配了&amp;#34;的 pod
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nf">podReady&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pod&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">newStatus&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Ready&lt;/span>&lt;span class="o">++&lt;/span> &lt;span class="c1">// Running + Ready 且未在删除
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">switch&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">case&lt;/span> &lt;span class="nx">Pausing&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">Paused&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 生命周期稳态，不动
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">case&lt;/span> &lt;span class="nx">Resuming&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">applyResumingRuntimePhase&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">newStatus&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">default&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">applySteadyRuntimePhase&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">newStatus&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">applySteadyRuntimePhase&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">summary&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">hasFailures&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">summarizePodFailures&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pods&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">hasFailures&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// CrashLoopBackOff / ImagePullBackOff / ErrImagePull / CreateContainerConfigError → Failed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandboxPhaseFailed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Ready&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandboxPhaseSucceed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">status&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Phase&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandboxPhasePending&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>状态流转画出来：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">stateDiagram-v2
+[*] --> Pending: 创建
+Pending --> Succeed: ready > 0
+Pending --> Failed: pod 进入 BackOff 类状态
+Succeed --> Failed: pod 故障
+Succeed --> Pausing: spec.pause=true 且 generation 前进
+Pausing --> Paused: 内部 Snapshot Succeed，删 Pod、去 finalizer
+Pausing --> Failed: Snapshot Failed 且 Pod 丢失
+Paused --> Resuming: spec.pause=false 且 generation 前进
+Resuming --> Succeed: 快照镜像重建的 pod ready
+Resuming --> Failed: resume pod 失败&lt;/pre>&lt;blockquote>
+&lt;p>&amp;ldquo;状态是推导出来的而不是记录下来的&amp;rdquo;，这是 K8s 控制器的正统做法（level-triggered），好处是任何状态丢失都能自愈。代价是 &lt;code>Failed&lt;/code> 这种&amp;quot;终态&amp;quot;必须靠条件分支保护——代码里到处是 &lt;code>if phase != Failed&lt;/code> 的短路判断，不然一个 ready pod 的短暂波动就会把 Failed 翻回去。另外 &lt;code>PauseFailed&lt;/code>/&lt;code>ResumeFailed&lt;/code> 两个 condition 由 &lt;code>mergeLifecycleConditions&lt;/code> 单独保护，不被运行时推导覆盖。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="扩容确定性命名--期望机制防重复">扩容：确定性命名 + 期望机制防重复
+&lt;/h2>&lt;hr>
+&lt;p>&lt;code>scaleBatchSandbox&lt;/code> 是直建模式下 pod 的唯一出生点，两个细节都值得学：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">BatchSandboxReconciler&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">scaleBatchSandbox&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSandbox&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">podTemplateSpec&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pods&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">error&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 1. 对现有 pod 做 ObserveScale，然后查期望是否满足
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">satisfied&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">unsatisfiedDuration&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">BatchSandboxScaleExpectations&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">SatisfiedExpectations&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nx">satisfied&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 上一轮的 Create 还没被 informer 观察到 → 跳过本轮扩容，防重复建 pod
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">expectations&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ExpectationTimeout&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">unsatisfiedDuration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 2. 算缺哪些 index
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">var&lt;/span> &lt;span class="nx">needCreateIndex&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// TODO var needDeleteIndex []int ← 缩容压根没实现，只留了个空注释
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nb">int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">batchSandbox&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Replicas&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ok&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">indexedPodMap&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">i&lt;/span>&lt;span class="p">];&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nx">ok&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">needCreateIndex&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">append&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">needCreateIndex&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">idx&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">needCreateIndex&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pod&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">utils&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetPodFromTemplate&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">podTemplateSpec&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSandbox&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">controllerRef&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 3. 按 index 打 shard patch（每个副本可以不一样）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">podBytes&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">json&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Marshal&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pod&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">modifiedPodBytes&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">strategicpatch&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">StrategicMergePatch&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">podBytes&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSandbox&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ShardPatches&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">Raw&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">corev1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pod&lt;/span>&lt;span class="p">{})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sprintf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;%s-%d&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSandbox&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">idx&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 4. 确定性命名，天然幂等
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">BatchSandboxScaleExpectations&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ExpectScale&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">expectations&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Create&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Create&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pod&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 失败则 ObserveScale 回滚期望 + 记 Warning Event
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>确定性命名 + ScaleExpectations 是一对组合拳：名字确定让&amp;quot;建了又看不见&amp;quot;（informer 滞后）不会变成重复创建，期望机制让这个等待变得显式。但缩容那句 &lt;code>TODO var needDeleteIndex []int&lt;/code> 很扎眼——&lt;code>spec.replicas&lt;/code> 调小不会删任何 pod，这可是 ReplicaSet 十年前的基本功。想缩副本只能删整个 sandbox，或者走 Pool 模式。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="与-k8s-原生机制的耦合点">与 K8s 原生机制的耦合点
+&lt;/h2>&lt;hr>
+&lt;p>这个控制器重度依赖 K8s 原生设施，汇总成一张表：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>机制&lt;/th>
+&lt;th>用法&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>ownerReference + Owns&lt;/td>
+&lt;td>Pod/Snapshot 挂 BatchSandbox 为 owner，&lt;code>Owns(Pod)&lt;/code> watch 级联&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Finalizer&lt;/td>
+&lt;td>&lt;code>task-cleanup&lt;/code>（停任务）/ &lt;code>pool-allocation&lt;/code>（等 pod 归还池）/ &lt;code>cleanup&lt;/code>（清 commit Job）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Annotation&lt;/td>
+&lt;td>alloc-status / alloc-release / alloc-released / endpoints / runtime-id，五条内部契约&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Generation&lt;/td>
+&lt;td>spec 变更自增，配合 observedGeneration / pauseObservedGeneration 做幂等&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Subresource status&lt;/td>
+&lt;td>&lt;code>Status().Patch&lt;/code> 单独写状态，与 spec 写路径隔离&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>注解契约里最容易混淆的是池化三件套，语义上有时序：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">alloc-status (Pool 写)：&amp;#34;这些 pod 分给这个 sandbox 了&amp;#34; —— 已生效
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">alloc-release (BatchSandbox 写)：&amp;#34;我请求释放这些 pod&amp;#34; —— 释放请求
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">alloc-released (Pool 写)：&amp;#34;确认已回收&amp;#34; —— 释放完成
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>releasePods&lt;/code> 的实现就是把释放请求 MergePatch 到 BatchSandbox 的 &lt;code>alloc-release&lt;/code> 注解上（&lt;code>batchsandbox_controller.go&lt;/code>），然后靠 Pool 侧的 watch 谓词感知这次变化。Pool 侧的 watch 装配（&lt;code>pool_controller.go&lt;/code> 的 &lt;code>SetupWithManager&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="k">return&lt;/span> &lt;span class="nx">ctrl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">NewControllerManagedBy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">mgr&lt;/span>&lt;span class="p">).&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">For&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pool&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="nx">builder&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">WithPredicates&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">predicate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">GenerationChangedPredicate&lt;/span>&lt;span class="p">{})).&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">Owns&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">corev1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pod&lt;/span>&lt;span class="p">{}).&lt;/span> &lt;span class="c1">// ← 无谓词，任何 pod 事件都全量 reconcile
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">Watches&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandbox&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="nx">handler&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">EnqueueRequestsFromMapFunc&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">findPoolForBatchSandbox&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">builder&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">WithPredicates&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">filterBatchSandbox&lt;/span>&lt;span class="p">)).&lt;/span> &lt;span class="c1">// 只放行 release 注解变化/replicas 变化/进入删除
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">Watches&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandbox&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="nx">enqueueOldPoolForDetachedBatchSandbox&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">builder&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">WithPredicates&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">filterBatchSandboxDetached&lt;/span>&lt;span class="p">)).&lt;/span> &lt;span class="c1">// poolRef 非空→空：通知旧池重新平衡
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">Complete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这个谓词设计其实很精细：普通 &lt;code>alloc-status&lt;/code> 变化不会惊动 Pool（不然分配回路就是死循环），只有 release/replicas/删除这三类&amp;quot;需要 Pool 动手&amp;quot;的信号才入队。对比之下 &lt;code>For(BatchSandbox)&lt;/code> 连谓词都没有——status 更新会自己触发自己的 reconcile，每笔状态变更约等于两次 reconcile。一边抠得极细，一边完全裸奔，观感有点割裂。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="失败怎么重试三层-requeue-机制">失败怎么重试：三层 requeue 机制
+&lt;/h2>&lt;hr>
+&lt;p>控制器里的重试其实分三层。&lt;strong>第一层：返回 error，走 controller-runtime 默认指数退避。&lt;/strong> 任何 &lt;code>return ctrl.Result{}, err&lt;/code> 都进 workqueue 的 rate limiter。最省事但也最不可控——网络抖动和业务逻辑失败在这里没有区别。&lt;/p>
+&lt;p>&lt;strong>第二层：RequeueAfter 定时轮询，多来源取最短。&lt;/strong> 这是最重的一层，配套了一个小工具 &lt;code>DurationStore&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// internal/utils/requeueduration —— 多个来源都往里 Push，取最短值
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">rd&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">Duration&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">Update&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">newDuration&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Duration&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">newDuration&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">rd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">duration&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">newDuration&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nx">rd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">duration&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">duration&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">newDuration&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>往里 Push 的来源我数了一下，至少有这几类：| 场景 | 间隔 | 出处 |
+|&amp;mdash;|&amp;mdash;|&amp;mdash;|
+| 任务调度轮询 | &lt;strong>3s，无条件&lt;/strong> | &lt;code>reconcileTasks&lt;/code> |
+| ExpireTime 到期兜底 | 剩余时间 | &lt;code>Reconcile&lt;/code> 开头 |
+| ScaleExpectations 未满足 | 剩余超时窗口 | &lt;code>scaleBatchSandbox&lt;/code> |
+| pause/resume 各阶段推进 | 1s | &lt;code>batchsandbox_pause_resume.go&lt;/code> |
+| Snapshot 状态轮询 | 100ms / 1s / 5s | &lt;code>sandboxsnapshot_controller.go&lt;/code> |
+| Pool 缺 pod 补货 | 5s | &lt;code>pool_controller.go&lt;/code> |&lt;/p>
+&lt;p>其中 3s 任务轮询是这个设计的命门：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">BatchSandboxReconciler&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">reconcileTasks&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">taskScheduleResult&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Because tasks are in-memory and there is no event mechanism, periodic reconciliation is required.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Second&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// ← 注释写得明明白白：没事件机制，只能轮询
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>第三层：RetryOnConflict，只管写冲突。&lt;/strong> Pool 控制器把整个 reconcilePool 包在 &lt;code>retry.RetryOnConflict(retry.DefaultBackoff, ...)&lt;/code> 里，冲突就整段重跑。&lt;/p>
+&lt;blockquote>
+&lt;p>三层里最要命的是第二层的两个特性叠加：任务型 sandbox &lt;strong>不管有没有变化每 3s 必 reconcile 一次&lt;/strong>，而 &lt;code>RequeueAfter&lt;/code> 走 &lt;code>AddAfter&lt;/code> 直接入队，&lt;strong>完全绕过 rate limiter&lt;/strong>（默认指数退避只保护返回 error 的路径）。1000 个任务型 sandbox 就是稳态 333 次 reconcile/s，退避机制对它一筹莫展。任务状态纯内存、task-executor 又没有状态上报事件，这个 3s 是代码注释里自己承认的无奈之举。pause/resume 期间还有一堆 1s 轮询在推进中间态，控制器一过载这些中间态就会集体变慢——轮询式状态机的通病。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>整体看下来，这个控制器的骨架是很标准的 controller-runtime 姿势，状态推导、finalizer、期望机制都用得中规中矩；真正让我犹豫的是它把注解当 IPC 用（五个注解键、JSON 整表覆盖式写入、跨控制器 watch 级联）和 3s 无条件轮询这两个选择——单机 demo 没问题，规模上去之后这两处就是最先崩的地方。下一篇拆 Pool 的分配/回收/滚动更新，那里能看到注解契约的完整写路径。（下一篇：Lease 与生命周期）&lt;/p>
+&lt;/blockquote></description></item></channel></rss>
