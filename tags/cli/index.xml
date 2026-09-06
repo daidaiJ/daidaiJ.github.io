@@ -1,4 +1,360 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:04:24 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</title><link>https://daidaij.github.io/p/cbm-toolset-pruning/</link><pubDate>Sun, 06 Sep 2026 20:04:24 +0800</pubDate><guid>https://daidaij.github.io/p/cbm-toolset-pruning/</guid><description>&lt;img src="https://picsum.photos/seed/e7f46986/800/600" alt="Featured image of post 给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据" />&lt;h1 id="给-mcp-服务器做减法一实测判负的工具与裁剪依据">给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:05:43 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造</title><link>https://daidaij.github.io/p/cbm-mcp-to-cli/</link><pubDate>Sun, 06 Sep 2026 20:05:43 +0800</pubDate><guid>https://daidaij.github.io/p/cbm-mcp-to-cli/</guid><description>&lt;img src="https://picsum.photos/seed/a7855219/800/600" alt="Featured image of post 给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造" />&lt;h1 id="给-mcp-服务器做减法二从-mcp-退到-cli-的-fail-loud-改造">给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>上一篇讲的是 token 账——cbm 和 codegraph 两件套的定义层税有 ~8,600 tokens/会话。这一篇讲更彻底的一刀：把 cbm（codebase-memory-mcp）整个从 MCP 进程形态退到 CLI 形态，以及退的过程中撞出来的 fail-loud 教训。数据都是本机实测（Windows 11，cbm v0.10.8，codegraph v1.6.0）。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="mcp-形态的固定成本不只是-token">MCP 形态的固定成本：不只是 token
+&lt;/h2>&lt;hr>
+&lt;p>先看进程结构。MCP 形态下，cbm 是三层：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[MCP 客户端] -- stdio, 每会话一个 --> B[stdio server]
+B -- IPC --> C[中心 daemon]
+C -- fork --> D[index worker 池]&lt;/pre>&lt;p>这个结构意味着三笔固定成本，而且没有一笔能省掉：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>每会话拉起一个 stdio server&lt;/strong>。只要有 N 个客户端连着，就有 N 份进程开销。上游 #1764 报的就是这个：空闲 MCP 客户端每个烧 ~0.7 核，N 会话 = N 核。&lt;/li>
+&lt;li>&lt;strong>daemon 冷启&lt;/strong>。CLI 侧实测冷启一次 daemon 约 5 秒；MCP 侧更糟，上游 #1955 报新客户端要等 15-30s 才能连上健康 daemon。&lt;/li>
+&lt;li>&lt;strong>worker 的资源上限形同虚设&lt;/strong>。我实测索引本仓库（~1900 文件的 C 项目）时 worker 吃到 &lt;strong>2.7GB 内存&lt;/strong>（预算 2.8GB 几乎打满）、242s CPU；282MB 的单个 exe；stdio server 在空闲时段还平均烧 ~30% 单核。预算是 advisory 的（#1973），宁可 OOM 也不降级（#1997 报 14k 文件 monorepo 全量索引分配 ~11.5GB，无视配置）。&lt;/li>
+&lt;/ol>
+&lt;p>然后才是 token 账。cbm 的 MCP 定义层（tools/list + initialize.instructions + prompts）实测 ~5,850 tok，15 个工具 22.4KB；跟 codegraph 合计 ~8,600 tok/会话。而且 cbm 的结果还是&lt;strong>双份&lt;/strong>返回——tree 文本 + structuredContent JSON，同一份数据塞两遍进上下文。&lt;/p>
+&lt;blockquote>
+&lt;p>单看哪个数字都不致命，叠起来就是&amp;quot;我明明没怎么用它，它却一直在烧&amp;quot;的体感。最后那根稻草是 watcher，先看 2026-09-04 那次实测的完整账单：&lt;/p>
+&lt;/blockquote>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>指标&lt;/th>
+&lt;th>实测值&lt;/th>
+&lt;th>备注&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>index worker 内存&lt;/td>
+&lt;td>&lt;strong>2.7GB&lt;/strong>（预算 2.8GB 几乎打满）&lt;/td>
+&lt;td>PID 1172，索引本仓库&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>index worker CPU&lt;/td>
+&lt;td>242s / 运行约 2 分钟&lt;/td>
+&lt;td>~21% 单核&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>MCP stdio server CPU&lt;/td>
+&lt;td>330+ CPU 秒 / 17 分钟&lt;/td>
+&lt;td>空闲时段平均 ~30% 单核&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>二进制体积&lt;/td>
+&lt;td>&lt;strong>282MB&lt;/strong> 单个 exe&lt;/td>
+&lt;td>cbm.zip 才 37MB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>watcher 行为&lt;/td>
+&lt;td>&lt;code>strategy=git&lt;/code> 每 3~5 秒一轮 + 每轮 reap 一个 worker&lt;/td>
+&lt;td>自触发重索引循环，#1953&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>同仓库 codegraph 对照&lt;/td>
+&lt;td>磁盘 1.1GB（db 160MB + &lt;strong>WAL 882MB&lt;/strong>）&lt;/td>
+&lt;td>checkpoint 饥饿，与 cbm #1083 同款病&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>worker 触发链当时是实锤的：会话工具在仓库内写 &lt;code>.codegraph/&lt;/code>、&lt;code>graphify-out/&lt;/code>（未 gitignore、untracked）→ git-strategy watcher 判定 changed → daemon 反复 fork worker。这不是低概率 bug，是&lt;strong>默认配置的必然后果&lt;/strong>——watcher 默认开、git 策略对 untracked 敏感、而工具产物恰恰就是 untracked 文件。上游四连发可以佐证这不是孤例：#1953 watcher 自触发、#2015 worker 失败无退避（有人 4h43m 里 fork 了 2233 个 worker）、#1083 WAL 无上限（有人跑出 115GB）、#1991 每请求 ~12ms 固定地板。&lt;/p>
+&lt;h2 id="为什么裁剪在-mcp-侧做不干净">为什么裁剪在 MCP 侧做不干净
+&lt;/h2>&lt;hr>
+&lt;p>第一反应是裁工具面。cbm 支持 &lt;code>--tool-profile=scout&lt;/code>，实测能从 argv 解析、立即生效，定义层 ~8.6K → ~5.8K tok。但往下走就发现问题了：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">档位 1 scout 配置 → 省 32%，零改动，但 15 个工具里只留一小撮
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">档位 2 自编译加 arch 档 → 要改 src/mcp/mcp.c 的 mcp_tool_allowed()，约 20 行
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">档位 3 退出 MCP 走 CLI → 省 68%，15 个工具全部可用
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>档位 2 的尴尬在于：我想要的&amp;quot;arch 档&amp;quot;（get_architecture、query_graph、detect_changes、index_status、check_index_coverage、list_projects 这 6 个 codegraph 没有的工具）上游没有，得自己打补丁。而 cbm 0.10.x 几乎周更，上游自己的 profile 裁剪 PR（#1649 思路的 DACL 补丁）已经在冲突边缘——&lt;strong>大补丁 rebase 会痛，这是结构性问题，不是手艺问题&lt;/strong>。&lt;/p>
+&lt;p>更隐蔽的是&lt;strong>配置漂移&lt;/strong>。MCP 形态下 cbm 的行为散落在好几处：&lt;code>_config.db&lt;/code>（藏在 cache 目录里，#1744 报升级会丢设置）、config.json、argv、daemon 启动时机。两个具体的坑：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">watcher_enabled → 只在 daemon 启动时读，改完必须 daemon stop 再起
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">daemon 环境变量 → 被首个会话固化，后续会话无法按需调整
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>也就是说，就算工具面裁干净了，&lt;strong>运行时行为还是被&amp;quot;谁先启动谁说了算&amp;quot;的 daemon 固化&lt;/strong>——每会话一个 stdio server + 中心 daemon 的三层结构里，daemon 环境被第一个连上来的会话定型，后面的人只能接受。&lt;/p>
+&lt;blockquote>
+&lt;p>这是我最终选档位 3 的真正原因：不是 token 省 68% 有多诱人，而是 MCP 形态下&amp;quot;裁剪&amp;quot;永远是在别人的进程模型里打补丁。CLI 形态下，进程模型是我的，每次调用都是干净的一次性子进程，没有固化、没有漂移。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="退到-cli全量-15-个工具选择权交给-skill">退到 CLI：全量 15 个工具，选择权交给 skill
+&lt;/h2>&lt;hr>
+&lt;p>形态变化一句话：cbm 不再注册为 MCP server，改用&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">codebase-memory-mcp cli --json &amp;lt;tool&amp;gt; &lt;span class="o">[&lt;/span>args...&lt;span class="o">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>按需子进程调用。它有个很方便的性质：&lt;strong>每个 MCP 工具都有 CLI 等价物&lt;/strong>，所以&amp;quot;裁剪&amp;quot;这个概念直接消失了——15 个工具全量可调，一个不少，也就不存在&amp;quot;profile 裁不干净&amp;quot;的问题。工具面不再占据每个会话的上下文，调用时才产生成本。&lt;/p>
+&lt;p>定义层的账当场就变了：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>组合（定义层）&lt;/th>
+&lt;th>≈ tokens/会话&lt;/th>
+&lt;th>相对两件套&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>cbm MCP + codegraph MCP（现状）&lt;/td>
+&lt;td>~8,600&lt;/td>
+&lt;td>—&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cbm scout 档 + codegraph&lt;/td>
+&lt;td>~5,840&lt;/td>
+&lt;td>省 32%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cbm arch 补丁档 + codegraph&lt;/td>
+&lt;td>~4,550&lt;/td>
+&lt;td>省 47%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>cbm 退 CLI，仅 codegraph 进 MCP&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>~2,750&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>省 68%&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>而且 bytes/4 是乐观估算——schema 是标点密集的 JSON，真实分词约 bytes/3~3.5，两件套体感可能到 ~10-11K tokens。CLI 形态下这笔税直接归零。&lt;/p>
+&lt;p>代价是模型看不到工具列表了，&amp;ldquo;什么时候用哪个命令&amp;quot;得有人管。我的方案是用 skill 规约约束，而且刻意收得很窄——只保留三个实测有效的场景，其余一律禁用：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>场景&lt;/th>
+&lt;th>命令&lt;/th>
+&lt;th>为什么留给 cbm&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>架构概览&lt;/td>
+&lt;td>&lt;code>cbm cli get_architecture&lt;/code>（aspects=clusters/cycles/hotspots）&lt;/td>
+&lt;td>cbm 独有，codegraph 无架构视图&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>图查询&lt;/td>
+&lt;td>&lt;code>cbm cli query_graph&lt;/code>（Cypher、复杂度门槛）&lt;/td>
+&lt;td>cbm 独有&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>commit 影响半径&lt;/td>
+&lt;td>&lt;code>cbm cli detect_changes&lt;/code>（git diff → 传递影响集）&lt;/td>
+&lt;td>diff 基，codegraph 的 impact 是符号基&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>规约里还给三类典型工作流定了调用法：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">开源调研 clone 后 codegraph init + index（一次全量，之后增量自动）；
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> cbm 只在确定要做架构级分析时 index_repository mode=full（语义边只有 full/moderate 有），
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 用完 daemon stop；大仓（&amp;gt;1 万文件）用 mode=fast 先垫底。
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 引用代码前必跑 check_index_coverage——parse_partial 区域的图结果不可信。
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">二次开发 日常 impact/callers 走 codegraph；提交前跑一次 cbm detect_changes 当&amp;#34;影响面自检&amp;#34;，
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 配合 query_graph 查改动的传递调用深度。
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> cbm watcher 关掉（#1953），索引新鲜度靠提交前手动 index。
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">自研项目 仓库 &amp;lt; 几千文件时 codegraph 一个就够；cbm 只做里程碑体检
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> （get_architecture aspects=cycles,hotspots 查循环依赖和上帝节点）。
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配套的索引分层原则也写进了规约：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">codegraph = 活层（always-on，保存 ~0.3s 增量，喂日常符号工作）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cbm = 深层（milestone / 按需全量，喂架构分析与影响面，用完 daemon stop）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>会话开始时 hook 自动 init/sync，我不手动管索引；cbm 只在确定要做架构级分析时 &lt;code>index_repository&lt;/code> 一次，用完 &lt;code>daemon stop&lt;/code>。产物目录（&lt;code>.codegraph/&lt;/code>、&lt;code>.codebase-memory/&lt;/code>）一律 gitignore，防 watcher 互喂。&lt;/p>
+&lt;blockquote>
+&lt;p>这里有个反直觉的取舍：CLI 化之后单次冷启 daemon 要 ~5 秒，比 MCP 常驻&amp;quot;慢&amp;quot;了。但对一个每会话只按需调两三次的深层工具，5 秒 × 2 次 &amp;lt; 常驻进程烧掉的一切——包括那个 watcher 死循环和 2.7GB worker。低频工具的合理形态就是一次性子进程，不是常驻服务。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="fail-loud静默空结果比报错更危险">fail-loud：静默空结果比报错更危险
+&lt;/h2>&lt;hr>
+&lt;p>CLI 化过程中最值钱的教训是这个：&lt;strong>工具返回&amp;quot;空结果&amp;quot;有两种可能——真的没有，或者工具坏了&lt;/strong>。MCP 形态下这两者都表现为一个正常的响应，模型根本分不清。三个实锤案例（记载在我的环境备忘里，均为实测）：&lt;/p>
+&lt;p>&lt;strong>案例一：upstream #1682。&lt;/strong> CALLS 边丢失时，&lt;code>trace_path&lt;/code> 返回 &lt;code>callers_total: 0&lt;/code>——和&amp;quot;这个函数真的没有调用方&amp;quot;在响应格式上&lt;strong>完全不可区分&lt;/strong>。我一开始信了图谱的&amp;quot;没有调用方&amp;rdquo;，后来 grep 复核才发现调用方明明存在。&lt;/p>
+&lt;p>&lt;strong>案例二：&lt;code>detect_changes&lt;/code> 对非法 direction 静默返回空。&lt;/strong> 传错参数不报错，返回一个空的影响集。影响面自检场景里，&amp;ldquo;空&amp;quot;意味着&amp;quot;这次改动无风险&amp;rdquo;——把工具错误翻译成了错误的安全结论。&lt;/p>
+&lt;p>&lt;strong>案例三：&lt;code>since&lt;/code> 参数拒收 &lt;code>^&lt;/code> 后缀。&lt;/strong> 传 &lt;code>v1.0^&lt;/code> 直接被拒。这算好的，好歹是个显式失败——但如果不看退出码，管道里它同样表现为&amp;quot;空&amp;quot;。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">危险的共同模式：
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 输入非法 / 内部状态损坏
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 静默返回空集
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 模型把&amp;#34;空&amp;#34;读成&amp;#34;事实上的不存在&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 下游结论全错，且无任何报错痕迹
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>防御手段我总结成三条，全部写进了 skill 规约：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>否定性结论必须 grep 复核&lt;/strong>。&amp;ldquo;没有调用方/没有引用&amp;quot;这类结论，图谱零结果不可信——静默漏报与真实无调用不可区分，先 grep 原文再下结论。&lt;/li>
+&lt;li>&lt;strong>批量修改必须带断言&lt;/strong>。用脚本补丁改配置时 &lt;code>assert count == 1&lt;/code>，失败即整体回滚。我实际靠这个救回过两次——python 补丁锚点缩进错误，把一批配置键插进了错误的嵌套层级（比如插到 &lt;code>themeVariables.xyChart&lt;/code> 内部），键&amp;quot;存在&amp;quot;但静默失效。批量改配置结构后还要用括号深度计数脚本断言键的层级，或者干脆整段重写而不是锚点替换。&lt;/li>
+&lt;li>&lt;strong>黑名单 + 全量审计代替打地鼠&lt;/strong>。检测的&amp;quot;坏值清单&amp;quot;必须有定义来源（比如主题调色板全集），只列已知坏值会漏掉&amp;quot;自家配置被误用&amp;quot;这类新形态。正确姿势是先渲染全部形态 → 像素级/结构级普查 → 对照定义来源全集，一次扫完，而不是发现一个修一个。&lt;/li>
+&lt;/ol>
+&lt;p>把这三条合在一起，就是 skill 规约里给所有图谱类工具定的防呆前置：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">调图谱工具前： index_status 确认索引新鲜度（索引落后时 detect_changes 结果失真）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">调完拿结论前： 结论是&amp;#34;空/没有/零&amp;#34; → 强制 grep 复核，禁止直接采信
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">写脚本改配置： assert count==1 + 层级断言，失败即整体回滚
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这三条没有一条是 cbm 特有的——任何&amp;quot;返回结构化结果&amp;quot;的工具都适用。图谱只是把问题放大了，因为它看起来太可信了：返回带行号、带符号名的精确结果，模型（和我）都倾向于直接信。&lt;/p>
+&lt;/blockquote>
+&lt;p>有意思的是，这个原则直接催生了 fork 补丁计划里的 #4：给 cbm 加&lt;strong>配置化工具禁用清单&lt;/strong>（tools_disabled，双侧生效），要求禁用必须 fail-loud——调用被禁的工具要显式报错而不是静默失败，且 &lt;code>--help&lt;/code> 输出与实际工具面一致。禁用一个工具后它还能被调用、或者 help 里还列着，都是配置漂移的静默形态。&lt;/p>
+&lt;blockquote>
+&lt;p>fail-loud 说白了就一句话：宁可让错误炸在这一层，也不要让它变成一层之下的&amp;quot;空结果&amp;rdquo;。静默空结果最阴险的地方在于它&lt;strong>消耗的是信任而不是报错&lt;/strong>——你不会去排查一个&amp;quot;正常&amp;quot;的空响应。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="windows-的-dacl-仪式">Windows 的 DACL 仪式
+&lt;/h2>&lt;hr>
+&lt;p>CLI 化没解决的一个问题：cbm 在 Windows 上对 daemon endpoint 做强制 ACL 检查（上游 #1624/#1856/#2023 的 ACL 设计），撞上时直接报 &lt;code>secure daemon endpoint could not be created&lt;/code>。&lt;/p>
+&lt;p>我踩过的绕法，按代价排序：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 1. 搬运行时目录（官方思路，但只能搬家不能豁免检查本身）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CBM_RUNTIME_DIR&lt;/span>&lt;span class="o">=&lt;/span>D:&lt;span class="se">\d&lt;/span>ata&lt;span class="se">\c&lt;/span>odebase-memory-mcp&lt;span class="se">\r&lt;/span>untime
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 2. 临时绕过：收紧目标目录 ACL 让检查通过（D:\data 这么干过，事后要 icacls /reset 恢复）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 3. fork 补丁计划 #2：加 CBM_SKIP_DACL_HARDENING 开关&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>#2 的关键是：CLI 形态&lt;strong>同样&lt;/strong>受 DACL 检查拖累——退到 CLI 躲开了 MCP 的进程结构税，但躲不开单机安全检查对本地回环通信的开销。&lt;code>CBM_RUNTIME_DIR&lt;/code> 只是把战场挪走，检查本身还在跑。所以补丁计划里专门立了 #2：一个显式的跳过开关，本地单人场景没必要每次都做安全仪式。&lt;/p>
+&lt;blockquote>
+&lt;p>这类问题在 Linux 上根本不存在，纯 Windows 单机税。但代价结构很典型：&lt;strong>设计给多用户/低信任场景的防御，在单用户高信任环境里变成每个请求都要交的过路费&lt;/strong>。和 MCP 工具面裁剪是同构的——都是&amp;quot;默认配置为我不存在的场景付费&amp;quot;。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="fork-补丁计划把教训变成-issue">fork 补丁计划：把教训变成 issue
+&lt;/h2>&lt;hr>
+&lt;p>最后整理一下 fork 仓库的 issue 清单。写出来是因为每一条背后都是上面某一节的一个教训：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>#&lt;/th>
+&lt;th>内容&lt;/th>
+&lt;th>状态&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>#1&lt;/td>
+&lt;td>CLI 方案取代 profile 裁剪&lt;/td>
+&lt;td>&lt;strong>已关闭&lt;/strong>——直接退 CLI，profile 档位没了存在必要&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>#2&lt;/td>
+&lt;td>&lt;code>CBM_SKIP_DACL_HARDENING&lt;/code> 开关&lt;/td>
+&lt;td>待做——CLI 侧同样受检查拖累&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>#3&lt;/td>
+&lt;td>默认值反转&lt;/td>
+&lt;td>待做——已补 CLI 侧证据：daemon 冷启 ~5s/次、detect_changes 非法 direction 静默空、since 拒收 &lt;code>^&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>#4&lt;/td>
+&lt;td>配置化工具禁用清单（tools_disabled 双侧生效 + fail-loud + &lt;code>--help&lt;/code> 一致性）&lt;/td>
+&lt;td>待做——挡住实测判负的 5 个工具被误用&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>补丁纪律沿用之前定下的：&lt;strong>机械、小、可重放&lt;/strong>。上游几乎周更，#1649 已经在冲突边缘，任何超出&amp;quot;加一组名字/加一个开关&amp;quot;粒度的补丁都是给未来的自己挖坑。&lt;/p>
+&lt;p>值得单独说的是 #1 被关闭这个信号：最初计划里&amp;quot;给 MCP 加更好的 profile 档位&amp;quot;是正经理方案，做着做着发现 CLI 形态让整个问题消失了。&lt;strong>最好的裁剪是不需要裁剪&lt;/strong>——工具面从来不进上下文，就无所谓留哪 6 个砍哪 9 个。&lt;/p>
+&lt;h2 id="这套退法在整体方案里的位置">这套退法在整体方案里的位置
+&lt;/h2>&lt;hr>
+&lt;p>退 CLI 不是孤立动作，它是一个分层方案的地基。完整规划是三步：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">P0 只包 codegraph 进 MCP（4 个短工具：search / source / relations / impact）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">P1 CBM 保持 CLI 按需调用——本文讲的退法就是这一步的落地
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">P2 仅当&amp;#34;出会话跑 CLI&amp;#34;摩擦大到不可接受，才在门面里延迟拉起 CBM 三个工具
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> （第一次调用才 spawn cbm cli，空闲超时 daemon stop）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配套的验收清单里，几条硬指标直接针对 MCP 形态的老病：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">- 会话 tools/list 工具数 ≤ 8，描述合计 ≤ 4KB（对 ~22.4KB 的 cbm 全量）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">- 日常 search/source/relations/impact 不启动 cbm.exe / cbm daemon
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">- 结果无双份 JSON（cbm 的 tree + structuredContent 双份是重点封杀对象）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">- 需要架构分析时有文档化的 CLI 一步（含 daemon stop）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>同样重要的是&amp;quot;明确不做&amp;quot;清单：不给 cbm 关 LSP、拆 daemon、硬内存上限——那是敌对 fork，和周更上游打架。改不动的地方绕过去（CLI、CBM_RUNTIME_DIR），绕不过去的立 issue（#2/#3/#4），这就是补丁计划全部是&amp;quot;开关级&amp;quot;改动的原因。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>复盘下来，&amp;ldquo;从 MCP 退到 CLI&amp;quot;与其说是性能优化，不如说是一次责任边界的回收：进程模型、调用时机、失败语义，全部收回到我自己的 skill 规约里。代价是我要自己维护规约、自己复核否定性结论。但考虑到静默空结果曾经让我把&amp;quot;图谱说没有调用方&amp;quot;当成事实写进结论——这笔交易不亏。&lt;/p>
+&lt;/blockquote></description></item><item><title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</title><link>https://daidaij.github.io/p/cbm-toolset-pruning/</link><pubDate>Sun, 06 Sep 2026 20:04:24 +0800</pubDate><guid>https://daidaij.github.io/p/cbm-toolset-pruning/</guid><description>&lt;img src="https://picsum.photos/seed/e7f46986/800/600" alt="Featured image of post 给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据" />&lt;h1 id="给-mcp-服务器做减法一实测判负的工具与裁剪依据">给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>我深度用了两周 codebase-memory-mcp（下称 cbm），一个把代码库索引成知识图谱的 MCP 服务器，15 个工具。结论是：15 个里只有 3 个场景真正立住了，其余全部判负——要么被 codegraph 同类工具碾压，要么 CLI 里一行命令就有等价物，不值得在每轮对话里交定义层税。这篇记录判负的证据和方法，不记录情绪。&lt;/p>
