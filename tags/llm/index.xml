@@ -1,4 +1,249 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Llm on 潘达窝</title><link>https://daidaij.github.io/tags/llm/</link><description>Recent content in Llm on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 01 Aug 2026 23:44:36 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</title><link>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</link><pubDate>Sat, 01 Aug 2026 23:44:36 +0800</pubDate><guid>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</guid><description>&lt;img src="https://picsum.photos/seed/1ba03f14/800/600" alt="Featured image of post Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）" />&lt;h1 id="higress-网关-llm-端点故障临时屏蔽endpoint-failover">Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Llm on 潘达窝</title><link>https://daidaij.github.io/tags/llm/</link><description>Recent content in Llm on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 19:59:22 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</link><pubDate>Sun, 06 Sep 2026 19:59:22 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</guid><description>&lt;img src="https://picsum.photos/seed/bdbb9d5f/800/600" alt="Featured image of post Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制" />&lt;h1 id="higress-端点级断路器一本地-provider-的端点屏蔽与-ttl-控制">Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>上游换成私有化部署的 LLM 端点之后，故障形态变了：不报 429、不吐 5xx，就是慢——请求挂在网关上几分钟才吐结果，用户早走了。这篇记录我基于 ai-load-balancer 做的一层端点级断路器：响应耗时突破阈值就把端点拉黑，TTL 到期自动放回负载均衡池。整套设计里我最满意的是统计层的 5s 去重窗口——同一端点短时间内只计一次，既防高频请求重复统计，也防一次抖动被放大成误判。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="动机慢节点拖尾是私有化部署的特有痛点">动机：慢节点拖尾是私有化部署的特有痛点
+&lt;/h2>&lt;hr>
+&lt;p>之前写过&lt;a class="link" href="https://daidaij.github.io/p/higress_llm_server_failover_in_router/" >一篇&lt;/a>处理 Higress 网关的端点故障屏蔽，针对的故障是&amp;quot;显式&amp;quot;的：429 限流、配额耗尽、5xx——响应码摆在那，数数就能判定。这次场景换成本地/私有化部署的 provider，玩法完全不同。&lt;/p>
+&lt;p>私有化 LLM 端点的典型故障是&amp;quot;慢&amp;quot;：&lt;/p>
+&lt;ul>
+&lt;li>长上下文推理本身就可能跑几十秒，正常和异常的边界很模糊；&lt;/li>
+&lt;li>某台机器显存碎片、批处理排队、GPU 降频，服务还活着，就是越来越慢；&lt;/li>
+&lt;li>这些端点经 McpBridge 注册成 Envoy cluster（命名形如 &lt;code>outbound|443||provider.dns&lt;/code>），连接层完全正常。&lt;/li>
+&lt;/ul>
+&lt;p>麻烦在于平台现有的健康机制全都够不着这类故障。Envoy 原生的 active health check 和 outlier detection 是设计文档里定义的 Level 1 容错，它的局限写得很清楚：只在&amp;quot;节点全挂/被驱逐&amp;quot;时起作用，429 配额耗尽、单 provider 部分降级触发不了。慢节点比这更隐蔽——consecutive_5xx 数不出来，因为根本没有 5xx，只有漫长的等待。&lt;/p>
+&lt;blockquote>
+&lt;p>一台慢节点拖着不做处理，代价是拖尾：每个打到它的请求都白占一个网关连接槽位，挂到客户端超时为止。网关的连接池、下游的并发额度，都在替一台病机器买单。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="端点粒度-vs-路由粒度为什么不上现成的-failover">端点粒度 vs 路由粒度：为什么不上现成的 failover
+&lt;/h2>&lt;hr>
+&lt;p>第一反应是找现成能力。盘点下来三层，粒度从粗到细：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>机制&lt;/th>
+&lt;th>粒度&lt;/th>
+&lt;th>为什么不够&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>平台层&lt;/td>
+&lt;td>Envoy outlier detection / health check&lt;/td>
+&lt;td>节点&lt;/td>
+&lt;td>只认连接错误和 5xx，慢故障不可见&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>路由层&lt;/td>
+&lt;td>ai-proxy 的 providers failover（failoverOnStatus）&lt;/td>
+&lt;td>provider 整机&lt;/td>
+&lt;td>切换粒度是整个 provider，且 failover 重发请求有 body 丢失的老 bug（issue #3531）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>选端层&lt;/td>
+&lt;td>★ 本设计的端点断路器&lt;/td>
+&lt;td>单个端点&lt;/td>
+&lt;td>—&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>路由层整机 failover 不适用的根本原因是场景：私有化部署里一个 provider 后面挂的是自己机房的多台推理机，没有&amp;quot;备用 provider&amp;quot;可切。慢一台就把整个 provider 判死，等于自断服务。正确的粒度是把坏的那台端点摘出去，其余继续扛流量。&lt;/p>
+&lt;p>选端层做这件事有个天然优势：判定发生在建立上游连接之前。ai-load-balancer 的三种 LB 策略都走同一条路——先拿候选端点集合，再指定 host 转发：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">GetUpstreamHosts() // fork 扩展：读 cluster 的端点与健康状态
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 过滤屏蔽名单 // ← 断路器插在这里
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → SetUpstreamOverrideHost(host) // 指定端点转发
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>坏端点在选端阶段就被跳过，故障代价从&amp;quot;一次 70s 超时&amp;quot;降到&amp;quot;一次内存查询&amp;quot;。&lt;/p>
+&lt;p>但选端层也有自己的代价，两条 wasm 侧的硬约束：&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>GetUpstreamHosts&lt;/code> / &lt;code>SetUpstreamOverrideHost&lt;/code> 是 higress fork SDK 的扩展能力，不在标准 proxy-wasm ABI 里；&lt;/li>
+&lt;li>&lt;code>SetUpstreamOverrideHost&lt;/code> 指定端点时&lt;strong>必须返回 &lt;code>HeaderStopIteration&lt;/code>&lt;/strong>，否则 override 不生效——这是 ai-load-balancer 三种 LB 策略验证过的统一姿势。&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>粒度选择本质上是&amp;quot;谁能看见故障&amp;quot;的问题。平台层只看得见连接，路由层只看得见 provider，只有选端层同时看得见端点和业务耗时。看得见，才管得了。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="统计层5s-去重窗口是整个设计的核心">统计层：5s 去重窗口是整个设计的核心
+&lt;/h2>&lt;hr>
+&lt;p>断路器需要统计每个端点的响应表现。最朴素的实现是每次上游响应都计入统计，但这里有个私有化场景特有的陷阱：&lt;strong>慢端点会同时拖住一批在途请求&lt;/strong>。&lt;/p>
+&lt;p>推理请求耗时本来就长，网关上同一个端点常态挂着几十个在途请求。一旦它开始变慢，这批请求会在相近的时间窗内相继超时。不去重的话：&lt;/p>
+&lt;ul>
+&lt;li>一次慢抖动被记成 N 份&amp;quot;失败证据&amp;quot;，统计被同一事件重复灌水；&lt;/li>
+&lt;li>屏蔽状态走 SharedData（CAS 写），计数爆炸直接放大写竞争；&lt;/li>
+&lt;li>观测指标失真——看起来&amp;quot;失败了 40 次&amp;quot;，其实是一个慢节点拖住的一批受害者。&lt;/li>
+&lt;/ul>
+&lt;p>所以统计层加了去重窗口：&lt;strong>短时间内（5s）同一端点只计算一次&lt;/strong>。设计推演如下（伪代码，非最终实现）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 伪代码：响应统计 + 去重 + 拉黑判定
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">const&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dedupWindowMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">5000&lt;/span> &lt;span class="c1">// 5s 去重窗口
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">slowThreshold&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">70000&lt;/span> &lt;span class="c1">// 慢阈值 70s
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">blockTtlMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">ttl&lt;/span> &lt;span class="c1">// 拉黑 TTL，做成配置项，不写死
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">onUpstreamResponse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">costMs&lt;/span> &lt;span class="kt">int64&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">now&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">nowMs&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">st&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">stats&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">lastCountedAt&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nx">dedupWindowMs&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1">// ← 窗口内已计过，这个响应不重复入账
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">lastCountedAt&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">now&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">costMs&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="nx">slowThreshold&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">block&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="nx">blockTtlMs&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 突破阈值，拉黑
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>去重带来的第二个收益是防抖动放大误判。没有窗口时，一次网络抖动产生的整批慢响应会被当成多次独立证据，叠加起来很容易越过判定边界；有窗口后，统计的时间分辨率被限制在 5s，抖动只能贡献一个样本，持续性的慢才会持续入账。&lt;/p>
+&lt;p>多 worker 的一致性问题也要面对。wasm 插件每个 Envoy worker 线程一个 VM，跨 worker 状态不互通——统计视角天然分片，这反而可以接受（每个 worker 是一个独立采样点）；但屏蔽名单必须全局一致，否则 A worker 拉黑了、B worker 还往坏端点上发请求。跨 VM 的写要走 &lt;code>Get/SetSharedData&lt;/code>（CAS），SDK 的语义是并发写同一 key 返回 &lt;code>ErrorStatusCasMismatch&lt;/code>，计数器/状态必须做 Get+Set 重试循环，不能假设一次成功。&lt;/p>
+&lt;blockquote>
+&lt;p>我考虑过把去重窗口也放 SharedData 做全局一致，后来放弃了：窗口状态是高频热路径，每次响应都 CAS 一轮，写竞争的代价超过收益。5s 窗口本身对精度不敏感，per-worker 各自维护，采样视角还更分散——这算是我为数不多主动选择&amp;quot;不一致&amp;quot;的地方。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="阈值与-ttl70s-拉黑到期自动恢复">阈值与 TTL：70s 拉黑，到期自动恢复
+&lt;/h2>&lt;hr>
+&lt;p>判定逻辑压成一句话：端点响应耗时突破 70s，且通过了 5s 去重确认，就拉黑；拉黑不是永久的，TTL 到期自动恢复参与负载均衡。&lt;/p>
+&lt;p>70s 这个数的来源是私有化场景的两头挤压：下限要高于正常推理的长尾——长上下文请求跑三四十秒是常态，阈值太低会把慢请求误判成慢节点；上限受交互式体验约束——LLM 场景用户对首字延迟的容忍就是几十秒的量级，一个响应要 70s 的端点，对用户来说和挂了没有区别。既然&amp;quot;慢到 70s&amp;quot;本身已经是不可接受的服务质量，单次确认即拉黑，不再堆失败次数。&lt;/p>
+&lt;p>时间线长这样：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">T+0s 请求 A → 端点 E，开始推理
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+70s A 耗时突破 70s → E 记一次慢失败（窗口内首次，入账）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+71s+ 在途请求 B/C/D 相继超时 → 5s 窗口内，全部去重，不再计数
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → E 拉黑，blockUntil = now + TTL
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">TTL 内 选端时过滤屏蔽名单，E 被跳过
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">TTL 到期 E 惰性恢复，自动回到候选池
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>恢复机制我选了惰性恢复：不设定时器，选端时检查 &lt;code>blockUntil&lt;/code>，过期即视为恢复。这个思路和 Envoy outlier detection 的 &lt;code>base_ejection_time&lt;/code> 同构，但实现更轻——恢复完全被请求驱动，零后台开销。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 伪代码：选端过滤
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">candidates&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">filterHealthy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">getUpstreamHosts&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">candidates&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nf">rejectBlocked&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">candidates&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nf">nowMs&lt;/span>&lt;span class="p">())&lt;/span> &lt;span class="c1">// blockUntil 已过期的直接放回
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">candidates&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 不覆盖端点，交给 Envoy 默认选端 —— 下一篇的主题
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nf">setUpstreamOverrideHost&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nf">pick&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">candidates&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>TTL 恢复是个乐观假设：到期不等于健康。端点如果还在慢，第一个打过去的请求会用 70s 重新确认一次，再拉黑一轮——相当于用真实流量做探测，代价是每个 TTL 周期有一次糟糕的用户体验。要不要配主动健康检查（用最小模型探活提前解封），我还在权衡，至少当前流量规模下不值当。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="实现要点贴着-wasm-的约束走">实现要点：贴着 wasm 的约束走
+&lt;/h2>&lt;hr>
+&lt;p>骨架就是标准的 wasm-go 插件回调链：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">init&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">wrapper&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">SetCtx&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;endpoint-breaker&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">wrapper&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ParseConfig&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">parseConfig&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="c1">// fail-fast：非法配置直接 error
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">wrapper&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ProcessRequestHeaders&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">onReqHeaders&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="c1">// 读屏蔽名单 + 选端 override
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">wrapper&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ProcessResponseHeaders&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">onRespHeaders&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="c1">// 耗时统计的计时锚点
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>几个关键实现决策，每条背后都是 wasm 执行模型的一条硬约束：&lt;/p>
+&lt;p>&lt;strong>回调里不做任何阻塞动作。&lt;/strong> wasm 回调跑在 Envoy worker 线程上，同步做耗时操作会卡住该 worker 的所有请求；wasm 目标没有真线程，goroutine 不可用。好在断路器的判定全是内存操作——读名单、比对时间戳、CAS 写回，没有一处需要异步。&lt;/p>
+&lt;p>&lt;strong>屏蔽写回走 CAS 重试。&lt;/strong> SDK 的 SharedData 语义决定了并发写必须循环重试：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 伪代码：SharedData CAS 写回（SDK 语义：冲突返回 ErrorStatusCasMismatch）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">for&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nx">maxRetry&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">data&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">cas&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">proxywasm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetSharedData&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">updated&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">mergeBlock&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ep&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">blockUntil&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">proxywasm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">SetSharedData&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">updated&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">cas&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">break&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// cas mismatch → 别的 worker 先写了，重读重算再试
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>fail-open 兜底。&lt;/strong> wasm 框架对插件 panic 的兜底语义是 fail-open：wrapper 的 &lt;code>recoverFunc&lt;/code> 捕获 panic 后，回调以零值 &lt;code>ActionContinue&lt;/code> 返回，请求继续正常处理。这对断路器是理想行为——屏蔽逻辑自身崩溃，最坏结果是&amp;quot;不屏蔽&amp;quot;，绝不会挡流量。推论是故障完全静默，必须靠日志关键词告警兜住，调试期可以用 &lt;code>WASM_DISABLE_PANIC_RECOVERY=true&lt;/code> 关掉兜底看原始栈。&lt;/p>
+&lt;p>&lt;strong>共存纪律。&lt;/strong> &lt;code>SetUpstreamOverrideHost&lt;/code> 一个请求只允许一个策略，断路器和其他 LB 类插件不能同挂；SharedData key 加插件前缀，防互踩。&lt;/p>
+&lt;blockquote>
+&lt;p>参考实现可以直接看仓库里两个现成插件：ai-load-balancer 的 &lt;code>global_least_request/lb_policy.go&lt;/code>（端点健康读取 + 指定 host 转发的完整姿势）、ai-proxy 的 &lt;code>provider/failover.go&lt;/code>（SharedData 健康状态机 + 探测恢复）。我的屏蔽名单状态机基本是后者换了判定信号。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="反思这套设计粗糙但够用的边界在哪">反思：这套设计粗糙但够用的边界在哪
+&lt;/h2>&lt;hr>
+&lt;p>坦率说，这是一个&amp;quot;单实例自洽、多副本将就&amp;quot;的设计，边界我列清楚：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>阈值是刀切的。&lt;/strong> 70s 对长上下文模型可能太严（正常推理就被拉黑），对轻量模型可能太松（慢节点拖 60s 依然在池里）。按 model 维度配差异化阈值是第一优先级的改进，配置结构上 &lt;code>_rules_&lt;/code> 路由级覆盖直接可用。&lt;/li>
+&lt;li>&lt;strong>SharedData 只覆盖单实例。&lt;/strong> 多副本网关部署时，每个副本的屏蔽状态是割裂的，全局一致要走 Redis（key 加插件前缀、&lt;code>{cluster}&lt;/code> hash tag 防 CROSSSLOT）。当前单副本部署下这不是问题，扩副本前必须补。&lt;/li>
+&lt;li>&lt;strong>耗时统计的口径很粗。&lt;/strong> 只看单次响应耗时，没有分位数、没有趋势。更精细的做法是滑动窗口内记录 P95，但那会引入事件序列存储——上一篇的设计里已经有窗口上限 20 条的先例，代价是 CAS 竞争显著加剧，我不确定值得。&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;p>下一篇写拉黑策略的补丁：&lt;strong>全拉黑放行&lt;/strong>——候选集被屏蔽名单清空时，屏蔽逻辑主动退位，把控制权还给 Envoy 默认选端。宁可疑似的端点接到流量，也不主动拒绝请求，这个取舍值得单独一篇展开。&lt;/p>
+&lt;blockquote>
+&lt;p>断路器做到最后，我体会到的核心不是&amp;quot;怎么拦&amp;quot;，而是&amp;quot;什么时候不拦&amp;quot;——屏蔽判定越激进，兜底路径就越重要。一个只在候选集非空时才起作用的断路器，看起来功能打折，实际上是所有流量的安全带。&lt;/p>
+&lt;/blockquote></description></item><item><title>Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）</title><link>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</link><pubDate>Sat, 01 Aug 2026 23:44:36 +0800</pubDate><guid>https://daidaij.github.io/p/higress_llm_server_failover_in_router/</guid><description>&lt;img src="https://picsum.photos/seed/1ba03f14/800/600" alt="Featured image of post Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）" />&lt;h1 id="higress-网关-llm-端点故障临时屏蔽endpoint-failover">Higress 网关 LLM 端点故障临时屏蔽（Endpoint Failover）
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>给 LLM 网关做选端的时候碰到一个绕不开的问题：供应商端点的故障大多是&amp;quot;业务性&amp;quot;的——429 限流、配额耗尽、5xx，连接层完全正常，Envoy Outlier Detection 这种平台健康检查根本发现不了。所以在 ai-load-balancer 选端前加了一层黑名单过滤器：失败端点暂时打入冷宫，惩罚期过了再放回候选池。整个设计最核心的理念是软屏蔽——被屏蔽不等于不可用，只是低优先级。&lt;/p>
