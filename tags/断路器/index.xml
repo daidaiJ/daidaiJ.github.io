@@ -1,4 +1,202 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断路器 on 潘达窝</title><link>https://daidaij.github.io/tags/%E6%96%AD%E8%B7%AF%E5%99%A8/</link><description>Recent content in 断路器 on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 19:59:22 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E6%96%AD%E8%B7%AF%E5%99%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</link><pubDate>Sun, 06 Sep 2026 19:59:22 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</guid><description>&lt;img src="https://picsum.photos/seed/bdbb9d5f/800/600" alt="Featured image of post Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制" />&lt;h1 id="higress-端点级断路器一本地-provider-的端点屏蔽与-ttl-控制">Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断路器 on 潘达窝</title><link>https://daidaij.github.io/tags/%E6%96%AD%E8%B7%AF%E5%99%A8/</link><description>Recent content in 断路器 on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:03:25 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E6%96%AD%E8%B7%AF%E5%99%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</link><pubDate>Sun, 06 Sep 2026 20:03:25 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</guid><description>&lt;img src="https://picsum.photos/seed/43e49826/800/600" alt="Featured image of post Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策" />&lt;h1 id="higress-端点级断路器二全拉黑放行最反直觉的设计决策">Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>系列第二篇。上一篇写了慢故障的统计口径——5s 去重窗口、70s 阈值拉黑、TTL 惰性恢复，这一篇只讲一个分支：&lt;strong>当所有端点都被拉黑时，插件选择放行、不做屏蔽&lt;/strong>，让请求继续打到所有节点上。第一次推演到这个 case 时，我的直觉答案是&amp;quot;该 503&amp;quot;；把时间轴往下多推一步，就改了主意。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="从一次差点全拉黑的推演讲起">从一次&amp;quot;差点全拉黑&amp;quot;的推演讲起
+&lt;/h2>&lt;hr>
+&lt;p>先把这个最坏场景摆出来。假设网关后面挂着一个 provider 的三个端点，上游网络抖动 30 秒：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">t=0s 抖动开始，请求陆续失败
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=8s 端点 A 失败率过阈值，拉黑 → 流量集中到 B、C
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=15s B 被集中流量压垮，拉黑 → 流量全压 C
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=22s C 独木难支，也拉黑
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=23s 候选集为空 —— 此刻屏蔽过滤要不要生效？
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=35s 上游抖动结束，实际已恢复
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>前三步都是正常的断路器行为，问题出在 &lt;code>t=23s&lt;/code>。候选集为空时最自然的写法是返回 503，但注意时间轴上还有 &lt;code>t=35s&lt;/code>：抖动结束了，上游恢复了，然后呢？&lt;/p>
+&lt;p>黑名单的解除靠什么？靠 TTL 到期的惰性恢复——端点在 &lt;code>blockUntil&lt;/code> 过期后自动回池。503 方案的问题不是永久锁死（TTL 终究会到期），而是&lt;strong>恢复时刻被 TTL 绑架&lt;/strong>：t=35s 上游已经恢复，可每个端点要等各自的 &lt;code>blockUntil&lt;/code> 过期才回池，这段时间网关在主动 503，白瞎已经恢复的容量。TTL 是按&amp;quot;最坏故障时长&amp;quot;配的，通常远长于一次真实抖动——为了防误判把 TTL 配长，结果真故障短了也要多陪等一整段。而放行的代价只是请求继续打到（可能已恢复的）节点上：打成功就是赚的，打失败也只是维持本来的坏状态。上游明明恢复了，网关却握着屏蔽名单不放，故障没扩散，是屏蔽逻辑替它完成了最后一击。&lt;/p>
+&lt;blockquote>
+&lt;p>推演到这一步我才意识到，&amp;ldquo;全拉黑&amp;quot;根本不是一个正常的状态转换，而是一个危险信号：它要么说明故障大面积爆发，要么说明统计在误判。两种情况的处理方式殊途同归，下面分开说。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="放行的分支设计">放行的分支设计
+&lt;/h2>&lt;hr>
+&lt;p>先交代状态结构，这段来自我的 failover 设计文档（Go filter 方案那一层；统计形态在不同落地载体上有差异——wasm 里是 SharedData 分片，Go filter 里是进程内全局——这里按设计文档的形态讲），端点级统计就挂在这个全局结构上：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">var&lt;/span> &lt;span class="nx">healthState&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sync&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Mutex&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">failures&lt;/span> &lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">slidingWindow&lt;/span> &lt;span class="c1">// 每 provider 失败滑动窗口（被动健康）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">probes&lt;/span> &lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">probeResult&lt;/span> &lt;span class="c1">// 主动探测结果（goroutine ticker 维护）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">quota&lt;/span> &lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">tokenBucket&lt;/span> &lt;span class="c1">// 配额余量（rate_limiting 降级）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}{}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>屏蔽过滤发生在选端点阶段，分支逻辑用伪代码表达（实现细节从略）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 候选端点过滤：拉黑名单的放行分支
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="nf">filterEndpoints&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">eps&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">Endpoint&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">Endpoint&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">healthy&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">([]&lt;/span>&lt;span class="nx">Endpoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">eps&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ep&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">eps&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nf">blacklisted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="c1">// 黑名单来自慢阈值判定（70s + 5s 去重确认）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">healthy&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">append&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">healthy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ep&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">healthy&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">eps&lt;/span> &lt;span class="c1">// ← 全拉黑：放弃过滤，全量放行
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">healthy&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>用流程图看这个分支在整体调度里的位置：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart TD
+A[请求进入] --> B{黑名单过滤}
+B -->|部分端点被拉黑| C[返回健康候选集]
+B -->|无端点被拉黑| C
+B -->|全部被拉黑| D[放弃过滤&lt;br/>全量放行]
+C --> E[priority → weight 轮询选端点]
+D --> E
+E --> F{请求结果}
+F -->|成功| G[请求成功&lt;br/>端点按各自 TTL 到期回池]
+F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再拉黑]&lt;/pre>&lt;p>注意 &lt;code>t=23s&lt;/code> 之后发生了什么：放行意味着请求继续打到这些端点上，上游一恢复请求就直接成功；屏蔽名单里的端点则在各自 TTL 到期后惰性回池——恢复路径上没有任何额外的状态转换。而 503 方案里，恢复时刻被 &lt;code>blockUntil&lt;/code> 绑死，TTL 配多长就白等多久。放行不是妥协，是让&amp;quot;上游恢复&amp;quot;这个事实能立刻传导到流量上。&lt;/p>
+&lt;p>有一个容易混淆的边界要划清。我的设计文档初稿里，provider 级选择循环的兜底是这样写的：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">p&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">pickProvider&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">providers&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// priority → weight 轮询 → 健康/配额过滤
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="nx">p&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nf">SendLocalReply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">503&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;all providers failed&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这行 503 我保留，而且认为它是对的——因为它的前提是&lt;strong>每个 provider 都真实尝试过且失败&lt;/strong>。端点级拉黑放行针对的是另一种情况：请求还没发出去，就被统计先验判死了。两者的区别一句话：&lt;strong>试出来的全失败可以 503，统计出来的全失败必须放行&lt;/strong>。&lt;/p>
+&lt;blockquote>
+&lt;p>这个设计不是我拍脑袋拍出来的。APISIX 的 &lt;code>ai-proxy-multi&lt;/code> 在实例健康过滤上做了完全相同的选择：所有实例均无健康节点时返回 &lt;code>{all_unhealthy=true}&lt;/code>，回退为&amp;quot;全量可用&amp;rdquo;，不直接 503。它的设计取舍表里写得很直白，理由是&amp;quot;避免误判把实例永久打死；宁可试错&amp;quot;。机制有差异——APISIX 的 fail-open 建立在 active health check 判死之上，我的拉黑来自被动耗时统计（5s 去重 + 70s 阈值）——但兜底语义一致，说明这是这一类系统共同交过学费换来的结论。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="误判从哪来">误判从哪来
+&lt;/h2>&lt;hr>
+&lt;p>放行的合理性取决于一个概率判断：全拉黑里有多少是真故障、多少是误判。把误判来源列全：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>误判来源&lt;/th>
+&lt;th>机制&lt;/th>
+&lt;th>为什么会被当成端点故障&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>网络抖动&lt;/td>
+&lt;td>网关到 provider 的链路瞬断/丢包&lt;/td>
+&lt;td>多端点往往共享同一条出口链路，抖动会&amp;quot;同时&amp;quot;打挂所有端点的统计——这恰恰说明故障在链路不在端点，逐端点拉黑是错误归因&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>provider GC 停顿 / 冷启动&lt;/td>
+&lt;td>服务端扩容、发布、JVM GC 导致延迟飙升触发超时&lt;/td>
+&lt;td>超时被计入失败样本，但停顿结束即恢复，端点本身没坏&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>样本量小&lt;/td>
+&lt;td>低峰期单端点分钟级请求个位数&lt;/td>
+&lt;td>两三个失败就能把失败率顶过阈值，统计噪声被放大成&amp;quot;故障&amp;quot;&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>5s 去重窗口的局限&lt;/td>
+&lt;td>窗口内同端点失败去重计数，防单次抖动被放大&lt;/td>
+&lt;td>但窗口一过同一场故障重新起算——30 秒的抖动会被切成 6 段逐段入账，去重防的是重复计数，防不了跨窗口的持续误判&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>两个分支分别看：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>真的大面积故障&lt;/strong>：屏蔽已经无意义。屏蔽的价值是&amp;quot;把流量从坏节点挪到好节点&amp;quot;，前提是还有健康节点可分流量。全坏时无处可挪，打了也白打——但不打更糟，不打就是主动放弃恢复窗口。&lt;/li>
+&lt;li>&lt;strong>统计误判&lt;/strong>：放行是唯一的自愈通道，理由上面已经推演过，不重复。&lt;/li>
+&lt;/ul>
+&lt;p>有意思的是第二个观察：&lt;strong>全端点同时&amp;quot;故障&amp;quot;，大概率意味着问题不在端点层&lt;/strong>。真正每端点独立坏掉且坏的时间完全同步，本身就是小概率事件；同步失败更常见的解释是共享层出问题——出口链路、账号配额、provider 整体。这时候逐端点拉黑不但无用，还在用屏蔽逻辑制造第二层故障。&lt;/p>
+&lt;h2 id="和经典断路器的-half-open-对照">和经典断路器的 half-open 对照
+&lt;/h2>&lt;hr>
+&lt;p>经典 circuit breaker 是三态机：closed → open（熔断）→ 冷却后进入 half-open → 放少量探测请求 → 成功则回到 closed。对照下来会发现，全拉黑放行相当于跳过 half-open，直接退化成&amp;quot;无熔断直通&amp;quot;：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>经典 half-open&lt;/th>
+&lt;th>全拉黑放行&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>探测流量&lt;/td>
+&lt;td>限量（如每周期 1 个请求）&lt;/td>
+&lt;td>全量，所有请求都是探测&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>恢复判定&lt;/td>
+&lt;td>探测成功 N 次才闭合&lt;/td>
+&lt;td>TTL 到期惰性解封，真实流量重新判定&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>额外状态&lt;/td>
+&lt;td>需要 per-endpoint 状态机 + 冷却计时器&lt;/td>
+&lt;td>零，复用已有的滑动窗口&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>上游真死时的代价&lt;/td>
+&lt;td>只有探测请求打到死节点&lt;/td>
+&lt;td>所有请求都打到死节点，错误率/延迟全暴露&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>第三行是我选后者的现实原因：滑动窗口里已经有一份跨请求的失败统计了，再为 half-open 维护一套状态机和计时器是重复建设。但更本质的是前两行——&lt;strong>half-open 解决的问题是&amp;quot;探测风暴打死正在恢复的上游&amp;quot;，而 LLM 网关的场景里探测流量就是正常流量本身，不存在额外风暴&lt;/strong>；反过来，&amp;ldquo;探测不足导致恢复延迟&amp;quot;才是主要矛盾。&lt;/p>
+&lt;p>还有一个领域差异值得记下：LLM 上游的故障很少是&amp;quot;瞬间全好或全坏&amp;rdquo;，更多是逐渐恢复、部分恢复（限流解除一部分、扩容落了一半实例）。half-open 的&amp;quot;限量探测 + N 次成功闭合&amp;quot;假设恢复是离散事件，跟这种渐变恢复对不上；全量放行 + 持续统计天然形成软探测，每一分钟都在试探上游，恢复到什么程度，流量就自然分过去多少。&lt;/p>
+&lt;blockquote>
+&lt;p>所以这里的结论是：不是 half-open 不好，是它的适用前提（探测流量需要被限制、恢复是离散事件）在这个场景不成立。设计模式照搬之前先核对前提，这个 case 给我上了一课。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="反思宁可慢不可全断">反思：宁可慢、不可全断
+&lt;/h2>&lt;hr>
+&lt;p>全拉黑放行是有代价的，我不打算把它说得像免费午餐：全拉黑期间客户端会真实感受到高延迟和错误率，因为请求确实在打坏节点。但这个代价是&lt;strong>有界的&lt;/strong>——上游一恢复，放行路径上的请求直接成功；拉黑的端点按各自 TTL 到期回池，最坏也只多等一个 TTL 周期。而 503 的代价是&lt;strong>无界的&lt;/strong>——恢复时刻被 &lt;code>blockUntil&lt;/code> 绑死，TTL 配多长就白瞎多久，还可能伴随客户端的 503 重试风暴。&lt;/p>
+&lt;p>为网关类组件做设计时，我现在的判断标准就一条：&lt;strong>宁可慢，不可全断&lt;/strong>。慢是上游的病传导过来，断是网关自己在病上加了病。屏蔽、熔断、拉黑这些手段全都只有一个合法目标——在还有健康容量时保护性地挪流量；一旦健康容量归零，它们的使命就结束了，继续执行只会从保护变成伤害。&lt;/p>
+&lt;p>还有一条线值得单独展开：流式（SSE）请求的取舍——响应头之前可以换端点重试，流中失败只能截断，APISIX 和我的方案在这做了相同的让步。这篇先不展开。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>一个还没想清楚的问题留在这里：放行分支要不要加一个&amp;quot;全拉黑持续时间&amp;quot;的告警钩子？放行是运行时自愈，但如果全拉黑状态持续几分钟不解除，多半说明真故障或者统计参数需要调了——这个信号现在只落在日志里，值不值得升格成独立指标，我还在犹豫。&lt;/p>
+&lt;/blockquote></description></item><item><title>Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</link><pubDate>Sun, 06 Sep 2026 19:59:22 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</guid><description>&lt;img src="https://picsum.photos/seed/bdbb9d5f/800/600" alt="Featured image of post Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制" />&lt;h1 id="higress-端点级断路器一本地-provider-的端点屏蔽与-ttl-控制">Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>上游换成私有化部署的 LLM 端点之后，故障形态变了：不报 429、不吐 5xx，就是慢——请求挂在网关上几分钟才吐结果，用户早走了。这篇记录我基于 ai-load-balancer 做的一层端点级断路器：响应耗时突破阈值就把端点拉黑，TTL 到期自动放回负载均衡池。整套设计里我最满意的是统计层的 5s 去重窗口——同一端点短时间内只计一次，既防高频请求重复统计，也防一次抖动被放大成误判。&lt;/p>
