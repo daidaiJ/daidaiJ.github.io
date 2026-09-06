@@ -1,4 +1,381 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai-Agent on 潘达窝</title><link>https://daidaij.github.io/tags/ai-agent/</link><description>Recent content in Ai-Agent on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:10:55 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai-agent/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口</title><link>https://daidaij.github.io/p/opensandbox-4-egress/</link><pubDate>Sun, 06 Sep 2026 20:10:55 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-4-egress/</guid><description>&lt;img src="https://picsum.photos/seed/03153fdb/800/600" alt="Featured image of post OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口" />&lt;h1 id="opensandbox-源码走读四出口网络networkpolicyegress-sidecar-与池化出口">OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai-Agent on 潘达窝</title><link>https://daidaij.github.io/tags/ai-agent/</link><description>Recent content in Ai-Agent on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:11:17 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai-agent/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单</title><link>https://daidaij.github.io/p/opensandbox-5-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:11:17 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-5-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/441fa0fb/800/600" alt="Featured image of post OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单" />&lt;h1 id="opensandbox-源码走读五收官踩坑合集3s-轮询execd-限制与风险清单">OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>系列最后一篇，不讲架构，专讲坑。调研和使用 OpenSandbox 过程中踩过、或者差点踩到的坑，按&amp;quot;现象 → 定位 → 根因 → 对策&amp;quot;整理成独立小节，可以直接当 checklist 用。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="3s-轮询任务调度的来龙去脉">3s 轮询：任务调度的来龙去脉
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>这是我在这套代码里最重要的一个发现：批量任务型 sandbox 的整个调度闭环，是被一个写死的 3s 周期推着走的。&lt;/p>
+&lt;/blockquote>
+&lt;p>先看代码，&lt;code>kubernetes/internal/controller/batchsandbox_controller.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">BatchSandboxReconciler&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">reconcileTasks&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ctx&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Context&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">batchSbx&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">BatchSandbox&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pods&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">corev1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pod&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">taskScheduleResult&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Because tasks are in-memory and there is no event mechanism, periodic reconciliation is required.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">types&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">NamespacedName&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">Namespace&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Namespace&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">Name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">}.&lt;/span>&lt;span class="nf">String&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Second&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注释说得很直白：task 是控制器进程内的纯内存对象，没有任何事件机制，所以只能周期性 reconcile。每 3 秒一轮，干三件事：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">每 3s 一轮 Schedule():
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 1. refreshFreePods() 重建空闲 pod 列表（一个 pod 同时只跑一个 task）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 2. collectTaskStatus() 并发 GET http://&amp;lt;podIP&amp;gt;:5758/getTasks 拉任务状态
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 3. scheduleTaskNodes() 分配空闲 pod + POST /setTasks 下发任务 / 释放资源
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>现象&lt;/strong>：稳态下没有任何业务变化，控制器依然高频 reconcile。粗算一下，1000 个任务型 sandbox 就是稳态 333 reconcile/s，规模化后 CPU 和 API server 压力线性上涨。&lt;/p>
+&lt;p>&lt;strong>根因&lt;/strong>：为什么不用事件驱动？我专门推演过改成 push 模式的可行性，结论是当前设计下很难：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>约束&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>归属路由&lt;/td>
+&lt;td>taskScheduler 在控制器内存里，pod 内的 task-executor 根本不知道该上报给哪个实例（leader 还会切换）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>可靠性&lt;/td>
+&lt;td>上报会丢（控制器重启/网络抖动），需要 ack/重试/补偿；轮询天然幂等&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>调度动作仍需驱动&lt;/td>
+&lt;td>新任务下发、释放、删除回收都靠周期性 reconcile 推进状态机，状态上报替代不了&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>也就是说 pull 不是偷懒，是&amp;quot;task 状态存在 pod 内 HTTP 服务里 + 调度器在内存里&amp;quot;这个结构下的必然选择。3s 是&amp;quot;可感知粒度&amp;quot;的妥协——HTTP 默认超时也是 3s（&lt;code>kubernetes/internal/scheduler/default_scheduler.go&lt;/code> 里 &lt;code>defaultTimeout = 3 * time.Second&lt;/code>）。&lt;/p>
+&lt;p>&lt;strong>但真正的坑在放大效应&lt;/strong>。第一处，状态收集是无界全并发，&lt;code>kubernetes/internal/scheduler/status_collector.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">defaultTaskStatusCollector&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">Collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Context&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ipList&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">api&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Task&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">semaphore&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kd">chan&lt;/span> &lt;span class="kd">struct&lt;/span>&lt;span class="p">{},&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ipList&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="c1">// ← 容量 = pod 数，等于没有限流
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Info&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;Collect task status&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;result&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">utils&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">DumpJSON&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ret&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="c1">// ← 每轮把全部任务状态序列化打 Info 日志
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第二处，Pod 事件无过滤，&lt;code>batchsandbox_controller.go&lt;/code> 的 &lt;code>Owns(&amp;amp;corev1.Pod{})&lt;/code> 没挂任何 predicate——任意 Pod 状态波动都触发整池 reconcile。第三处，&lt;code>RequeueAfter&lt;/code> 走 &lt;code>AddAfter&lt;/code>，&lt;strong>绕过了 workqueue 的指数退避限流&lt;/strong>（限流只保护返回 error 的路径）。&lt;/p>
+&lt;p>&lt;strong>对策&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>这个 3s 目前改不了，只能缓解：调大 &lt;code>--concurrency=batchsandbox&lt;/code>，把状态收集日志降到 Debug；&lt;/li>
+&lt;li>自己写集成时，任务型 sandbox 的规模要做预估算，别等 reconcile 延迟失控才发现；&lt;/li>
+&lt;li>如果要改事件驱动，可行路径是 task-executor 在任务终态写回 CR status，控制器 watch 触发 + 低频兜底轮询防丢——但代价正是现在这套设计刻意规避的 API server 写放大。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>说实话我一开始以为这是个能顺手修掉的&amp;quot;缺陷&amp;quot;，读完整个调度链才发现它是结构性的：内存态调度器 + pod 内 HTTP 状态源，这两个决定摆在那，轮询就是唯一自洽的方案。要根治得动数据流，不是改个时间常数的事。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="execd-目录列表六个限制一次说清">execd 目录列表：六个限制一次说清
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>插件场景（通过 execd 读沙箱内文件系统）最容易在这里翻车，尤其是大目录。&lt;/p>
+&lt;/blockquote>
+&lt;p>接口是 execd 的 &lt;code>POST /directories/list&lt;/code>，契约在 &lt;code>specs/execd-api.yaml&lt;/code>，实现全在 &lt;code>components/execd/pkg/web/controller/filesystem.go&lt;/code>。六个限制，逐个对应代码：&lt;/p>
+&lt;p>&lt;strong>1. depth 默认 1，depth=0 返回空数组&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">depth&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">rawDepth&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">c&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Query&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;depth&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">rawDepth&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">parsedDepth&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">strconv&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Atoi&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">rawDepth&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">parsedDepth&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">c&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">RespondError&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">http&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">StatusBadRequest&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// ← 负数/非数字直接 400
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">depth&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">parsedDepth&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">listDirectoryEntries&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">root&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">maxDepth&lt;/span> &lt;span class="kt">int&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">([]&lt;/span>&lt;span class="nx">model&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">FileInfo&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">entries&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">([]&lt;/span>&lt;span class="nx">model&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">FileInfo&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">16&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">maxDepth&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">entries&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="c1">// ← depth=0 不是&amp;#34;不限深度&amp;#34;，是空数组
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第一眼看 &lt;code>depth=0&lt;/code> 很容易理解成&amp;quot;不限制&amp;quot;，实际是返回空。想递归列全树只能一层层调。&lt;/p>
+&lt;p>&lt;strong>2. 符号链接不穿透&lt;/strong>。root 是 symlink 直接拒绝：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Use Lstat so a symlink passed as the root is detected and rejected
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// rather than silently followed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">info&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Lstat&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">path&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">info&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Mode&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ModeSymlink&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">c&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">RespondError&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">http&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">StatusBadRequest&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sprintf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;path is a symbolic link, refusing to traverse: %s&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">path&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>遍历过程中的 symlink 只作为条目列出，不递归展开。&lt;code>/workspace&lt;/code> 这类 symlink 路径会直接 400，要传真实路径。&lt;/p>
+&lt;p>&lt;strong>3. 必须是目录&lt;/strong>：传文件路径 400，路径不存在 404。&lt;/p>
+&lt;p>&lt;strong>4. 没有路径白名单&lt;/strong>：&lt;code>ExpandAbsPath&lt;/code> 会展开 &lt;code>~&lt;/code> 等，execd 以 root 跑在沙箱内，整个容器文件系统都能列（安全边界只剩容器本身的挂载视图）。&lt;/p>
+&lt;p>&lt;strong>5. 没有数量/大小上限&lt;/strong>：&lt;code>listDirectoryEntries&lt;/code> 递归无任何截断。列 &lt;code>/usr&lt;/code>、&lt;code>node_modules&lt;/code> 这种目录会返回巨大 JSON，撑爆响应体或客户端内存——&lt;strong>这是实际影响最大的一个坑&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>6. 只返回元数据&lt;/strong>：&lt;code>FileInfo&lt;/code>（path/name/size/mode/is_dir/modified），不含内容，看内容要再调 read 接口。&lt;/p>
+&lt;p>&lt;strong>对策&lt;/strong>：列目录前先用 &lt;code>depth=1&lt;/code> 探一下规模，再按需深入；定向找文件改用 &lt;code>/files/search&lt;/code>（支持 glob，默认 &lt;code>**&lt;/code>，同样是 &lt;code>filepath.Walk&lt;/code> 全量遍历、无数量上限，适合找文件而不是扫目录）。&lt;/p>
+&lt;blockquote>
+&lt;p>第 2 条 symlink 拒绝我觉得设计是对的——Lstat 而不是 Stat，注释里明确写了理由：symlink-as-root 会暴露与调用者请求不同的子树。宁可 400 也不静默穿越，这个取舍值得学。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="controller-已知缺陷清单">controller 已知缺陷清单
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>这一节是我对着源码逐条核过的，每条都标注了代码位置，按&amp;quot;会不会咬人&amp;quot;排序。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>Helm 默认资源限额过小&lt;/strong>（&lt;code>kubernetes/charts/opensandbox-controller/values.yaml&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">resources&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">limits&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">cpu&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">500m&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">memory&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">128Mi&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">requests&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">cpu&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">10m&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">memory&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">64Mi&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>控制器是全集群 informer 缓存（数百 MB 量级）+ 每 sandbox 调度器状态 + HTTP 轮询，128Mi 上限在批量创建/回收潮里很容易 OOM。上规模前先调大。&lt;/p>
+&lt;p>&lt;strong>缩容未实现&lt;/strong>（&lt;code>batchsandbox_controller.go&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// TODO var needDeleteIndex []int
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// TODO consider supply Pods if Pods is deleted unexpectedly
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两行 TODO 挨在一起，覆盖了两个坑：&lt;code>spec.replicas&lt;/code> 调小不会删 Pod（只扩不缩）；Pool 模式下分配的 Pod 被外部删掉后，&lt;code>alloc-status&lt;/code> 注解里的 Pod 名残留，&lt;code>supplement = replicas - len(allocated)&lt;/code> 恒为 0，&lt;strong>沙箱永久不可用&lt;/strong>。节点驱逐、OOM Kill 这种规模化最常见的场景正好命中后者。&lt;/p>
+&lt;p>&lt;strong>恢复失败直接退出进程&lt;/strong>（&lt;code>kubernetes/internal/controller/allocator.go&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// ... is terminated via os.Exit(1) because the allocator cannot operate with an ...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Exit&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>首次 &lt;code>Schedule()&lt;/code> 时 &lt;code>Recover&lt;/code> 失败（全集群无选择器 List）→ 直接 &lt;code>os.Exit(1)&lt;/code> → CrashLoop，且每次重启重试全量 List。RBAC 权限错误、API server 抖动都会触发，恢复逻辑没有降级路径。&lt;/p>
+&lt;p>&lt;strong>pause 只支持单副本&lt;/strong>（&lt;code>batchsandbox_pause_resume.go&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">const&lt;/span> &lt;span class="nx">supportedPauseReplicas&lt;/span> &lt;span class="kt">int32&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>多副本请求 pause 会 ACK 回原 phase + &lt;code>PauseFailed(UnsupportedReplicas)&lt;/code>。和&amp;quot;缩容未实现&amp;quot;组合成死锁：想 pause 多副本 → 得先缩到 1 → 缩不了。&lt;/p>
+&lt;p>&lt;strong>每 pod 串行执行&lt;/strong>（&lt;code>kubernetes/internal/task-executor/manager/task_manager.go&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">maxConcurrentTasks&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>一个 pod 同时只能跑一个任务，第二个直接报错。并发度完全由 &lt;code>spec.replicas&lt;/code> 决定，任务排队只能靠扩容。&lt;/p>
+&lt;p>&lt;strong>分配状态真相源是注解，整表覆盖写&lt;/strong>。每次分配把 pod 数组 JSON 整表 MergePatch 写 &lt;code>alloc-status&lt;/code> 注解，并发分配时以最后一次写入为准，丢更新风险靠&amp;quot;先内存后注解、失败回滚&amp;quot;兜底。绕过内存 store 直接改注解会丢状态——注解是内部契约，别碰。&lt;/p>
+&lt;p>&lt;strong>任务下发走裸 HTTP&lt;/strong>。调度器对 pod 内 5758 端口直连，无认证无鉴权，安全边界完全依赖 NetworkPolicy。部署时必须配。&lt;/p>
+&lt;blockquote>
+&lt;p>这份清单里我最警惕的是缩容那条 TODO——它意味着&amp;quot;多副本&amp;quot;这个看起来很常规的能力，实际是半成品：不能缩、pause 不了、Pod 挂了不补。容量规划只能按只增不减来做。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="风险清单上游-open-issues-里躲不掉的坑">风险清单：上游 open issues 里躲不掉的坑
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>调研时我们实际用不到 pause/resume，本来以为禁掉就能绕开一批问题。对着全部 open issues 逐个过完的结论是：绝大多数规模化风险和 pause/resume 无关，禁用也躲不掉。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>P0 级，Pool 模式的复合缺陷&lt;/strong>（截至调研均无修复 PR）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Issue&lt;/th>
+&lt;th>现象&lt;/th>
+&lt;th>要点&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>#1423&lt;/td>
+&lt;td>Pod 创建/删除风暴&lt;/td>
+&lt;td>每分钟创建 ~2250 / 删除 ~2290 个 pool Pod，约一半创建请求失败；重启控制器无效，~15 分钟复发&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>#954&lt;/td>
+&lt;td>分配的 Pod 被删后永不重绑&lt;/td>
+&lt;td>上面缩容 TODO 那条的上游 issue 化，沙箱永久不可用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>#1433&lt;/td>
+&lt;td>&lt;code>poolRef&lt;/code> 可变更导致 in-use Pod 被杀&lt;/td>
+&lt;td>CRD 无 &lt;code>x-kubernetes-validations&lt;/code> 也无 admission webhook，运行中改 poolRef 触发破坏链且状态假报&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>#1423 有个特别阴的细节：缩容按 CreationTimestamp 升序删 idle Pod，&amp;ldquo;最旧空闲&amp;quot;在长启动时间下等于&amp;quot;刚启动完的&amp;rdquo;——正好把可服务的 buffer 删掉，留下 Pending，风暴自我维持。&lt;/p>
+&lt;p>&lt;strong>「挂了自动拉起」不存在&lt;/strong>。上游明确 resume 只恢复有意的 Paused 状态，Terminated/Failed 不自动重启；重建 = 新 sandbox ID + 内存和未持久化状态全丢。这是集成设计的前提性结论：&lt;strong>业务关键状态必须外置&lt;/strong>，&amp;ldquo;自动拉起 + 保 ID + 保状态&amp;quot;在当前上游语义下不可实现。&lt;/p>
+&lt;p>&lt;strong>快照作为替代方案也有坑&lt;/strong>：带 egress sidecar（即启用 network_policy）的沙箱无法 snapshot（#1382，commit Job 对多平台 manifest 单平台化 push 失败）——几乎所有有网络隔离的真实工作负载都中招；快照删除不清理 registry 镜像（#1179），存储泄漏。&lt;/p>
+&lt;p>&lt;strong>运维侧三个必知&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>#1386：server 运行约 1 周后 httpx 连接池耗尽（当时并发只有 1-5 也复现），长期运行建议监控连接池并周期性重启；&lt;/li>
+&lt;li>#1408：server 只导出一个指标，还是 SDK 客户端上报的——不用 SDK 的部署一个指标都没有，约 40 种失败模式零计数，故障在指标层完全不可见；&lt;/li>
+&lt;li>#1409：egress 的 memory/cpu 指标实际读的是节点 &lt;code>/proc&lt;/code>，却按 &lt;code>sandbox_id&lt;/code> 打标签，N 个沙箱 = N 条相同的节点级假序列，监控基数爆炸。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>对策压缩成五条&lt;/strong>：不假设任何自动恢复；Pool 模式先验证 #954/#1433 修复是否合入、CR 创建后禁止改 poolRef、小 pool 固定容量；批量释放别用 SDK 串行 &lt;code>releaseAllIdle&lt;/code>（500 个空闲沙箱 ≈ 480s，自实现 50 并发可压到 ~150s）；快照方案避开 network_policy 并自行清理镜像；server 自建指标。&lt;/p>
+&lt;h2 id="proxy-链路的业务事实">proxy 链路的业务事实
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>我们的业务里所有沙箱流量都走 server proxy，这一节是把 proxy 的行为事实单独拎出来，集成时逐条对过。&lt;/p>
+&lt;/blockquote>
+&lt;p>连接拓扑：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">业务 / SDK（use_server_proxy=True）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ create / delete / renew-expiration（lifecycle API，直连 server）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ exec / 文件 / 健康检查（execd API，经 proxy 转发）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">OpenSandbox Server
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ├── proxy（/sandboxes/{id}/proxy/{port}/）──► 沙箱 execd（默认 44772）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> └── renew_intent consumer（proxy 访问触发自动续约）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>每次 proxy 转发前依次执行（&lt;code>server/opensandbox_server/api/proxy.py&lt;/code>）：解析沙箱内部端点 → secure-access token 校验（启用时缺头 401/403）→ 提交自动续约信号（非阻塞）→ 转发。&lt;/p>
+&lt;p>&lt;strong>自动续约的生效条件&lt;/strong>，四个必须同时满足：服务端 &lt;code>[renew_intent] enabled = true&lt;/code>；沙箱创建时 opt-in（&lt;code>extensions[&amp;quot;access.renew.extend.seconds&amp;quot;]&lt;/code> = 300~86400）；沙箱 Running；有过期时间。语义是 &lt;code>new_expires_at = max(now + extend.seconds, current_expires_at)&lt;/code>，单调不减、幂等。&lt;/p>
+&lt;p>&lt;strong>容易踩的边界&lt;/strong>：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>端口必须已暴露&lt;/strong>：proxy 只对创建沙箱时暴露的端口生效，execd 的 44772 没暴露就是 404/502；&lt;/li>
+&lt;li>&lt;strong>runtime-id 门禁&lt;/strong>：pod 被重建后旧 id 返回 409 RUNTIME_REPLACED，调用方要按响应里的 &lt;code>runtime_id&lt;/code> 切换，这个 409 实际是&amp;quot;环境已重置&amp;quot;的信号；&lt;/li>
+&lt;li>&lt;strong>伪永久沙箱不续约&lt;/strong>：创建不传 &lt;code>timeout&lt;/code> 则 &lt;code>expiresAt=null&lt;/code>，永不自动终止，自动续约机制完全跳过；反过来过期了的沙箱想用 renew-expiration 补时间也是 409——TTL 是单向的；&lt;/li>
+&lt;li>&lt;strong>HTTP 的 &lt;code>Upgrade: websocket&lt;/code> 会 400&lt;/strong>，WebSocket 走 proxy 的独立路由；&lt;/li>
+&lt;li>&lt;strong>敏感 header 不转发&lt;/strong>：&lt;code>authorization&lt;/code>/&lt;code>cookie&lt;/code> 会被剥掉。&lt;/li>
+&lt;/ol>
+&lt;p>我们的选型结论：池化会话走&lt;strong>伪永久 + 上层主动删除&lt;/strong>，不 opt-in 续约，业务 delete 时由中间层 postStop 兜底回写状态；需要&amp;quot;空闲回收&amp;quot;兜底时才改 TTL + opt-in，让活跃会话经 proxy 自动续命。两条路径都不需要 Redis（proxy-only 模式本地冷却就够）。&lt;/p>
+&lt;blockquote>
+&lt;p>proxy 这个设计我比较欣赏的是续约信号的放置位置：挂在每次转发的必经路径上、非阻塞提交，活跃会话自然续命，不活跃自然过期——业务侧完全无感。缺点是多副本部署时可能重复续约（好在幂等，无害）。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="结">结
+&lt;/h2>&lt;hr>
+&lt;p>把全系列五篇的坑浓缩成一张最终 checklist：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">[ ] 任务型 sandbox 规模预估算过 3s 轮询的 reconcile 压力了吗
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] 列大目录前先 depth=1 探了吗；symlink 路径换成真实路径了吗
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] Helm 限额（128Mi/500m）按实际规模调过了吗
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] 接受&amp;#34;缩容未实现、Pod 挂了不补&amp;#34;了吗（容量只增不减）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] 业务关键状态外置了吗（自动拉起不存在，重建 = 新 ID + 丢状态）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] Pool 模式验证过 #954/#1433 修复了吗；poolRef 锁死了吗
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] NetworkPolicy 配了吗（task 下发是裸 HTTP）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] server 自建指标了吗（自监控约等于零）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[ ] 长期运行的 server 有 httpx 连接池监控吗
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>五篇走读到这收官。从 controller 的 reconcile 闭环、lease 生命周期与续约、池化的模板/注入/S3 会话同步、出口网络的策略与池化出口，最后落到这篇的坑清单——我对 OpenSandbox 的整体判断没变过：架构思路（池化 + 内存态调度 + 注解契约）足够轻快，但工程完备度和它宣传的生产可用之间还有明显距离，规模化路径上的每一个坑几乎都指向同一个根源：内存态 + 无事件机制 + 无界结构。用它，就得按它的真实边界来设计，而不是按文档承诺来设计。&lt;/p>
+&lt;/blockquote></description></item><item><title>OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口</title><link>https://daidaij.github.io/p/opensandbox-4-egress/</link><pubDate>Sun, 06 Sep 2026 20:10:55 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-4-egress/</guid><description>&lt;img src="https://picsum.photos/seed/03153fdb/800/600" alt="Featured image of post OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口" />&lt;h1 id="opensandbox-源码走读四出口网络networkpolicyegress-sidecar-与池化出口">OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>沙箱平台最尴尬的问题之一：用户在沙箱里跑的代码是不可信的，但它偏偏需要出网——调 LLM API、拉 GitHub、装 pip 包。这一篇讲 OpenSandbox 怎么管住这条出口：先拆 egress sidecar 的内部实现，再对比 K8s 原生 NetworkPolicy 为什么不行，最后是我结合自己 Higress 背景想聊的池化出口 + 网关分层方案。&lt;/p>
