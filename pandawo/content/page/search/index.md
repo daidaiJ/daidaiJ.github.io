@@ -5,6 +5,9 @@ layout: "search"
 outputs:
     - html
     - json
+build:
+    list: never
+    render: always
 menu:
     main:
         weight: -60
