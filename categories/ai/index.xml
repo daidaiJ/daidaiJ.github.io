@@ -1824,7 +1824,7 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/blockquote></description></item><item><title>Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</link><pubDate>Sun, 06 Sep 2026 19:59:22 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-ttl/</guid><description>&lt;img src="https://picsum.photos/seed/bdbb9d5f/800/600" alt="Featured image of post Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制" />&lt;h1 id="higress-端点级断路器一本地-provider-的端点屏蔽与-ttl-控制">Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制
 &lt;/h1>&lt;hr>
 &lt;blockquote>
-&lt;p>上游换成私有化部署的 LLM 端点之后，故障形态变了：不报 429、不吐 5xx，就是慢——请求挂在网关上几分钟才吐结果，用户早走了。这篇记录我基于 ai-load-balancer 做的一层端点级断路器：响应耗时突破阈值就把端点拉黑，TTL 到期自动放回负载均衡池。整套设计里我最满意的是统计层的 5s 去重窗口——同一端点短时间内只计一次，既防高频请求重复统计，也防一次抖动被放大成误判。&lt;/p>
+&lt;p>上游换成私有化部署的 LLM 端点之后，故障形态变了：不报 429、不吐 5xx，就是慢——请求挂在网关上几分钟才吐结果，用户早走了。这篇记录我基于 ai-load-balancer 做的一层端点级断路器：响应耗时持续突破阈值（2&lt;del>3 次确认）就把端点拉黑，TTL 30&lt;/del>60s 到期自动放回负载均衡池。整套设计里我最满意的是统计层的 5s 去重间隔——同一端点短时间内只计一次，既防高频请求重复统计，也配合确认次数把一次抖动挡在误判之外。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="动机慢节点拖尾是私有化部署的特有痛点">动机：慢节点拖尾是私有化部署的特有痛点
 &lt;/h2>&lt;hr>
@@ -1904,7 +1904,7 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;li>屏蔽状态走 SharedData（CAS 写），计数爆炸直接放大写竞争；&lt;/li>
 &lt;li>观测指标失真——看起来&amp;quot;失败了 40 次&amp;quot;，其实是一个慢节点拖住的一批受害者。&lt;/li>
 &lt;/ul>
-&lt;p>所以统计层加了去重窗口：&lt;strong>短时间内（5s）同一端点只计算一次&lt;/strong>。设计推演如下（伪代码，非最终实现）：&lt;/p>
+&lt;p>所以统计层加了去重间隔：&lt;strong>短时间内（5s）同一端点只计算一次&lt;/strong>。设计推演如下（伪代码，非最终实现）：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
@@ -1925,37 +1925,46 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/span>&lt;span class="lnt">16
 &lt;/span>&lt;span class="lnt">17
 &lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 伪代码：响应统计 + 去重 + 拉黑判定
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">const&lt;/span> &lt;span class="p">(&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dedupWindowMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">5000&lt;/span> &lt;span class="c1">// 5s 去重窗口
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dedupWindowMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">5000&lt;/span> &lt;span class="c1">// 5s 去重间隔
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">slowThreshold&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">70000&lt;/span> &lt;span class="c1">// 慢阈值 70s
-&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">blockTtlMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">ttl&lt;/span> &lt;span class="c1">// 拉黑 TTL，做成配置项，不写死
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">confirmCount&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="c1">// 确认次数阈值，2~3 次按场景调
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">blockTtlMs&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">45000&lt;/span> &lt;span class="c1">// 拉黑 TTL，30~60s 区间内取值
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">onUpstreamResponse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">costMs&lt;/span> &lt;span class="kt">int64&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">now&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">nowMs&lt;/span>&lt;span class="p">()&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">st&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">stats&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">lastCountedAt&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nx">dedupWindowMs&lt;/span> &lt;span class="p">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1">// ← 窗口内已计过，这个响应不重复入账
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1">// ← 间隔内已计过，这个响应不重复入账
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">lastCountedAt&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">now&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">costMs&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="nx">slowThreshold&lt;/span> &lt;span class="p">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">block&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="nx">blockTtlMs&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 突破阈值，拉黑
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">count&lt;/span>&lt;span class="o">++&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">st&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">count&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="nx">confirmCount&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">block&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="nx">blockTtlMs&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 慢样本攒够确认次数，拉黑
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>去重带来的第二个收益是防抖动放大误判。没有窗口时，一次网络抖动产生的整批慢响应会被当成多次独立证据，叠加起来很容易越过判定边界；有窗口后，统计的时间分辨率被限制在 5s，抖动只能贡献一个样本，持续性的慢才会持续入账。&lt;/p>
+&lt;/div>&lt;p>去重带来的第二个收益是防抖动放大误判。没有窗口时，一次网络抖动产生的整批慢响应会被当成多次独立证据，叠加起来很容易越过判定边界；有窗口后，统计的时间分辨率被限制在 5s，抖动只能贡献一个样本，持续性的慢才会持续入账。顺带它还保证了确认次数之间的&lt;strong>最小采样间隔&lt;/strong>——2&lt;del>3 次确认至少跨过 5&lt;/del>10s 的观察期，&amp;ldquo;一次抖动&amp;quot;和&amp;quot;持续变慢&amp;quot;在这个尺度上被区分开。&lt;/p>
 &lt;p>多 worker 的一致性问题也要面对。wasm 插件每个 Envoy worker 线程一个 VM，跨 worker 状态不互通——统计视角天然分片，这反而可以接受（每个 worker 是一个独立采样点）；但屏蔽名单必须全局一致，否则 A worker 拉黑了、B worker 还往坏端点上发请求。跨 VM 的写要走 &lt;code>Get/SetSharedData&lt;/code>（CAS），SDK 的语义是并发写同一 key 返回 &lt;code>ErrorStatusCasMismatch&lt;/code>，计数器/状态必须做 Get+Set 重试循环，不能假设一次成功。&lt;/p>
 &lt;blockquote>
 &lt;p>我考虑过把去重窗口也放 SharedData 做全局一致，后来放弃了：窗口状态是高频热路径，每次响应都 CAS 一轮，写竞争的代价超过收益。5s 窗口本身对精度不敏感，per-worker 各自维护，采样视角还更分散——这算是我为数不多主动选择&amp;quot;不一致&amp;quot;的地方。&lt;/p>
 &lt;/blockquote>
-&lt;h2 id="阈值与-ttl70s-拉黑到期自动恢复">阈值与 TTL：70s 拉黑，到期自动恢复
+&lt;h2 id="阈值与-ttl70s-慢阈值--23-次确认3060s-拉黑">阈值与 TTL：70s 慢阈值 × 2&lt;del>3 次确认，30&lt;/del>60s 拉黑
 &lt;/h2>&lt;hr>
-&lt;p>判定逻辑压成一句话：端点响应耗时突破 70s，且通过了 5s 去重确认，就拉黑；拉黑不是永久的，TTL 到期自动恢复参与负载均衡。&lt;/p>
-&lt;p>70s 这个数的来源是私有化场景的两头挤压：下限要高于正常推理的长尾——长上下文请求跑三四十秒是常态，阈值太低会把慢请求误判成慢节点；上限受交互式体验约束——LLM 场景用户对首字延迟的容忍就是几十秒的量级，一个响应要 70s 的端点，对用户来说和挂了没有区别。既然&amp;quot;慢到 70s&amp;quot;本身已经是不可接受的服务质量，单次确认即拉黑，不再堆失败次数。&lt;/p>
+&lt;p>判定逻辑压成一句话：耗时突破 70s 的慢样本，按 5s 去重间隔计数，攒够 2~3 次确认就拉黑；拉黑不是永久的，TTL 到期自动恢复参与负载均衡。&lt;/p>
+&lt;p>70s 这个数的来源是私有化场景的两头挤压：下限要高于正常推理的长尾——长上下文请求跑三四十秒是常态，阈值太低会把慢请求误判成慢节点；上限受交互式体验约束——LLM 场景用户对首字延迟的容忍就是几十秒的量级，一个响应要 70s 的端点，对用户来说和挂了没有区别。&lt;/p>
+&lt;p>确认次数定在 2&lt;del>3 是第三个旋钮：只确认一次，一次长尾抖动（provider GC、瞬时批处理排队）就会误杀健康端点；要求太多次，慢节点又会在池里白吃好几分钟流量。2&lt;/del>3 次配合 5s 去重间隔，等效于要求&amp;quot;慢状态持续 10&lt;del>15s 以上&amp;quot;才动手——误杀率和反应速度都被框在了可接受区间。TTL 取 30&lt;/del>60s，则是在&amp;quot;别把暂时过载的节点锁太久&amp;quot;和&amp;quot;别让真坏节点频繁回来试&amp;quot;之间取的平衡。&lt;/p>
 &lt;p>时间线长这样：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
@@ -1965,12 +1974,14 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/span>&lt;span class="lnt">4
 &lt;/span>&lt;span class="lnt">5
 &lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">T+0s 请求 A → 端点 E，开始推理
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+70s A 耗时突破 70s → E 记一次慢失败（窗口内首次，入账）
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+71s+ 在途请求 B/C/D 相继超时 → 5s 窗口内，全部去重，不再计数
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → E 拉黑，blockUntil = now + TTL
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+70s A 耗时突破 70s → E 记第 1 次慢失败（5s 间隔内首次，入账）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+71s+ 在途请求 B/C/D 相继超时 → 间隔内全部去重，不计数
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">T+75s+ 后续请求依旧超时 → 跨过间隔，记第 2 次
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → 慢样本攒到确认次数（2~3），E 拉黑，blockUntil = now + TTL(30~60s)
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">TTL 内 选端时过滤屏蔽名单，E 被跳过
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">TTL 到期 E 惰性恢复，自动回到候选池
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
@@ -1997,7 +2008,7 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
 &lt;/div>&lt;blockquote>
-&lt;p>TTL 恢复是个乐观假设：到期不等于健康。端点如果还在慢，第一个打过去的请求会用 70s 重新确认一次，再拉黑一轮——相当于用真实流量做探测，代价是每个 TTL 周期有一次糟糕的用户体验。要不要配主动健康检查（用最小模型探活提前解封），我还在权衡，至少当前流量规模下不值当。&lt;/p>
+&lt;p>TTL 恢复是个乐观假设：到期不等于健康。端点如果还在慢，打过去的请求重新开始攒慢样本，再花 2~3 次确认拉黑一轮——相当于用真实流量做探测，代价是每个 TTL 周期有一段糟糕的用户体验。要不要配主动健康检查（用最小模型探活提前解封），我还在权衡，至少当前流量规模下不值当。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="实现要点贴着-wasm-的约束走">实现要点：贴着 wasm 的约束走
 &lt;/h2>&lt;hr>
@@ -2049,7 +2060,7 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>&lt;strong>fail-open 兜底。&lt;/strong> wasm 框架对插件 panic 的兜底语义是 fail-open：wrapper 的 &lt;code>recoverFunc&lt;/code> 捕获 panic 后，回调以零值 &lt;code>ActionContinue&lt;/code> 返回，请求继续正常处理。这对断路器是理想行为——屏蔽逻辑自身崩溃，最坏结果是&amp;quot;不屏蔽&amp;quot;，绝不会挡流量。推论是故障完全静默，必须靠日志关键词告警兜住，调试期可以用 &lt;code>WASM_DISABLE_PANIC_RECOVERY=true&lt;/code> 关掉兜底看原始栈。&lt;/p>
+&lt;/div>&lt;p>&lt;strong>fail-open 兜底。&lt;/strong> wasm 框架对插件 panic 的兜底语义是 fail-open：wrapper 的 &lt;code>recoverFunc&lt;/code> 捕获 panic 后，回调以零值 &lt;code>ActionContinue&lt;/code> 返回，请求继续正常处理。这对断路器是理想行为——屏蔽逻辑自身崩溃，最坏结果是&amp;quot;不屏蔽&amp;rdquo;，绝不会挡流量。推论是故障完全静默，必须靠日志关键词告警兜住，调试期可以用 &lt;code>WASM_DISABLE_PANIC_RECOVERY=true&lt;/code> 关掉兜底看原始栈。&lt;/p>
 &lt;p>&lt;strong>共存纪律。&lt;/strong> &lt;code>SetUpstreamOverrideHost&lt;/code> 一个请求只允许一个策略，断路器和其他 LB 类插件不能同挂；SharedData key 加插件前缀，防互踩。&lt;/p>
 &lt;blockquote>
 &lt;p>参考实现可以直接看仓库里两个现成插件：ai-load-balancer 的 &lt;code>global_least_request/lb_policy.go&lt;/code>（端点健康读取 + 指定 host 转发的完整姿势）、ai-proxy 的 &lt;code>provider/failover.go&lt;/code>（SharedData 健康状态机 + 探测恢复）。我的屏蔽名单状态机基本是后者换了判定信号。&lt;/p>
