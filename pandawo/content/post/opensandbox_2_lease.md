@@ -206,7 +206,9 @@ except (DockerException, TypeError) as exc:
 ------
 手动续约要求调用方自己记得续，OpenSandbox 在 OSEP-0009 里做了访问驱动的自动续约：**反向代理观测到流量，就替沙箱续一次命**。
 
-激活是三方握手：服务端 `[renew_intent] enabled=true`、ingress 模式还要开 Redis、创建沙箱时 opt-in 一个 extension。opt-in 的合法性在创建时校验：
+用法上就两步：创建沙箱时在 `extensions` 里 opt-in，之后所有**经 server proxy 的调用**（exec/文件/健康检查，转发前有 `_schedule_proxy_renew` 埋点）自动续期；ingress 模式额外开 Redis。但整条链路有一个唯一的坑，先说在前面——**服务端开关**。`[renew_intent] enabled` 默认 `False`，而创建时对 extension 的校验只查值的格式（300~86400 的字符串十进制整数），**不查服务端开关**。也就是说客户端全做对了、proxy 调用一切正常，server 没开开关就一个字都不续——`proxy_renew.py` 第 38 行直接短路返回，无日志无报错，沙箱到点照样被杀。排查"自动续约不生效"，第一个要看的不是客户端配置，是 server config 里这个开关。
+
+opt-in 的合法性在创建时校验的只有这个：
 
 ```python
 # server/opensandbox_server/extensions/validation.py
@@ -331,6 +333,7 @@ egress 是个例外支线：`OPENSANDBOX_EGRESS_*` 前缀的 key 会被 `split_e
 | 续约时间早于当前 expiresAt | spec 禁止（只能延长） | `sandbox-lifecycle.yml` |
 | 伪永久沙箱调续约 | 409 | `docker_service.py:1199` |
 | 自动续约对伪永久沙箱 | 静默跳过（门控 return False） | `controller.py:69` |
+| server 未开 renew_intent.enabled | opt-in 照常创建、proxy 照常转发，但续约零次（开关默认 False） | `config.py` / `proxy_renew.py:38` |
 | lease 状态 label 丢失 | 拒绝续约（409），但过期调度也可能 skip+warning | `docker_service.py` restore 逻辑 |
 | Pod 被外部删除（Pool） | 沙箱永久不可用，无自愈 | #954 |
 | TTL 过期自动删除（K8s） | PVC ownerReferences 可能缺失导致泄漏 | #1199 |
