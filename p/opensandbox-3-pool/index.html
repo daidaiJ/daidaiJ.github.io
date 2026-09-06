@@ -1,0 +1,332 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步 前两篇看了 CRD 模型和创建链路，这篇讲我觉得整套系统里工程含金量最高的部分：池化。AI agent 场景下沙箱创建动辄十几秒，用户等不了——所以要把 pod 提前建好捂热，create 时直接分配。但"复用已运行的 pod"这个约束会连锁引出一堆问题：模板更新了怎么办？用户身份怎么在分配时刻注进去？上一个用户的会话数据怎么保证不串到下一个用户？这篇沿着"模板 → 池 → 分配 → 会话同步"把这条线走完。\n'><title>OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步</title>
+<link rel=canonical href=https://daidaij.github.io/p/opensandbox-3-pool/><link rel=stylesheet href=/scss/style.min.7c715415b9353155dfb3908d13889fc776b27eef1d6af8de36224e1dd2704c41.css><meta property='og:title' content="OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步"><meta property='og:description' content='OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步 前两篇看了 CRD 模型和创建链路，这篇讲我觉得整套系统里工程含金量最高的部分：池化。AI agent 场景下沙箱创建动辄十几秒，用户等不了——所以要把 pod 提前建好捂热，create 时直接分配。但"复用已运行的 pod"这个约束会连锁引出一堆问题：模板更新了怎么办？用户身份怎么在分配时刻注进去？上一个用户的会话数据怎么保证不串到下一个用户？这篇沿着"模板 → 池 → 分配 → 会话同步"把这条线走完。\n'><meta property='og:url' content='https://daidaij.github.io/p/opensandbox-3-pool/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='opensandbox'><meta property='article:tag' content='k8s'><meta property='article:tag' content='sandbox'><meta property='article:tag' content='ai-agent'><meta property='article:published_time' content='2026-09-06T20:10:52+08:00'><meta property='article:modified_time' content='2026-09-06T20:10:52+08:00'><meta property='og:image' content='https://picsum.photos/seed/4d5af0f3/800/600'><meta name=twitter:title content="OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步"><meta name=twitter:description content='OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步 前两篇看了 CRD 模型和创建链路，这篇讲我觉得整套系统里工程含金量最高的部分：池化。AI agent 场景下沙箱创建动辄十几秒，用户等不了——所以要把 pod 提前建好捂热，create 时直接分配。但"复用已运行的 pod"这个约束会连锁引出一堆问题：模板更新了怎么办？用户身份怎么在分配时刻注进去？上一个用户的会话数据怎么保证不串到下一个用户？这篇沿着"模板 → 池 → 分配 → 会话同步"把这条线走完。\n'><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/4d5af0f3/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换暗色模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span>暗色</span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#为什么要池化>为什么要池化</a></li><li><a href=#template-更新sha256-版本号--只换空闲-pod>Template 更新：sha256 版本号 + 只换空闲 pod</a></li><li><a href=#分配先到先得不认版本号>分配：先到先得，不认版本号</a></li><li><a href=#分配时刻注入tasktemplate-就是现成的通道>分配时刻注入：taskTemplate 就是现成的通道</a></li><li><a href=#s3-会话同步固定-poststop--中间层静默-exec>S3 会话同步：固定 postStop + 中间层静默 exec</a></li><li><a href=#shardtaskpatches批量创建时的差异化补丁>shardTaskPatches：批量创建时的差异化补丁</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/opensandbox-3-pool/><img src=https://picsum.photos/seed/4d5af0f3/800/600 loading=lazy alt="Featured image of post OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记
+</a><a href=/categories/kubernetes/>Kubernetes</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/opensandbox-3-pool/>OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Sep 06, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 9 分钟</time></div><div><time class=article-words>4206 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=opensandbox-源码走读三池化设计template-更新分配注入与-s3-会话同步>OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步</h1><hr><blockquote><p>前两篇看了 CRD 模型和创建链路，这篇讲我觉得整套系统里工程含金量最高的部分：池化。AI agent 场景下沙箱创建动辄十几秒，用户等不了——所以要把 pod 提前建好捂热，create 时直接分配。但"复用已运行的 pod"这个约束会连锁引出一堆问题：模板更新了怎么办？用户身份怎么在分配时刻注进去？上一个用户的会话数据怎么保证不串到下一个用户？这篇沿着"模板 → 池 → 分配 → 会话同步"把这条线走完。</p></blockquote><h2 id=为什么要池化>为什么要池化</h2><hr><p>非池化路径下，create 一个沙箱意味着：调度 pod → 拉镜像 → 启动容器 → execd 就绪，整个链路秒级起步、镜像大了奔着分钟去。agent 场景里这是不可接受的——用户发一条消息，agent 要在对话内频繁开沙箱跑代码，没人愿意等十几秒的"白屏"。</p><p>池化的思路很朴素：用 <code>Pool</code> CRD 预先按模板创建一批 pod 捂着，业务 create 时带 <code>extensions.poolRef</code>，server 不再建 pod，而是从池里挑一个已运行的分给这个 BatchSandbox：</p><pre class=mermaid style=visibility:hidden>flowchart LR
+    A[业务 create poolRef] --> B[server 建 BatchSandbox CR]
+    B --> C[PoolReconciler 分配预热 pod]
+    C --> D[taskTemplate 下发到 pod 内 task-executor]
+    D --> E[返回 create 成功]</pre><p>pod 建好之后所有动作都发生在"已运行的容器"里，这就是池化一切设计的出发点。</p><h2 id=template-更新sha256-版本号--只换空闲-pod>Template 更新：sha256 版本号 + 只换空闲 pod</h2><hr><p>Pool 的模板版本不是手填的，是控制器对 <code>spec.template</code> 做 sha256 算出来的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/controller/pool_controller.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>r</span> <span class=o>*</span><span class=nx>PoolReconciler</span><span class=p>)</span> <span class=nf>calculateRevision</span><span class=p>(</span><span class=nx>pool</span> <span class=o>*</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>Pool</span><span class=p>)</span> <span class=p>(</span><span class=kt>string</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>template</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>json</span><span class=p>.</span><span class=nf>Marshal</span><span class=p>(</span><span class=nx>pool</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Template</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>revision</span> <span class=o>:=</span> <span class=nx>sha256</span><span class=p>.</span><span class=nf>Sum256</span><span class=p>(</span><span class=nx>template</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>hex</span><span class=p>.</span><span class=nf>EncodeToString</span><span class=p>(</span><span class=nx>revision</span><span class=p>[:</span><span class=mi>8</span><span class=p>]),</span> <span class=kc>nil</span>  <span class=c1>// ← 取前 8 字节做版本号
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>新创建的 pod 会打上 <code>sandbox.opensandbox.io/pool-revision</code> 标签（<code>createPoolPod</code> 里 <code>pod.Labels[LabelPoolRevision] = updateRevision</code>），这样池子里每个 pod 属于哪个版本一目了然。</p><p>更新策略有个关键前提：<strong>只处理 idle pod</strong>。<code>scheduleSandbox</code> 里 idle 的定义是"Ready 且未被分配"：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/controller/pool_controller.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>latestAllocation</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nx>Allocator</span><span class=p>.</span><span class=nf>GetPoolAllocation</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>pool</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=nx>idlePods</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>([]</span><span class=kt>string</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pods</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>latestAllocation</span><span class=p>[</span><span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>];</span> <span class=p>!</span><span class=nx>ok</span> <span class=p>{</span>  <span class=c1>// ← 被分配的不算 idle
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>idlePods</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>idlePods</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>recreateUpdateStrategy.Compute</code>（<code>pool_update.go</code>）的签名直接把这一点写在了参数上：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nf>Compute</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>updateRevision</span> <span class=kt>string</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>pods</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>idlePods</span> <span class=p>[]</span><span class=kt>string</span><span class=p>)</span> <span class=o>*</span><span class=nx>UpdateResult</span>
+</span></span></code></pre></td></tr></table></div></div><p>替换节奏受 <code>UpdateStrategy.MaxUnavailable</code>（默认 25%）预算控制，空闲 pod 分批删旧建新。<code>GenerationChangedPredicate</code> 保证只有 spec 变更才触发 reconcile，status 抖动不会引发无谓轮询。</p><blockquote><p>只换 idle pod 是对的——已分配的 pod 背后有活着的沙箱，删了就是事故。但它带来一个容易被忽略的推论：如果池子里所有 pod 都被分配了，<code>updatePool</code> 算出 <code>SupplyUpdateRevision = 0</code>，一个新 pod 都不会建，整个池子停留在旧版本，而且没有任何告警。升级模板前得先看一眼分配率。</p></blockquote><h2 id=分配先到先得不认版本号>分配：先到先得，不认版本号</h2><hr><p>分配算法在 <code>algorithm/packed.go</code>，简单到值得整段贴出来：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/controller/algorithm/packed.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>PackedSchedule</span> <span class=kd>struct</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>PackedSchedule</span><span class=p>)</span> <span class=nf>Schedule</span><span class=p>(</span><span class=nx>availablePods</span> <span class=p>[]</span><span class=kt>string</span><span class=p>,</span> <span class=nx>allRequest</span> <span class=p>[]</span><span class=o>*</span><span class=nx>SandboxRequest</span><span class=p>)</span> <span class=o>*</span><span class=nx>AllocAction</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>action</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>AllocAction</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ToAllocate</span><span class=p>:</span> <span class=nb>make</span><span class=p>(</span><span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>][]</span><span class=kt>string</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ToRelease</span><span class=p>:</span>  <span class=nb>make</span><span class=p>(</span><span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>][]</span><span class=kt>string</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>PodSupplement</span><span class=p>:</span> <span class=nb>int32</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>req</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>allRequest</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ... 收集 release 请求 ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>need</span> <span class=o>:=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>PodSupplement</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>need</span> <span class=o>&lt;=</span> <span class=mi>0</span> <span class=p>{</span> <span class=k>continue</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>int32</span><span class=p>(</span><span class=nb>len</span><span class=p>(</span><span class=nx>availablePods</span><span class=p>))</span> <span class=o>&gt;=</span> <span class=nx>need</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>action</span><span class=p>.</span><span class=nx>ToAllocate</span><span class=p>[</span><span class=nx>req</span><span class=p>.</span><span class=nx>SandboxName</span><span class=p>]</span> <span class=p>=</span> <span class=nx>availablePods</span><span class=p>[:</span><span class=nx>need</span><span class=p>]</span>  <span class=c1>// ← 按列表顺序切
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>availablePods</span> <span class=p>=</span> <span class=nx>availablePods</span><span class=p>[</span><span class=nx>need</span><span class=p>:]</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>availablePods</span><span class=p>)</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>action</span><span class=p>.</span><span class=nx>ToAllocate</span><span class=p>[</span><span class=nx>req</span><span class=p>.</span><span class=nx>SandboxName</span><span class=p>]</span> <span class=p>=</span> <span class=nx>availablePods</span>
+</span></span><span class=line><span class=cl>            <span class=nx>action</span><span class=p>.</span><span class=nx>PodSupplement</span> <span class=o>+=</span> <span class=nx>need</span> <span class=o>-</span> <span class=nb>int32</span><span class=p>(</span><span class=nb>len</span><span class=p>(</span><span class=nx>availablePods</span><span class=p>))</span>  <span class=c1>// 不够就补建
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>availablePods</span> <span class=p>=</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>action</span><span class=p>.</span><span class=nx>PodSupplement</span> <span class=o>+=</span> <span class=nx>need</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>action</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>availablePods</code> 就是上一节的 idle 列表——注意它<strong>不区分 revision</strong>，新旧版本的 pod 混在一起先到先得。所以模板刚更新完，只要 idle 池里还剩旧 revision 的 pod，新沙箱就可能分到旧 pod。</p><p>分配关系的记录方式也值得注意：<strong>pod 上没有任何指向 BatchSandbox 的所有权标记</strong>。pod 只有 <code>pool-name</code> 和 <code>pool-revision</code> 两个标签，ownerReference 指向的是 Pool；分配关系单向记在 BatchSandbox 的注解上：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/controller/apis.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>AnnoAllocStatusKey</span>   <span class=p>=</span> <span class=s>&#34;sandbox.opensandbox.io/alloc-status&#34;</span>   <span class=c1>// {&#34;pods&#34;:[&#34;pod-a&#34;]}
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>AnnoAllocReleaseKey</span>  <span class=p>=</span> <span class=s>&#34;sandbox.opensandbox.io/alloc-release&#34;</span>  <span class=c1>// 待释放
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>AnnoAllocReleasedKey</span> <span class=p>=</span> <span class=s>&#34;sandbox.opensandbox.io/alloc-released&#34;</span> <span class=c1>// 已释放
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p>没有 pod → sandbox 的正向索引，查"这个 pod 属于哪个沙箱"只能反向遍历所有 BatchSandbox 的注解。控制器的 <code>InMemoryAllocationStore</code> 也是从注解 Recover 出来的，没有独立持久化——好处是注解即真相、重启可恢复，坏处是规模化之后反向查询会很疼。</p></blockquote><h2 id=分配时刻注入tasktemplate-就是现成的通道>分配时刻注入：taskTemplate 就是现成的通道</h2><hr><p>池化 pod 是预热的，分配时<strong>不能改 pod spec</strong>——initContainer、ConfigMap 挂载、env 注入这些"创建时生效"的手段全部失效。分配时刻能做的只有往运行中的容器里执行动作。</p><p>server 的做法是把注入打包进 taskTemplate。看 <code>batchsandbox_provider.py</code> 的真实代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/services/k8s/batchsandbox_provider.py</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>_build_task_template</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>entrypoint</span><span class=p>,</span> <span class=n>env</span><span class=p>,</span> <span class=n>sandbox_id</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>escaped_entrypoint</span> <span class=o>=</span> <span class=s1>&#39; &#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>shlex</span><span class=o>.</span><span class=n>quote</span><span class=p>(</span><span class=n>arg</span><span class=p>)</span> <span class=k>for</span> <span class=n>arg</span> <span class=ow>in</span> <span class=n>entrypoint</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>execd_run_as_init</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>user_process_cmd</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&#34;exec /opt/opensandbox/bootstrap.sh </span><span class=si>{</span><span class=n>escaped_entrypoint</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>user_process_cmd</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&#34;/opt/opensandbox/bootstrap.sh </span><span class=si>{</span><span class=n>escaped_entrypoint</span><span class=si>}</span><span class=s2> &amp;&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>wrapped_command</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;/bin/sh&#34;</span><span class=p>,</span> <span class=s2>&#34;-c&#34;</span><span class=p>,</span> <span class=n>user_process_cmd</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=n>env_list</span> <span class=o>=</span> <span class=p>[{</span><span class=s2>&#34;name&#34;</span><span class=p>:</span> <span class=n>k</span><span class=p>,</span> <span class=s2>&#34;value&#34;</span><span class=p>:</span> <span class=n>v</span><span class=p>}</span> <span class=k>for</span> <span class=n>k</span><span class=p>,</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>env</span><span class=o>.</span><span class=n>items</span><span class=p>()]</span> <span class=k>if</span> <span class=n>env</span> <span class=k>else</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>    <span class=n>env_list</span><span class=o>.</span><span class=n>append</span><span class=p>({</span><span class=s2>&#34;name&#34;</span><span class=p>:</span> <span class=s2>&#34;OPENSANDBOX_ID&#34;</span><span class=p>,</span> <span class=s2>&#34;value&#34;</span><span class=p>:</span> <span class=n>sandbox_id</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>{</span><span class=s2>&#34;spec&#34;</span><span class=p>:</span> <span class=p>{</span><span class=s2>&#34;process&#34;</span><span class=p>:</span> <span class=p>{</span><span class=s2>&#34;command&#34;</span><span class=p>:</span> <span class=n>wrapped_command</span><span class=p>,</span> <span class=s2>&#34;env&#34;</span><span class=p>:</span> <span class=n>env_list</span><span class=p>}}}</span>
+</span></span></code></pre></td></tr></table></div></div><p>有个容易踩的坑藏在 <code>_create_workload_from_pool</code> 里：不传 entrypoint/env 时走<strong>快路径</strong>，直接不生成 taskTemplate：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>needs_task_template</span> <span class=o>=</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span>
+</span></span><span class=line><span class=cl>    <span class=ow>or</span> <span class=n>entrypoint</span> <span class=o>!=</span> <span class=n>DEFAULT_ENTRYPOINT</span>
+</span></span><span class=line><span class=cl>    <span class=ow>or</span> <span class=bp>self</span><span class=o>.</span><span class=n>execd_run_as_init</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>needs_task_template</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>spec</span><span class=p>[</span><span class=s2>&#34;taskTemplate&#34;</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_build_task_template</span><span class=p>(</span><span class=n>entrypoint</span><span class=p>,</span> <span class=n>env</span><span class=p>,</span> <span class=n>batchsandbox_name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=c1># Fast path: the pre-created pool pod keeps running its own warm</span>
+</span></span><span class=line><span class=cl>    <span class=c1># entrypoint, so no per-allocation env can reach execd.</span>
+</span></span></code></pre></td></tr></table></div></div><p>快路径省一次任务下发，但代价是连 <code>OPENSANDBOX_ID</code> 都注入不了，注释里明说了这条路径上 eBPF 审计无法归属 sandbox_id。</p><p>&ldquo;分配后注入"能成立，靠的是 controller 的 3 秒轮询链路：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>server 创建 BatchSandbox（含 taskTemplate）
+</span></span><span class=line><span class=cl>  → BatchSandboxReconciler 每 3s reconcile
+</span></span><span class=line><span class=cl>  → taskTemplate 生成 task specs 下发到 pod 内 task-executor（:5758）
+</span></span><span class=line><span class=cl>  → task-executor 先跑 preStart 钩子，再跑主命令
+</span></span></code></pre></td></tr></table></div></div><p>这引出一个关键的时序判断：<strong>taskTemplate 是 server 每次分配时生成的，create 请求里的动态参数（user_id、token）在生成那一刻就已知</strong>，所以可以直接渲染进命令——命令里 <code>cat > file &lt;&lt;'EOF'</code> 写文件、<code>sh file</code> 调脚本，注入和调用一次完成。执行天然发生在分配后，不需要新开 k8s exec 接口。exec 只在需要"分配后才知道的信息&rdquo;（pod IP、运行时探测）时才值得引入。</p><blockquote><p>token 这类敏感凭证注入时要小心：taskTemplate 的命令会进日志，<code>user_auth_token</code> 千万别拼进命令行，走 env 注入更稳。而且 Pool 模式下 Secret 挂载必须预挂进模板，分配时加不了——所以分配时刻注入 token 实际只有 env 和文件两条路。</p></blockquote><h2 id=s3-会话同步固定-poststop--中间层静默-exec>S3 会话同步：固定 postStop + 中间层静默 exec</h2><hr><p>池化还有个更麻烦的问题：pod 是复用的，用户 A 用完回池，用户 B 分到同一个 pod 时绝不能看到 A 的文件。解法是把会话状态放 S3，按前缀隔离：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>s3://&lt;bucket&gt;/tenants/&lt;tenantId&gt;/users/&lt;userId&gt;/sessions/&lt;sessionId&gt;/
+</span></span></code></pre></td></tr></table></div></div><p>架构上分三层，各管各的：</p><div class=table-wrapper><table><thead><tr><th>层</th><th>职责</th><th>时机</th></tr></thead><tbody><tr><td>Pool 模板</td><td>共享 emptyDir <code>/shared-workspace</code>、task-executor 侧 S3 CLI + 凭证（IRSA）</td><td>一次配置</td></tr><tr><td>BatchSandbox</td><td>固定 postStop（与用户无关，所有沙箱一样）</td><td>建 CR 时带上</td></tr><tr><td>中间层</td><td>按用户渲染并注入 sync 脚本、触发 restore</td><td>分配后 exec</td></tr></tbody></table></div><p>固定 postStop 长这样：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>lifecycle</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>postStop</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>execMode</span><span class=p>:</span><span class=w> </span><span class=l>Local         </span><span class=w> </span><span class=c># 在 task-executor 侧执行</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>timeoutSeconds</span><span class=p>:</span><span class=w> </span><span class=m>180</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>exec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;/bin/sh&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;-c&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>        set -eu
+</span></span></span><span class=line><span class=cl><span class=sd>        HOOK=/shared-workspace/.osb-sync-out.sh
+</span></span></span><span class=line><span class=cl><span class=sd>        if [ -x &#34;$HOOK&#34; ]; then &#34;$HOOK&#34;; fi   # ← 存在才跑，注入的回写脚本
+</span></span></span><span class=line><span class=cl><span class=sd>        find /shared-workspace -mindepth 1 -delete  # 清盘防串台</span><span class=w>        
+</span></span></span></code></pre></td></tr></table></div></div><p>中间层的 create 流程对外仍然是一次普通的 create：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1. 解析身份 → S3_USER_PREFIX
+</span></span><span class=line><span class=cl>2. 创建 BatchSandbox（poolRef + 固定 postStop 的 taskTemplate）
+</span></span><span class=line><span class=cl>3. 等待分配的 pod Ready
+</span></span><span class=line><span class=cl>4. 内部 pods/exec 到 task-executor 容器：
+</span></span><span class=line><span class=cl>     a. 写入并 chmod +x /shared-workspace/.osb-sync-out.sh
+</span></span><span class=line><span class=cl>     b. 后台启动 inbound restore（aws s3 sync ... || true），不等 CLI 结束
+</span></span><span class=line><span class=cl>5. 标记会话已 prepare
+</span></span><span class=line><span class=cl>6. 返回 create 成功
+</span></span></code></pre></td></tr></table></div></div><p>delete 时（主动删或 expireTime 到期）走同一条路：删 CR → finalizer → StopTask → postStop 跑 <code>.osb-sync-out.sh</code> 回写 S3 + 清盘 → pod 回池。到期删除也能回写，这是把回写放进 postStop 而不是让业务在 delete 前自己 sync 的核心理由。</p><p>为什么脚本要靠 exec 注入、而不是让固定钩子去读用户 env？我查了 task-executor 的实现，Local 钩子的环境是这么构造的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/task-executor/runtime/process.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>cmd</span><span class=p>.</span><span class=nx>Env</span> <span class=p>=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Environ</span><span class=p>()</span>  <span class=c1>// ← 只继承 task-executor 进程自身环境
+</span></span></span></code></pre></td></tr></table></div></div><p>钩子<strong>不继承</strong> task 的 <code>process.env</code>，所以"create 时塞个 <code>S3_USER_PREFIX</code> env、固定 sync 脚本去读"这条路在当前实现下走不通——注入脚本把前缀写进文件，就是在绕这个限制。postStop 钩子在任务终态（成功/失败/超时/删除）时必执行，倒是销毁前持久化产物的可靠挂点。</p><blockquote><p>这套设计里我最欣赏的是"动态与静态分离"：用户相关的东西（S3 前缀、脚本内容）由中间层运行时注入，用户无关的骨架（postStop 逻辑、清盘）固化在 CR 模板里。业务 SDK 全程只看到 <code>create → 使用 → delete</code>，pods/exec、S3 命令、脚本路径全都不出中间层。代价是链路变长了：中间层挂了恢复逻辑、postStop 失败是否阻塞回池、restore 还在跑就回池的竞态，这些都是要靠运维约定兜底的模糊地带。</p></blockquote><h2 id=shardtaskpatches批量创建时的差异化补丁>shardTaskPatches：批量创建时的差异化补丁</h2><hr><p>最后补一个和 taskTemplate 配套的机制。<code>BatchSandbox</code> 支持一次创建 N 个沙箱，<code>shardTaskPatches[i]</code> 按下标对第 i 个副本的任务做覆盖，实现"批量创建、各跑各的"：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>taskTemplate</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>process</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;python&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;train.py&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>args</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;--epochs&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;10&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>shardTaskPatches</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>spec</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>process</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>args</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;--epochs&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;10&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;--lr&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;1e-3&#34;</span><span class=p>]</span><span class=w> </span>}<span class=w> </span>}<span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>spec</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>process</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>args</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;--epochs&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;10&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;--lr&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;1e-4&#34;</span><span class=p>]</span><span class=w> </span>}<span class=w> </span>}<span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 副本 2 无 patch → 用默认 taskTemplate</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>合并逻辑在 <code>task_scheduling_strategy_default.go</code>，就是标准的 strategic merge patch：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>DefaultTaskSchedulingStrategy</span><span class=p>)</span> <span class=nf>getTaskSpec</span><span class=p>(</span><span class=nx>idx</span> <span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>api</span><span class=p>.</span><span class=nx>Task</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>task</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>api</span><span class=p>.</span><span class=nx>Task</span><span class=p>{</span><span class=nx>Name</span><span class=p>:</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;%s-%d&#34;</span><span class=p>,</span> <span class=nx>s</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>idx</span><span class=p>)}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ShardTaskPatches</span><span class=p>)</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=o>&amp;&amp;</span> <span class=nx>idx</span> <span class=p>&lt;</span> <span class=nb>len</span><span class=p>(</span><span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ShardTaskPatches</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>taskTemplate</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span><span class=p>.</span><span class=nf>DeepCopy</span><span class=p>()</span>   <span class=c1>// ← 在深拷贝上合并，不动原模板
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>cloneBytes</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>json</span><span class=p>.</span><span class=nf>Marshal</span><span class=p>(</span><span class=nx>taskTemplate</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nx>patch</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ShardTaskPatches</span><span class=p>[</span><span class=nx>idx</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=nx>modified</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>strategicpatch</span><span class=p>.</span><span class=nf>StrategicMergePatch</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>            <span class=nx>cloneBytes</span><span class=p>,</span> <span class=nx>patch</span><span class=p>.</span><span class=nx>Raw</span><span class=p>,</span> <span class=o>&amp;</span><span class=nx>sandboxv1alpha1</span><span class=p>.</span><span class=nx>TaskTemplateSpec</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;batchsandbox: failed to merge patch raw %s, idx %d, err %w&#34;</span><span class=p>,</span> <span class=nx>patch</span><span class=p>.</span><span class=nx>Raw</span><span class=p>,</span> <span class=nx>idx</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>task</span><span class=p>.</span><span class=nx>Process</span> <span class=p>=</span> <span class=nf>convertProcessSpec</span><span class=p>(</span><span class=nx>newTaskTemplate</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Process</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TimeoutSeconds</span><span class=p>)</span>  <span class=c1>// ← timeout 取基础模板
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span> <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Process</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>task</span><span class=p>.</span><span class=nx>Process</span> <span class=p>=</span> <span class=nf>convertProcessSpec</span><span class=p>(</span><span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Process</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>s</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TaskTemplate</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>TimeoutSeconds</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>task</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>几个容易记错的语义：env 数组按 <code>name</code> merge（同名覆盖、异名保留，patch 删不掉模板里的 env）；<code>timeoutSeconds</code> 永远取基础模板，patch 里改了不算数；patch 数量和 replicas 不匹配时静默兜底，多补丁忽略、少补丁用模板，没有告警。注意 server API 并不暴露 <code>shardTaskPatches</code>，只能直接操作 CR；server 的池化分配路径走的是单任务模板（<code>_build_task_template</code>），没有 shard 能力。 RL 训练/评测这类 &ldquo;high-throughput agentic-RL&rdquo; 场景是它的主场：配合 <code>taskResourcePolicyWhenCompleted: Release</code>，任务跑完 pod 立刻回池，批量沙箱用完即焚。</p><hr><blockquote><p>把这条链路串起来看，池化设计的精髓是"把不确定性往后推"：模板预热消灭冷启动，revision 机制管住模板演化，taskTemplate 把分配时刻的动态注入变成一次任务下发，postStop + S3 前缀把有状态会话塞进无状态池。每一环都不复杂，但约束传导得很干净——&ldquo;复用已建 pod"这一条，决定了注入只能走任务下发、清理只能靠钩子、隔离只能靠外部存储。如果要说短板，我觉得是可观测性：快路径注入不了 ID、旧 revision 无告警、postStop 失败只记注解，这些都得自己补监控。</p></blockquote><blockquote><p>下一篇走读出口网络：沙箱的 egress 代理、token 鉴权和域名白名单是怎么做的。</p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/opensandbox/>Opensandbox</a>
+<a href=/tags/k8s/>K8s</a>
+<a href=/tags/sandbox/>Sandbox</a>
+<a href=/tags/ai-agent/>Ai-Agent</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/opensandbox-4-egress/><div class=article-image><img src=https://picsum.photos/seed/03153fdb/800/600 loading=lazy data-key=opensandbox-4-egress data-hash=https://picsum.photos/seed/03153fdb/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口</h2></div></a></article><article class=has-image><a href=/p/opensandbox-2-lease/><div class=article-image><img src=https://picsum.photos/seed/3bbf7078/800/600 loading=lazy data-key=opensandbox-2-lease data-hash=https://picsum.photos/seed/3bbf7078/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理</h2></div></a></article><article class=has-image><a href=/p/opensandbox-1-reconcile/><div class=article-image><img src=https://picsum.photos/seed/c9e1e1dc/800/600 loading=lazy data-key=opensandbox-1-reconcile data-hash=https://picsum.photos/seed/c9e1e1dc/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</h2></div></a></article><article class=has-image><a href=/p/cbm-mcp-to-cli/><div class=article-image><img src=https://picsum.photos/seed/a7855219/800/600 loading=lazy data-key=cbm-mcp-to-cli data-hash=https://picsum.photos/seed/a7855219/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造</h2></div></a></article><article class=has-image><a href=/p/cbm-toolset-pruning/><div class=article-image><img src=https://picsum.photos/seed/e7f46986/800/600 loading=lazy data-key=cbm-toolset-pruning data-hash=https://picsum.photos/seed/e7f46986/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script type=text/javascript src=/ts/custom.eb4c6a182f37f89cd350793e35e757636b2c6892de4ae5ab0a9f2170b0e4118c.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
+    import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+        .then(({ default: mermaid }) => {
+            const elements = Array.from(document.querySelectorAll('.mermaid'));
+            if (!elements.length) return;
+            const sources = elements.map(el => el.innerHTML);
+            let currentScheme = null;
+
+            const render = () => {
+                const scheme = document.documentElement.dataset.scheme;
+                if (scheme === currentScheme) return;
+                currentScheme = scheme;
+
+                const dark = scheme === 'dark';
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: dark ? 'dark' : 'neutral',
+                    securityLevel: 'strict'
+                });
+                elements.forEach((el, i) => {
+                    el.removeAttribute('data-processed');
+                    el.innerHTML = sources[i];
+                });
+                return mermaid.run({ nodes: elements }).then(() => {
+                    elements.forEach(el => { el.style.visibility = ''; });
+                });
+            };
+
+            render();
+            window.addEventListener('onColorSchemeChange', render);
+        })
+        .catch((error) => {
+            console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
+        });
+</script></body></html>

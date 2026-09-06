@@ -1,0 +1,341 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理 沙箱这类"按需创建、用完即弃"的资源，最怕的不是创建慢，而是没人回收——客户端崩了、网络断了，服务端还替它养着一个占 CPU 占内存的容器。这次把 OpenSandbox 的 lease（租约）机制翻了一遍：TTL 怎么算、到期谁去杀、续约有几条路、以及"伪永久"模式的清理边界。代码基于 main 分支（2026-08 核对）。\n'><title>OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理</title>
+<link rel=canonical href=https://daidaij.github.io/p/opensandbox-2-lease/><link rel=stylesheet href=/scss/style.min.7c715415b9353155dfb3908d13889fc776b27eef1d6af8de36224e1dd2704c41.css><meta property='og:title' content="OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理"><meta property='og:description' content='OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理 沙箱这类"按需创建、用完即弃"的资源，最怕的不是创建慢，而是没人回收——客户端崩了、网络断了，服务端还替它养着一个占 CPU 占内存的容器。这次把 OpenSandbox 的 lease（租约）机制翻了一遍：TTL 怎么算、到期谁去杀、续约有几条路、以及"伪永久"模式的清理边界。代码基于 main 分支（2026-08 核对）。\n'><meta property='og:url' content='https://daidaij.github.io/p/opensandbox-2-lease/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='opensandbox'><meta property='article:tag' content='k8s'><meta property='article:tag' content='sandbox'><meta property='article:tag' content='ai-agent'><meta property='article:published_time' content='2026-09-06T20:10:30+08:00'><meta property='article:modified_time' content='2026-09-06T20:10:30+08:00'><meta property='og:image' content='https://picsum.photos/seed/3bbf7078/800/600'><meta name=twitter:title content="OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理"><meta name=twitter:description content='OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理 沙箱这类"按需创建、用完即弃"的资源，最怕的不是创建慢，而是没人回收——客户端崩了、网络断了，服务端还替它养着一个占 CPU 占内存的容器。这次把 OpenSandbox 的 lease（租约）机制翻了一遍：TTL 怎么算、到期谁去杀、续约有几条路、以及"伪永久"模式的清理边界。代码基于 main 分支（2026-08 核对）。\n'><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/3bbf7078/800/600'><link rel="shortcut icon" href=/favicon.ico></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><h1 class=site-name><a href=/>潘达窝</a></h1><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换暗色模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span>暗色</span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/%E5%85%B3%E4%BA%8E/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li class=menu-bottom-section><ol class=menu><li id=i18n-switch><svg class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 5h7"/><path d="M9 3v2c0 4.418-2.239 8-5 8"/><path d="M5 9c-.003 2.144 2.952 3.908 6.7 4"/><path d="M12 20l4-9 4 9"/><path d="M19.1 18h-6.2"/></svg>
+<select name=language title=language onchange="window.location.href=this.selectedOptions[0].value"><option value=https://daidaij.github.io/en/>English</option><option value=https://daidaij.github.io/ selected>中文</option></select></li><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#为什么需要-lease没有它会出什么事故>为什么需要 lease：没有它会出什么事故</a></li><li><a href=#到期执行docker-定时器-vs-k8s-控制器>到期执行：Docker 定时器 vs K8s 控制器</a></li><li><a href=#手动续约renew-expiration-的三条约束>手动续约：renew-expiration 的三条约束</a></li><li><a href=#自动续约osep-0009访问即续命>自动续约（OSEP-0009）：访问即续命</a></li><li><a href=#伪永久manual-cleanup-lease-的另一个极端>伪永久（manual cleanup）： lease 的另一个极端</a></li><li><a href=#configenv-注入链一句话版>config/env 注入链：一句话版</a></li><li><a href=#边界条件自查清单>边界条件自查清单</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/opensandbox-2-lease/><img src=https://picsum.photos/seed/3bbf7078/800/600 loading=lazy alt="Featured image of post OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记
+</a><a href=/categories/kubernetes/>Kubernetes</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/opensandbox-2-lease/>OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Sep 06, 2026</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 12 分钟</time></div><div><time class=article-words>5925 字</time></div></footer></div></header><section class=article-content><iframe frameborder=no border=0 marginwidth=0 marginheight=0 width=100% height=86 src="//music.163.com/outchain/player?type=2&id=5264842&auto=0&height=66"></iframe><h1 id=opensandbox-源码走读二sandbox-lease-与生命周期管理>OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理</h1><hr><blockquote><p>沙箱这类"按需创建、用完即弃"的资源，最怕的不是创建慢，而是没人回收——客户端崩了、网络断了，服务端还替它养着一个占 CPU 占内存的容器。这次把 OpenSandbox 的 lease（租约）机制翻了一遍：TTL 怎么算、到期谁去杀、续约有几条路、以及"伪永久"模式的清理边界。代码基于 main 分支（2026-08 核对）。</p></blockquote><h2 id=为什么需要-lease没有它会出什么事故>为什么需要 lease：没有它会出什么事故</h2><hr><p>先想清楚问题。沙箱不是无状态的 HTTP 请求，它是一个持续占用资源的容器/ Pod。调用方（比如一个 Agent 运行时）创建沙箱后，可能：</p><ul><li>进程崩溃，永远不会再发"删除"请求；</li><li>网络分区，删除请求丢了；</li><li>业务 bug，for 循环里创建了 1000 个沙箱然后忘了。</li></ul><p>没有租约机制，这些沙箱就变成孤儿——API 层面查得到，但没人对它们负责。Docker 里一个容器几百 MB 内存，K8s 里一个 Pod 还带 sidecar，泄漏速度远超普通连接池。</p><p>OpenSandbox 的解法是经典的 lease 模型：<strong>创建时必须声明租期（或者明确声明不设租期），到期由服务端单方面回收</strong>。入口在创建请求的 <code>timeout</code> 字段（秒，最小 60），服务端换算成绝对时间戳：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/services/docker/docker_service.py</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>_prepare_creation_context</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=bp>self</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>request</span><span class=p>:</span> <span class=n>CreateSandboxRequest</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>tuple</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>datetime</span><span class=p>,</span> <span class=n>Optional</span><span class=p>[</span><span class=n>datetime</span><span class=p>]]:</span>
+</span></span><span class=line><span class=cl>    <span class=n>sandbox_id</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>generate_sandbox_id</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=n>created_at</span> <span class=o>=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>expires_at</span> <span class=o>=</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>request</span><span class=o>.</span><span class=n>timeout</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>expires_at</span> <span class=o>=</span> <span class=n>calculate_expiration_or_raise</span><span class=p>(</span><span class=n>created_at</span><span class=p>,</span> <span class=n>request</span><span class=o>.</span><span class=n>timeout</span><span class=p>)</span>  <span class=c1># ← createdAt + timeout</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>sandbox_id</span><span class=p>,</span> <span class=n>created_at</span><span class=p>,</span> <span class=n>expires_at</span>
+</span></span></code></pre></td></tr></table></div></div><p>注意 <code>timeout is None</code> 这个分支——它不是"忘了传"，而是一个正式模式（后面讲）。租期计算和上限校验都在 <code>services/validators.py</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/services/validators.py</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>ensure_timeout_within_limit</span><span class=p>(</span><span class=n>timeout_seconds</span><span class=p>,</span> <span class=n>max_timeout_seconds</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>timeout_seconds</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>                          <span class=c1># ← 伪永久模式，跳过校验</span>
+</span></span><span class=line><span class=cl>    <span class=n>calculate_expiration_or_raise</span><span class=p>(</span><span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>),</span> <span class=n>timeout_seconds</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>max_timeout_seconds</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>                          <span class=c1># ← 服务端没配上限 = 不限</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>timeout_seconds</span> <span class=o>&gt;</span> <span class=n>max_timeout_seconds</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>raise</span> <span class=n>HTTPException</span><span class=p>(</span><span class=n>status_code</span><span class=o>=</span><span class=mi>400</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>max_sandbox_timeout_seconds</code> 是 <code>[server]</code> 配置里的 TTL 上限（<code>config.py</code>，默认 <code>None</code> 不限）。多租户部署建议配一个，否则调用方传个 <code>timeout=999999999</code> 也能过——虽然 <code>calculate_expiration_or_raise</code> 会把 datetime 溢出转成 400，但"合法地租一年"依然拦不住。</p><blockquote><p>lease 存的是绝对时间戳（<code>expiresAt</code>）而不是剩余秒数，这个选择是对的：服务端重启、时钟回拨、续约覆盖，都以一个不可变的时间点为准，不需要维护递减计数器。</p></blockquote><h2 id=到期执行docker-定时器-vs-k8s-控制器>到期执行：Docker 定时器 vs K8s 控制器</h2><hr><p><code>expiresAt</code> 算出来了，谁来负责到期杀沙箱？Docker 和 K8s 两条运行时走了完全不同的实现路线。</p><p>Docker 路线是<strong>进程内 Timer</strong>。每个沙箱一个 <code>threading.Timer</code>，续约时直接替换旧 timer：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/services/docker/docker_service.py</span>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>_schedule_expiration</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>sandbox_id</span><span class=p>,</span> <span class=n>expires_at</span><span class=p>,</span> <span class=o>*</span><span class=p>,</span> <span class=n>update_expiration</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>delay</span> <span class=o>=</span> <span class=nb>max</span><span class=p>(</span><span class=mf>0.0</span><span class=p>,</span> <span class=p>(</span><span class=n>expires_at</span> <span class=o>-</span> <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>))</span><span class=o>.</span><span class=n>total_seconds</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>    <span class=n>timer</span> <span class=o>=</span> <span class=n>Timer</span><span class=p>(</span><span class=n>delay</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>_expire_sandbox</span><span class=p>,</span> <span class=n>args</span><span class=o>=</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,),</span> <span class=n>kwargs</span><span class=o>=</span><span class=n>expire_kwargs</span> <span class=ow>or</span> <span class=kc>None</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>timer</span><span class=o>.</span><span class=n>daemon</span> <span class=o>=</span> <span class=kc>True</span>
+</span></span><span class=line><span class=cl>    <span class=k>with</span> <span class=bp>self</span><span class=o>.</span><span class=n>_expiration_lock</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=c1># Replace existing timer (if any) so renew operations take effect immediately</span>
+</span></span><span class=line><span class=cl>        <span class=n>existing</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_expiration_timers</span><span class=o>.</span><span class=n>pop</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=kc>None</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>existing</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>existing</span><span class=o>.</span><span class=n>cancel</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>update_expiration</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=bp>self</span><span class=o>.</span><span class=n>_sandbox_expirations</span><span class=p>[</span><span class=n>sandbox_id</span><span class=p>]</span> <span class=o>=</span> <span class=n>expires_at</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_expiration_timers</span><span class=p>[</span><span class=n>sandbox_id</span><span class=p>]</span> <span class=o>=</span> <span class=n>timer</span>
+</span></span><span class=line><span class=cl>    <span class=n>timer</span><span class=o>.</span><span class=n>start</span><span class=p>()</span>
+</span></span></code></pre></td></tr></table></div></div><p>进程内 Timer 有个致命问题：server 重启，内存里的 timer 全丢。所以启动时有一段 restore 逻辑，遍历所有容器 label 重建 timer，已过期的立即补杀：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># docker_service.py（启动恢复，简化）</span>
+</span></span><span class=line><span class=cl><span class=n>expires_at</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_get_tracked_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>labels</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>expires_at</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_has_manual_cleanup</span><span class=p>(</span><span class=n>labels</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=n>restored</span> <span class=o>+=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl>        <span class=k>continue</span>                  <span class=c1># ← 伪永久沙箱跳过调度</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>expires_at</span> <span class=o>&lt;=</span> <span class=n>now</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>expired_entries</span><span class=o>.</span><span class=n>append</span><span class=p>((</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>mount_keys</span><span class=p>))</span>   <span class=c1># 已过期，pass 2 补杀</span>
+</span></span><span class=line><span class=cl>    <span class=k>continue</span>
+</span></span><span class=line><span class=cl><span class=bp>self</span><span class=o>.</span><span class=n>_schedule_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>expires_at</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>_get_tracked_expiration</code> 的查找顺序是 内存缓存 → 文件元数据存储 → 容器 label，三层兜底保证重启后也能恢复租约。而 <code>_expire_sandbox</code> 的回调里还有个细节我挺喜欢——杀之前再查一次当前租约，<strong>续约竞态时放弃删除</strong>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># docker_service.py</span>
+</span></span><span class=line><span class=cl><span class=n>current_expires</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_get_tracked_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>labels</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>current_expires</span> <span class=ow>and</span> <span class=n>current_expires</span> <span class=o>&gt;</span> <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=bp>self</span><span class=o>.</span><span class=n>_schedule_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>current_expires</span><span class=p>,</span> <span class=n>update_expiration</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=s2>&#34;Sandbox </span><span class=si>%s</span><span class=s2> was renewed (expires </span><span class=si>%s</span><span class=s2>); aborting expiration.&#34;</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>没有这个检查，就会出现"用户刚续约，过期定时器还是把沙箱杀了"的灵异事件。另外定时器触发时如果暂时查不到容器（瞬时报错），会 30 秒后重试而不是放弃——lease 到期是确定性的，只是延迟，不会丢。</p><p>K8s 路线完全没有定时器这回事，靠的是<strong>控制器 reconcile</strong>。<code>expiresAt</code> 写进 BatchSandbox CR 的 <code>spec.expireTime</code>，控制器每次 reconcile 检查：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// kubernetes/internal/controller/batchsandbox_controller.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>if</span> <span class=nx>expireAt</span> <span class=o>:=</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>ExpireTime</span><span class=p>;</span> <span class=nx>expireAt</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>now</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>expireAt</span><span class=p>.</span><span class=nx>Time</span><span class=p>.</span><span class=nf>Before</span><span class=p>(</span><span class=nx>now</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>batchSbx</span><span class=p>.</span><span class=nx>DeletionTimestamp</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>log</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;batch sandbox expired, delete&#34;</span><span class=p>,</span> <span class=s>&#34;expireAt&#34;</span><span class=p>,</span> <span class=nx>expireAt</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>Delete</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>batchSbx</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span> <span class=o>...</span> <span class=p>}</span>   <span class=c1>// ← 到期直接删 CR
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>DurationStore</span><span class=p>.</span><span class=nf>Push</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>   <span class=c1>// ← 未到期，把差值塞回去驱动下次 requeue
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>两条路线对"到期后是删是留"还有一个共同的开关：<code>shutdown_policy: Delete|Retain</code>（<code>config.py:700</code>）。设成 <code>Retain</code> 时过期只终止不清理，用于调试或事后取证。</p><blockquote><p>Timer（推）vs reconcile（拉）是分布式系统里到期处理的两种基本形态。Timer 精确但要自己处理重启恢复；reconcile 天然幂等、重启免费，但精度受 requeue 间隔限制。OpenSandbox 两种都用了，各自贴合运行时特性，这个选择没毛病。</p></blockquote><h2 id=手动续约renew-expiration-的三条约束>手动续约：renew-expiration 的三条约束</h2><hr><p>租约要能续，否则长任务都得把 <code>timeout</code> 估到最大。续约 API 只有一个端点：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>POST /sandboxes/{id}/renew-expiration
+</span></span><span class=line><span class=cl>{ &#34;expiresAt&#34;: &#34;2026-08-19T12:00:00Z&#34; }   // 绝对时间，必填
+</span></span></code></pre></td></tr></table></div></div><p>路由是薄壳，直接委托 service 层（<code>api/lifecycle.py:344-384</code>）。真正有意思的是它背后的三条约束：</p><p><strong>约束一：只能延长，不能缩短。</strong> spec 里写死 &ldquo;Must be in the future and after the current expiresAt time&rdquo;，服务端校验在 <code>validators.py</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>ensure_future_expiration</span><span class=p>(</span><span class=n>expires_at</span><span class=p>:</span> <span class=n>datetime</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>datetime</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>expires_at</span><span class=o>.</span><span class=n>tzinfo</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>normalized</span> <span class=o>=</span> <span class=n>expires_at</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=n>tzinfo</span><span class=o>=</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>)</span>   <span class=c1># naive 时间按 UTC 处理</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>normalized</span> <span class=o>=</span> <span class=n>expires_at</span><span class=o>.</span><span class=n>astimezone</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>normalized</span> <span class=o>&lt;=</span> <span class=n>datetime</span><span class=o>.</span><span class=n>now</span><span class=p>(</span><span class=n>timezone</span><span class=o>.</span><span class=n>utc</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=k>raise</span> <span class=n>HTTPException</span><span class=p>(</span><span class=n>status_code</span><span class=o>=</span><span class=mi>400</span><span class=p>,</span> <span class=n>detail</span><span class=o>=</span><span class=p>{</span><span class=s2>&#34;code&#34;</span><span class=p>:</span> <span class=s2>&#34;INVALID_EXPIRATION&#34;</span><span class=p>,</span> <span class=o>...</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>normalized</span>
+</span></span></code></pre></td></tr></table></div></div><p>这意味着你<strong>不能通过续约来提前回收</strong>一个沙箱，也不能给伪永久沙箱"补"一个过期时间——后者直接 409：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># docker_service.py renew_expiration</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_has_manual_cleanup</span><span class=p>(</span><span class=n>labels</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=k>raise</span> <span class=n>HTTPException</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>status_code</span><span class=o>=</span><span class=n>status</span><span class=o>.</span><span class=n>HTTP_409_CONFLICT</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=n>detail</span><span class=o>=</span><span class=p>{</span><span class=s2>&#34;code&#34;</span><span class=p>:</span> <span class=n>SandboxErrorCodes</span><span class=o>.</span><span class=n>INVALID_EXPIRATION</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                <span class=s2>&#34;message&#34;</span><span class=p>:</span> <span class=sa>f</span><span class=s2>&#34;Sandbox </span><span class=si>{</span><span class=n>sandbox_id</span><span class=si>}</span><span class=s2> does not have automatic expiration enabled.&#34;</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_get_tracked_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>labels</span><span class=p>)</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>raise</span> <span class=n>HTTPException</span><span class=p>(</span><span class=n>status_code</span><span class=o>=</span><span class=mi>409</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span>   <span class=c1># ← label 丢失也拒绝，宁可不续</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>约束二：lease 状态要三处同步。</strong> Docker 实现里，续约成功要同时改内存 timer、文件元数据、容器 label 三个地方：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># docker_service.py renew_expiration（注释是原文）</span>
+</span></span><span class=line><span class=cl><span class=c1># Persist the new timeout in memory; the file-backed override also keeps renewals correct across restarts</span>
+</span></span><span class=line><span class=cl><span class=bp>self</span><span class=o>.</span><span class=n>_schedule_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>new_expiration</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=bp>self</span><span class=o>.</span><span class=n>_metadata_store</span><span class=o>.</span><span class=n>set_expiration</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>new_expiration</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>except</span> <span class=ne>OSError</span> <span class=k>as</span> <span class=n>exc</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>warning</span><span class=p>(</span><span class=s2>&#34;Failed to persist expiration override ...&#34;</span><span class=p>)</span>   <span class=c1># ← 失败只记日志</span>
+</span></span><span class=line><span class=cl><span class=n>labels</span><span class=p>[</span><span class=n>SANDBOX_EXPIRES_AT_LABEL</span><span class=p>]</span> <span class=o>=</span> <span class=n>new_expiration</span><span class=o>.</span><span class=n>isoformat</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>with</span> <span class=bp>self</span><span class=o>.</span><span class=n>_docker_operation</span><span class=p>(</span><span class=s2>&#34;update sandbox labels&#34;</span><span class=p>,</span> <span class=n>sandbox_id</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_update_container_labels</span><span class=p>(</span><span class=n>container</span><span class=p>,</span> <span class=n>labels</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=k>except</span> <span class=p>(</span><span class=n>DockerException</span><span class=p>,</span> <span class=ne>TypeError</span><span class=p>)</span> <span class=k>as</span> <span class=n>exc</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>logger</span><span class=o>.</span><span class=n>warning</span><span class=p>(</span><span class=s2>&#34;Failed to refresh labels ...&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>三处里任何一处失败都是 warning 而不是报错——好在查找时有 fallback 链兜底，但严格说这不是事务性的。</p><p><strong>约束三：K8s 侧要同步 CR 和 label。</strong> <code>kubernetes_service.py</code> 的 <code>renew_expiration</code> 同时更新 BatchSandbox 的 <code>spec.expireTime</code> 和对应 label，保证 reconcile 逻辑和 <code>kubectl</code> 排障看到的值一致。</p><blockquote><p>409 的设计值得玩味：续约不能作用于伪永久沙箱，这是一个<strong>用状态机拒绝而不是静默成功</strong>的例子。如果这里静默返回 200，调用方会以为沙箱有了租约，实际永远不会过期——比 409 危险得多。</p></blockquote><h2 id=自动续约osep-0009访问即续命>自动续约（OSEP-0009）：访问即续命</h2><hr><p>手动续约要求调用方自己记得续，OpenSandbox 在 OSEP-0009 里做了访问驱动的自动续约：<strong>反向代理观测到流量，就替沙箱续一次命</strong>。</p><p>激活是三方握手：服务端 <code>[renew_intent] enabled=true</code>、ingress 模式还要开 Redis、创建沙箱时 opt-in 一个 extension。opt-in 的合法性在创建时校验：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/extensions/validation.py</span>
+</span></span><span class=line><span class=cl><span class=n>ACCESS_RENEW_EXTEND_SECONDS_MIN</span> <span class=o>=</span> <span class=mi>300</span>      <span class=c1># 5 分钟</span>
+</span></span><span class=line><span class=cl><span class=n>ACCESS_RENEW_EXTEND_SECONDS_MAX</span> <span class=o>=</span> <span class=mi>86400</span>    <span class=c1># 24 小时</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;extensions&#34;</span><span class=p>:</span> <span class=p>{</span> <span class=nt>&#34;access.renew.extend.seconds&#34;</span><span class=p>:</span> <span class=s2>&#34;3600&#34;</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;timeout&#34;</span><span class=p>:</span> <span class=mi>600</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>注意传的是<strong>字符串形式的十进制整数</strong>，范围 300~86400，非法值创建即 400。每次访问触发的续约量就是 <code>now + extend.seconds</code>。</p><p>触发源有两条路：</p><pre class=mermaid style=visibility:hidden>flowchart LR
+    A[客户端流量] -->|经 server proxy| B[ProxyRenewCoordinator<br>api/proxy.py 埋点]
+    A -->|经 ingress gateway| C[Go 侧 Publisher<br>components/ingress/pkg/renewintent]
+    B --> D[RenewIntentConsumer<br>统一 asyncio 队列]
+    C -->|Redis List| E[BRPOP feeder]
+    E --> D
+    D --> F{AccessRenewController 门控}
+    F -->|通过| G[renew_expiration]</pre><p>所有路径最终汇到 <code>integrations/renew_intent/controller.py</code> 的门控，逻辑很收敛：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>_try_renew_sync</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>sandbox_id</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=o>*</span><span class=p>,</span> <span class=n>source</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>bool</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>sandbox</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_sandbox_service</span><span class=o>.</span><span class=n>get_sandbox</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=n>HTTPException</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>False</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>sandbox</span><span class=o>.</span><span class=n>status</span><span class=o>.</span><span class=n>state</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span> <span class=o>!=</span> <span class=s2>&#34;running&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>False</span>          <span class=c1># ← 非 Running 不续</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>sandbox</span><span class=o>.</span><span class=n>expires_at</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>False</span>          <span class=c1># ← 伪永久沙箱不参与自动续约</span>
+</span></span><span class=line><span class=cl>    <span class=n>extend</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_extension_service</span><span class=o>.</span><span class=n>get_access_renew_extend_seconds</span><span class=p>(</span><span class=n>sandbox_id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>extend</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>False</span>          <span class=c1># ← 未 opt-in 不续</span>
+</span></span><span class=line><span class=cl>    <span class=n>candidate</span> <span class=o>=</span> <span class=n>now</span> <span class=o>+</span> <span class=n>timedelta</span><span class=p>(</span><span class=n>seconds</span><span class=o>=</span><span class=n>extend</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>new_expires</span> <span class=o>=</span> <span class=nb>max</span><span class=p>(</span><span class=n>candidate</span><span class=p>,</span> <span class=n>current</span><span class=p>)</span>   <span class=c1># ← 单调不减，天然幂等</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>max(candidate, current)</code> 这个写法保证了重复消费或乱序消费都不会把租约改小，配合每沙箱 <code>asyncio.Lock</code> 串行化，基本堵死了竞态。</p><p>坑都在外围。我对照实现把 OSEP 设计稿和代码过了一遍，这几个点值得记：</p><ol><li><p><strong>Redis 启用时 proxy 路径没有冷却</strong>。<code>consumer.py</code> 的 <code>_process_work</code> 里，<code>self._redis is not None</code> 时直接续约，完全跳过 <code>min_interval</code> 节流：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># consumer.py</span>
+</span></span><span class=line><span class=cl><span class=k>async</span> <span class=k>with</span> <span class=n>st</span><span class=o>.</span><span class=n>lock</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_redis</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=bp>self</span><span class=o>.</span><span class=n>_controller</span><span class=o>.</span><span class=n>renew_after_gates</span><span class=p>(</span><span class=n>work</span><span class=o>.</span><span class=n>sandbox_id</span><span class=p>,</span> <span class=n>source</span><span class=o>=</span><span class=n>work</span><span class=o>.</span><span class=n>source</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>                                   <span class=c1># ← 无 min_interval 检查</span>
+</span></span><span class=line><span class=cl>    <span class=n>now</span> <span class=o>=</span> <span class=n>time</span><span class=o>.</span><span class=n>monotonic</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>st</span><span class=o>.</span><span class=n>last_success_monotonic</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span> <span class=ow>and</span> <span class=p>(</span><span class=n>now</span> <span class=o>-</span> <span class=n>st</span><span class=o>.</span><span class=n>last_success_monotonic</span><span class=p>)</span> <span class=o>&lt;</span> <span class=bp>self</span><span class=o>.</span><span class=n>_min_interval</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span></code></pre></td></tr></table></div></div><p>高 QPS 访问同一个沙箱时，续约 API 调用会非常频繁。续约本身幂等所以不出错，纯属浪费。</p></li><li><p><strong>没有分布式锁</strong>。OSEP 设计了 <code>opensandbox:renew:lock:{sandbox_id}</code>，实现只有进程内 <code>asyncio.Lock</code>。多副本部署 proxy 模式会重复续约——反正 <code>max()</code> 单调不减，影响有限；ingress 模式靠 BRPOP 竞争天然去重。</p></li><li><p><strong>best-effort 语义</strong>。intent 无 ack，消费后进程崩了就丢；超过 <code>INTENT_MAX_AGE_SECONDS=300</code> 的 intent 直接丢弃；ingress 发布队列满（容量 8192）直接 drop。自动续约是"尽力而为"，不能当强保证用。</p></li><li><p><strong>Redis 不可用静默降级</strong>。连接失败降级为 proxy-only 模式，只打日志。ingress 场景下自动续约整个失效，但没有任何告警指标——沙箱会悄悄开始过期。</p></li><li><p><strong>内存上限</strong>。proxy 路径每沙箱状态的 LRU 上限是 <code>PROXY_RENEW_MAX_TRACKED_SANDBOXES = 8192</code>（<code>renew_intent/constants.py</code>），超了驱逐（持锁的除外）。规模再大就要靠 Redis 模式了。</p></li></ol><p>还有一个最容易被忽略的：<strong>SDK 默认不走 proxy</strong>。Python SDK 的 <code>ConnectionConfig.use_server_proxy</code> 默认 <code>False</code>，工具调用（exec/文件操作）直连沙箱 IP:44772 的 execd 端口——这条路径 server 根本观测不到流量，自动续约完全不生效。业务想要"活跃即续命"，必须显式走 proxy 或 ingress。</p><blockquote><p>自动续约有个隐含的哲学转变：TTL 从"调用方声明的租期"变成了"最后一次访问之后的空闲超时"。这更像 HTTP session 而不是传统 lease。但 best-effort 的投递语义意味着它只能做兜底，关键业务还是应该显式管理租约。</p></blockquote><h2 id=伪永久manual-cleanup-lease-的另一个极端>伪永久（manual cleanup）： lease 的另一个极端</h2><hr><p>创建时不传 <code>timeout</code>，<code>expiresAt</code> 就是 <code>None</code>，schema 里的原文是：&ldquo;When omitted or null, the sandbox will not auto-terminate and must be deleted explicitly&rdquo;——<strong>不自动终止，必须显式删除</strong>。</p><p>实现上就是打一个 label / 不设字段，然后让所有过期逻辑绕行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># server/opensandbox_server/services/k8s/create_helpers.py</span>
+</span></span><span class=line><span class=cl><span class=n>expires_at</span> <span class=o>=</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>request</span><span class=o>.</span><span class=n>timeout</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>expires_at</span> <span class=o>=</span> <span class=n>calculate_expiration_or_raise</span><span class=p>(</span><span class=n>created_at</span><span class=p>,</span> <span class=n>request</span><span class=o>.</span><span class=n>timeout</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>labels</span><span class=p>:</span> <span class=n>Dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=nb>str</span><span class=p>]</span> <span class=o>=</span> <span class=p>{</span><span class=n>SANDBOX_ID_LABEL</span><span class=p>:</span> <span class=n>sandbox_id</span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=n>expires_at</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>labels</span><span class=p>[</span><span class=n>SANDBOX_MANUAL_CLEANUP_LABEL</span><span class=p>]</span> <span class=o>=</span> <span class=s2>&#34;true&#34;</span>   <span class=c1># ← 唯一的区别就是一个 label</span>
+</span></span></code></pre></td></tr></table></div></div><p>K8s 侧 <code>spec.expireTime</code> 不设置，控制器的 expire 分支直接跳过；Docker 侧过期扫描器看到 <code>manual-cleanup=true</code> 就 restore 后 continue（前面启动恢复那段代码里已经有了）。清理完全靠上层业务在会话结束时调 <code>DELETE /sandboxes/{id}</code>。</p><p>这个模式是为池化场景准备的：TTL 到期误杀正在使用的会话，比多养几个空闲沙箱的代价大得多。但它把回收责任完全推给了调用方，边界条件都得自己兜：</p><ul><li><strong>上层忘删 = 永久泄漏</strong>。伪永久沙箱没有任何服务端兜底回收，必须业务侧自建清理（比如定期扫描 <code>expiresAt == null</code> 且长时间无访问的沙箱）。而 SDK 自带的 <code>releaseAllIdle</code> 是严格串行的，实测 500 个空闲沙箱要 ~480 秒（上游 issue #1472），批量清理根本指望不上，得自实现并发 kill。</li><li><strong>单向门</strong>。创建时没传 timeout，事后不能通过 renew-expiration 补上（409）。伪永久是一个创建时就必须做的决定。</li><li><strong>Pool 模式下"删除"本身有坑</strong>。这是风险清单里最扎心的部分：#954（分配到的 Pod 被外部删除后 <code>alloc-status</code> 注解残留，<code>supplement</code> 恒为 0，沙箱<strong>永久不可用</strong>）、#1433（<code>poolRef</code> 可变更导致 in-use Pod 被当孤儿回收 + 新池永不分配）、#1423（Pool 控制器六重缺陷复合成自维持的 Pod 创建/删除风暴，实测约一半创建请求失败）。这三个 issue 截至核对都没有修复 PR。</li><li><strong>&ldquo;挂了自动拉起"不存在</strong>。上游明确 resume 只恢复有意的 Paused 状态，Terminated/Failed 不自动重启（#1127/#1328，SDK resume 报 409）。重建 = 新 sandbox ID + 内存和未持久化状态全丢。所以伪永久不是"永久可用&rdquo;，只是"不会因为 TTL 被服务端杀掉"。</li></ul><blockquote><p>伪永久 + 上层主动删除，本质上是把 lease 的责任从服务端转移到了业务侧。服务端甩掉了误杀风险，但换来的是"业务必须自己靠谱"的前提。如果业务侧的清理兜底写得不靠谱，孤儿沙箱问题会以更隐蔽的方式回来——TTL 模式至少有个确定性的最后期限。</p></blockquote><h2 id=configenv-注入链一句话版>config/env 注入链：一句话版</h2><hr><p>生命周期之外，把配置注入链也简单记一笔（详细展开值得单独一篇）。核心结论：<strong>server 侧固定注入的 env 只有一个</strong>——K8s 运行时的 <code>EXECD=/opt/opensandbox/execd</code>（<code>services/k8s/provider_common.py</code> 的 <code>_build_main_container</code>），其余全是 API 请求 <code>env</code> 字段透传。<code>sandbox_id</code> 不走 env，走 label <code>opensandbox.io/id</code>；egress/secure-access 的 token 走 annotation。</p><p>有一个和生命周期直接相关的注入条件要注意：创建请求里的 <code>env</code> 和 <code>entrypoint</code> 是通过 taskTemplate 生效的，<strong>触发条件是 env 非空或 entrypoint 非默认值</strong>，都没传就走快路径——env 注不进去。所以"创建时注入用户 token"这类操作必须确认 taskTemplate 真的被触发了，否则沙箱起来了但没有你要的变量，而且不会报错。</p><p>egress 是个例外支线：<code>OPENSANDBOX_EGRESS_*</code> 前缀的 key 会被 <code>split_egress_env</code> 拆出来进 sidecar，不在白名单（<code>ALLOWED_EGRESS_ENV_VARS</code>）直接 ValueError，创建失败——这是少数"配置错误会在创建时 fail-loud"的地方。</p><h2 id=边界条件自查清单>边界条件自查清单</h2><hr><p>把这次走读里值得在集成前确认的边界收拢一下：</p><div class=table-wrapper><table><thead><tr><th>边界</th><th>行为</th><th>出处</th></tr></thead><tbody><tr><td>timeout 传 0 / 负数</td><td>创建 400（最小 60）</td><td><code>validators.py</code></td></tr><tr><td>timeout 超服务端上限</td><td>创建 400</td><td><code>ensure_timeout_within_limit</code></td></tr><tr><td>续约时间早于现在</td><td>400</td><td><code>ensure_future_expiration</code></td></tr><tr><td>续约时间早于当前 expiresAt</td><td>spec 禁止（只能延长）</td><td><code>sandbox-lifecycle.yml</code></td></tr><tr><td>伪永久沙箱调续约</td><td>409</td><td><code>docker_service.py:1199</code></td></tr><tr><td>自动续约对伪永久沙箱</td><td>静默跳过（门控 return False）</td><td><code>controller.py:69</code></td></tr><tr><td>lease 状态 label 丢失</td><td>拒绝续约（409），但过期调度也可能 skip+warning</td><td><code>docker_service.py</code> restore 逻辑</td></tr><tr><td>Pod 被外部删除（Pool）</td><td>沙箱永久不可用，无自愈</td><td>#954</td></tr><tr><td>TTL 过期自动删除（K8s）</td><td>PVC ownerReferences 可能缺失导致泄漏</td><td>#1199</td></tr><tr><td>server 长期运行</td><td>httpx 连接池疑似泄漏，约 1 周耗尽</td><td>#1386</td></tr></tbody></table></div><p>最后一条单独说：#1386 不是沙箱的问题，是 server 自己的。续约、状态查询全走 server，server 挂了所有沙箱的 lease 管理瘫痪——Docker 模式下 timer 停摆但容器还在跑，K8s 模式下 reconcile 停摆 expireTime 形同虚设。<strong>server 本身是这个 lease 系统的单点</strong>，生产部署要按"它会挂"来设计：监控 httpx 连接池、周期性重启、 lease 到期查询别全压在一个实例上。</p><blockquote><p>走读完整体判断：OpenSandbox 的 lease 设计在"单机/中小规模"上是完整的——绝对时间戳、续约单调性、重启恢复、竞态放弃删除，该有的细节都有。但规模化风险集中在 K8s Pool 一侧（#954/#1433/#1423 三个无 PR 的 P0），伪永久模式的回收责任又全压给业务方。如果要上生产，我会选 TTL + 自动续约组合而不是伪永久：让服务端兜底最后期限，业务侧只负责"保活"，这比"保活 + 回收"两个责任都自担要安全。</p></blockquote><hr><blockquote><p>下一篇预告：沙箱池化设计——Pool CRD、alloc-status 注解协议、预热与分配路径，以及为什么池化模式在当前上游版本要先踩一遍 #1423 的坑再决定开不开。</p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/opensandbox/>Opensandbox</a>
+<a href=/tags/k8s/>K8s</a>
+<a href=/tags/sandbox/>Sandbox</a>
+<a href=/tags/ai-agent/>Ai-Agent</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css integrity=sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV crossorigin=anonymous><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js integrity=sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8 crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js integrity=sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05 crossorigin=anonymous defer></script><script>window.addEventListener("DOMContentLoaded",()=>{renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1},{left:"\\[",right:"\\]",display:!0}],ignoredClasses:["gist"]})})</script></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/opensandbox-4-egress/><div class=article-image><img src=https://picsum.photos/seed/03153fdb/800/600 loading=lazy data-key=opensandbox-4-egress data-hash=https://picsum.photos/seed/03153fdb/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口</h2></div></a></article><article class=has-image><a href=/p/opensandbox-3-pool/><div class=article-image><img src=https://picsum.photos/seed/4d5af0f3/800/600 loading=lazy data-key=opensandbox-3-pool data-hash=https://picsum.photos/seed/4d5af0f3/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步</h2></div></a></article><article class=has-image><a href=/p/opensandbox-1-reconcile/><div class=article-image><img src=https://picsum.photos/seed/c9e1e1dc/800/600 loading=lazy data-key=opensandbox-1-reconcile data-hash=https://picsum.photos/seed/c9e1e1dc/800/600></div><div class=article-details><h2 class=article-title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</h2></div></a></article><article class=has-image><a href=/p/cbm-mcp-to-cli/><div class=article-image><img src=https://picsum.photos/seed/a7855219/800/600 loading=lazy data-key=cbm-mcp-to-cli data-hash=https://picsum.photos/seed/a7855219/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造</h2></div></a></article><article class=has-image><a href=/p/cbm-toolset-pruning/><div class=article-image><img src=https://picsum.photos/seed/e7f46986/800/600 loading=lazy data-key=cbm-toolset-pruning data-hash=https://picsum.photos/seed/e7f46986/800/600></div><div class=article-details><h2 class=article-title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script type=text/javascript src=/ts/custom.eb4c6a182f37f89cd350793e35e757636b2c6892de4ae5ab0a9f2170b0e4118c.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script><script type=module>
+    import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+        .then(({ default: mermaid }) => {
+            const elements = Array.from(document.querySelectorAll('.mermaid'));
+            if (!elements.length) return;
+            const sources = elements.map(el => el.innerHTML);
+            let currentScheme = null;
+
+            const render = () => {
+                const scheme = document.documentElement.dataset.scheme;
+                if (scheme === currentScheme) return;
+                currentScheme = scheme;
+
+                const dark = scheme === 'dark';
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: dark ? 'dark' : 'neutral',
+                    securityLevel: 'strict'
+                });
+                elements.forEach((el, i) => {
+                    el.removeAttribute('data-processed');
+                    el.innerHTML = sources[i];
+                });
+                return mermaid.run({ nodes: elements }).then(() => {
+                    elements.forEach(el => { el.style.visibility = ''; });
+                });
+            };
+
+            render();
+            window.addEventListener('onColorSchemeChange', render);
+        })
+        .catch((error) => {
+            console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
+        });
+</script></body></html>

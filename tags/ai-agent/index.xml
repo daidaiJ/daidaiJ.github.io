@@ -1,4 +1,1498 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai-Agent on 潘达窝</title><link>https://daidaij.github.io/tags/ai-agent/</link><description>Recent content in Ai-Agent on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:10:26 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai-agent/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</title><link>https://daidaij.github.io/p/opensandbox-1-reconcile/</link><pubDate>Sun, 06 Sep 2026 20:10:26 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-1-reconcile/</guid><description>&lt;img src="https://picsum.photos/seed/c9e1e1dc/800/600" alt="Featured image of post OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环" />&lt;h1 id="opensandbox-源码走读一crd-controller-与-reconcile-循环">OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai-Agent on 潘达窝</title><link>https://daidaij.github.io/tags/ai-agent/</link><description>Recent content in Ai-Agent on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:10:55 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/ai-agent/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口</title><link>https://daidaij.github.io/p/opensandbox-4-egress/</link><pubDate>Sun, 06 Sep 2026 20:10:55 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-4-egress/</guid><description>&lt;img src="https://picsum.photos/seed/03153fdb/800/600" alt="Featured image of post OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口" />&lt;h1 id="opensandbox-源码走读四出口网络networkpolicyegress-sidecar-与池化出口">OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>沙箱平台最尴尬的问题之一：用户在沙箱里跑的代码是不可信的，但它偏偏需要出网——调 LLM API、拉 GitHub、装 pip 包。这一篇讲 OpenSandbox 怎么管住这条出口：先拆 egress sidecar 的内部实现，再对比 K8s 原生 NetworkPolicy 为什么不行，最后是我结合自己 Higress 背景想聊的池化出口 + 网关分层方案。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="egress-sidecar共享-netns-的透明拦截器">egress sidecar：共享 netns 的透明拦截器
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>egress 是按需挂载的 Go sidecar（&lt;code>components/egress/&lt;/code>），和沙箱应用容器共享网络命名空间。它的定位很克制：只做 L3/L4 + DNS 层的出口管控，L7 明确不做。&lt;/p>
+&lt;/blockquote>
+&lt;p>先看它什么时候会被挂进 Pod。&lt;code>server/opensandbox_server/services/k8s/egress_helper.py&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">apply_egress_to_spec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">network_policy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">egress_image&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="n">network_policy&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="n">egress_image&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1"># 两个条件缺一个，egress 根本不会出现&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>也就是：请求带了 &lt;code>network_policy&lt;/code>，且 server 配了 &lt;code>[egress] image&lt;/code>，才有 sidecar。不传策略的沙箱出站完全不受限——这是个容易误解的默认行为，管控是 opt-in 的。&lt;/p>
+&lt;p>安全模型的核心在同一个文件里：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">build_security_context_for_sandbox_container&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">has_network_policy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="n">has_network_policy&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;capabilities&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;drop&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;NET_ADMIN&amp;#34;&lt;/span>&lt;span class="p">]},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>启用网络策略时，server 会把&lt;strong>沙箱容器的 &lt;code>NET_ADMIN&lt;/code> 摘掉&lt;/strong>，只有 egress sidecar 保留——沙箱里跑的恶意代码没法自己改 iptables 绕过拦截。这一手比任何规则配置都重要，规则再严，用户能改规则就全白搭。&lt;/p>
+&lt;p>启动流程在 &lt;code>components/egress/main.go&lt;/code>，顺序即依赖：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">initialRules&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">policy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">LoadInitialPolicyDetailed&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">log&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fatalf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;failed to load initial egress policy: %v&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// fail-closed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">alwaysDeny&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">alwaysAllow&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">policy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">LoadAlwaysRuleFiles&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">proxy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Start&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// DNS 代理先起，127.0.0.1:15353
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">iptables&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">SetupRedirect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">15353&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">exemptDst&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">log&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fatalf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;failed to install iptables redirect: %v&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nf">setupNft&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// dns+nft 模式下加载 nftables 链
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">policySrv&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">startPolicyServer&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// HTTP API :18080
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">mitm&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">startMitmproxyTransparentIfEnabled&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1">// 可选，实验特性
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>值得注意的失败模式：&lt;strong>全链路 fail-closed&lt;/strong>。初始策略解析失败、iptables 装不上、nft 加载失败，一律 &lt;code>log.Fatalf&lt;/code> 退出，靠 supervisor 重启——宁可沙箱不可用，不带病放行。早期 OSEP 里&amp;quot;没有 CAP_NET_ADMIN 时降级继续运行&amp;quot;的设计已经废弃了，现在 &lt;code>/healthz&lt;/code> 不就绪的 Pod 根本不会被分配流量。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>熟悉我的老读者知道我写过 Higress 的 failover 逻辑，所以看到 egress 的 DNS 上游处理时有点亲切感：NXDOMAIN/NOERROR 不重试（这是权威答案），其他 rcode 才 failover 到下一个上游。语义是对的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="两层拦截dns-代理--nftables-动态放行">两层拦截：DNS 代理 + nftables 动态放行
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>egress 的核心思路是把&amp;quot;域名白名单&amp;quot;这个 L7 概念拆成两层落地：DNS 层管域名，IP 层管连接。策略模型本身只有 &lt;code>action&lt;/code> + &lt;code>target&lt;/code> 两个字段。&lt;/p>
+&lt;/blockquote>
+&lt;p>策略解析在 &lt;code>components/egress/pkg/policy/policy.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">normalizePolicy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">p&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">NetworkPolicy&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">error&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">ip&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">netip&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ParseAddr&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Target&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">targetKind&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">targetIP&lt;/span> &lt;span class="c1">// 纯 IP
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ip&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">ip&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">continue&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">prefix&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">netip&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">ParsePrefix&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Target&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">targetKind&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">targetCIDR&lt;/span> &lt;span class="c1">// CIDR
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">prefix&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">prefix&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">continue&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 否则按域名处理
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>specs/egress-api.yaml&lt;/code> 里那句 &amp;ldquo;IP/CIDR not yet supported in the egress MVP&amp;rdquo; 是&lt;strong>过时注释&lt;/strong>，实现早就支持了。另外 &lt;code>ParsePolicy&lt;/code> 对空策略的处理是 &lt;code>&amp;quot;&amp;quot; / null / {} → DefaultDenyPolicy()&lt;/code>——空策略即 deny-all，不会手滑变成全放行。&lt;/p>
+&lt;p>&lt;strong>Layer 1：DNS 代理&lt;/strong>。iptables 把所有 53 端口流量重定向到本机代理（&lt;code>pkg/iptables/redirect.go&lt;/code>）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>&lt;span class="s">&amp;#34;iptables&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;-t&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;nat&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">op&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;OUTPUT&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;-p&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;udp&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;--dport&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;53&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;-m&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;mark&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;--mark&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">constants&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">MarkHex&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;-j&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;RETURN&amp;#34;&lt;/span>&lt;span class="p">},&lt;/span> &lt;span class="c1">// ← 防自递归
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="s">&amp;#34;iptables&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;-t&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;nat&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">op&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;OUTPUT&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;-p&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;udp&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;--dport&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;53&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;-j&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;REDIRECT&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;--to-port&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">targetPort&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>代理自己向上游发的查询打上 mark 先 RETURN 跳过，否则会无限套娃。上游地址必须是字面 IP，hostname 会再次命中重定向。IPv4/IPv6 双栈都装，nft 后端装不上 iptables 时还有一套原生 nft redirect 回退（&lt;code>opensandbox_dns_redirect&lt;/code> 表）。&lt;/p>
+&lt;p>被拒域名在 &lt;code>pkg/dnsproxy/proxy.go&lt;/code> 的处理：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">currentPolicy&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">currentPolicy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Evaluate&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">domain&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="nx">policy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ActionDeny&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">telemetry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">RecordDNSDenied&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">publishBlocked&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">domain&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resp&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">new&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">dns&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Msg&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resp&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">SetRcode&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">dns&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">RcodeNameError&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 被拒 = NXDOMAIN
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">w&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">WriteMsg&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">resp&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>Layer 2：nftables&lt;/strong>（&lt;code>dns+nft&lt;/code> 模式）。&lt;code>pkg/nftables/manager.go&lt;/code> 的 &lt;code>buildRuleset&lt;/code> 生成的链结构：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">ct state established,related accept # 存量连接放行，策略变更不掐断
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">meta mark &amp;lt;MarkHex&amp;gt; accept # 代理自身流量
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">oifname &amp;#34;lo&amp;#34; accept # 回环
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ip daddr 127.0.0.1 udp/tcp dport 15353 accept
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">tcp/udp dport 853 drop # DoT 默认阻断，防 DNS 绕过
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ip daddr @deny_v4/v6 drop # 静态 deny 集
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ip daddr @dyn_allow_v4/v6 accept # 动态 allow 集（DNS 解析产物）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ip daddr @allow_v4/v6 accept # 静态 allow 集
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">drop # defaultAction: deny 兜底
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>动态集的 TTL 设计在 &lt;code>pkg/nftables/dynamic.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">const&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dynSetTimeoutS&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">360&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">nftTTLSlackSec&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">60&lt;/span> &lt;span class="c1">// 比 resolver 缓存多活 60s，减少竞态
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">minTTLSec&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">60&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">maxTTLSec&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">360&lt;/span> &lt;span class="c1">// max DNS TTL (300) + slack
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">clampTTL&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">d&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Duration&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Duration&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sec&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">int&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">d&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Seconds&lt;/span>&lt;span class="p">())&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">nftTTLSlackSec&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">sec&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">min&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nb">max&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">sec&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">minTTLSec&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nx">maxTTLSec&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Duration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">sec&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Second&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>放行的域名解析出的 IP 带 TTL 进动态集；连接跟踪器每 30s 扫 &lt;code>/proc&lt;/code> 里的活跃 TCP 连接续期（只跟踪 TCP，UDP/QUIC 靠 DNS TTL 自然过期）。还有一个容易忽略的时序细节，&lt;code>proxy.go&lt;/code> 的注释写得很明白：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// maybeNotifyResolved calls onResolved before w.WriteMsg so dynamic nft allows are installed
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// before the client receives the answer and may open a connection.
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>nft 放行在 DNS 响应&lt;strong>返回给客户端之前&lt;/strong>同步完成——否则客户端拿到 A 记录立刻建连，会被还没更新的 nft 规则丢掉，变成玄学超时。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>这套设计的弱点也很清楚：IP/CIDR 规则只在 &lt;code>dns+nft&lt;/code> 模式生效，纯 &lt;code>dns&lt;/code> 模式下 DNS 层直接跳过非域名规则。另外端口维度完全没有——&lt;code>NetworkRule&lt;/code> 就没有 port 字段，后面讲 Higress 分层时会回到这个问题。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="为什么不用-k8s-networkpolicy">为什么不用 K8s NetworkPolicy
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>这是官方 &lt;code>docs/architecture/network-isolation.md&lt;/code> 里明确的选择，我在源码层面核了一遍，结论成立：不是 NetworkPolicy 不好，是它的语义模型和沙箱场景不匹配。&lt;/p>
+&lt;/blockquote>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>K8s NetworkPolicy&lt;/th>
+&lt;th>egress sidecar&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>控制点&lt;/td>
+&lt;td>集群网络层（CNI 数据面）&lt;/td>
+&lt;td>沙箱 Pod 内部（共享 netns）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>控制对象&lt;/td>
+&lt;td>Pod 集合（namespace + label selector）&lt;/td>
+&lt;td>单个沙箱（per-sandbox）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>域名级控制&lt;/td>
+&lt;td>原生不支持（需 Cilium &lt;code>toFQDNs&lt;/code> 扩展）&lt;/td>
+&lt;td>原生支持 FQDN 白名单&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>动态调整&lt;/td>
+&lt;td>静态 YAML，改规则要 apply&lt;/td>
+&lt;td>运行时 API（&lt;code>POST/PATCH /policy&lt;/code>）实时生效&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>平台/用户双层&lt;/td>
+&lt;td>只有平台级（集群管理员 RBAC）&lt;/td>
+&lt;td>&lt;code>deny.always&lt;/code>（平台不可覆盖）+ 用户策略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>额外开销&lt;/td>
+&lt;td>无&lt;/td>
+&lt;td>每沙箱多一个容器 + &lt;code>NET_ADMIN&lt;/code> 攻击面&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>gVisor 兼容&lt;/td>
+&lt;td>无关（运行时透明）&lt;/td>
+&lt;td>不兼容（netstack 不实现 iptables nat 表）&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>三个致命的不匹配：&lt;/p>
+&lt;p>&lt;strong>一，label 不可预测。&lt;/strong> 沙箱 Pod 的 label 由平台自动注入，不同租户/安全级别的沙箱可能共享同一套 label。NetworkPolicy 靠 label selector 划边界，边界本身不可控，规则写得再细也是空中楼阁。&lt;/p>
+&lt;p>&lt;strong>二，生命周期错位。&lt;/strong> 沙箱秒级创建销毁，NetworkPolicy 是静态声明。&amp;ldquo;默认拒绝来自所有其他沙箱的访问&amp;quot;是 per-sandbox 语义，用 Pod 集合语义表达要为每个沙箱单独建规则，且永远覆盖不到下一个创建的沙箱。&lt;/p>
+&lt;p>&lt;strong>三，出站控制天然弱。&lt;/strong> NetworkPolicy 的 Ingress 能挡入站，但挡不住沙箱进程主动 &lt;code>curl&lt;/code> 另一个沙箱的 Pod IP。要挡出站得 Ingress+Egress 双向配，又绕回前两个问题。而沙箱场景最常用的&amp;quot;允许访问 &lt;code>api.github.com&lt;/code>&amp;ldquo;这种域名规则，原生根本不支持。&lt;/p>
+&lt;p>再往下挖一层是语义差异。NetworkPolicy 是&lt;strong>网络管理员视角&lt;/strong>——&amp;ldquo;这个网段允许访问那个网段&amp;rdquo;；egress 是&lt;strong>沙箱视角&lt;/strong>——&amp;ldquo;这个沙箱允许访问哪些域名&amp;rdquo;。多租户场景里用户根本不该知道集群的 Pod/Service CIDR（这本身是敏感信息），egress 让用户只声明域名，CIDR 知识留在平台侧。&lt;/p>
+&lt;p>一个实际的细节：启用策略时 server 摘掉沙箱容器 &lt;code>NET_ADMIN&lt;/code>、只留给 sidecar（前面贴过的 &lt;code>build_security_context_for_sandbox_container&lt;/code>），所以沙箱内进程无法绕过。NetworkPolicy 场景下这个前提都不需要，因为策略在集群层，沙箱内根本摸不到。&lt;/p>
+&lt;p>&lt;strong>但 egress 的代价也要列清楚：&lt;/strong>&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>缺点&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>需要 &lt;code>NET_ADMIN&lt;/code>&lt;/td>
+&lt;td>只给 sidecar，但镜像/部署复杂度和审计面是实打实增加的&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>与 gVisor 不兼容&lt;/td>
+&lt;td>netstack 没有 iptables nat 表，REDIRECT 无效；只能改 Kata 或 CNI 级 FQDN 策略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>与透明 mesh 冲突&lt;/td>
+&lt;td>Istio/Envoy sidecar 同在一个 netns 重写流量，二选一&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>资源开销&lt;/td>
+&lt;td>每个受控沙箱多一个容器（内存/CPU/镜像拉取）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>只管出站&lt;/td>
+&lt;td>沙箱间入站隔离仍要靠 &lt;code>deny.always&lt;/code> 挡 Pod CIDR 间接实现&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>我的判断：OpenSandbox 选 egress 当主力不是&amp;quot;sidecar 模式先进&amp;rdquo;，而是沙箱平台的三要素——多租户、动态生命周期、域名级出站白名单——每一个都踩在 NetworkPolicy 的语义盲区上。NetworkPolicy 合理的位置是补充：集群内入站隔离、挡 Pod CIDR，跟 Cilium 这类 CNI 配合做 egress 方案的降级备选（gVisor 场景）。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="池化模式策略必须预置进模板">池化模式：策略必须预置进模板
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>池化（Pool）是预热沙箱的经典套路——先创建一批 Pod 备着，请求来了直接分配。但这和&amp;quot;创建时注入 sidecar&amp;quot;天然冲突：Pod 已经存在了，生命周期 API 没法往里塞容器。&lt;/p>
+&lt;/blockquote>
+&lt;p>约束很硬：&lt;code>networkPolicy&lt;/code> 与 &lt;code>extensions.poolRef&lt;/code> 同时使用会被 server 直接拒绝（HTTP 400）。正确做法是把 egress 容器手动写进 Pool 的 &lt;code>spec.template&lt;/code>（完整 &lt;code>corev1.PodTemplateSpec&lt;/code>，Schemaless 原样透传）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">- &lt;span class="nt">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">egress&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">image&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">opensandbox/egress:v1.1.6&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">securityContext&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">capabilities&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">add&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;NET_ADMIN&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 缺失则 sidecar 启动失败（fail-closed）&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">env&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">OPENSANDBOX_EGRESS_MODE&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">value&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;dns+nft&amp;#34;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># IP/CIDR 规则仅此模式生效&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">OPENSANDBOX_EGRESS_RULES&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">value&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s1">&amp;#39;{&amp;#34;defaultAction&amp;#34;:&amp;#34;deny&amp;#34;,&amp;#34;egress&amp;#34;:[{&amp;#34;action&amp;#34;:&amp;#34;allow&amp;#34;,&amp;#34;target&amp;#34;:&amp;#34;api.github.com&amp;#34;}]}&amp;#39;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">name&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">OPENSANDBOX_EGRESS_TOKEN&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">value&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;&amp;lt;token&amp;gt;&amp;#34;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 不设则 18080 无认证，能连上就能改策略&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">readinessProbe&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">httpGet&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>{&lt;span class="nt">path: /healthz, port&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">18080&lt;/span>}&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>由此带来几个池化特有的坑：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>坑&lt;/th>
+&lt;th>后果&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>所有沙箱共享模板策略&lt;/td>
+&lt;td>每请求独立的 &lt;code>network_policy&lt;/code> 在 pool 模式不生效，模板级统一管控&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>OPENSANDBOX_EGRESS_SANDBOX_ID&lt;/code> 无法注入&lt;/td>
+&lt;td>egress 审计/deny webhook 的 payload 里 &lt;code>sandboxId&lt;/code> 为空，无法归因到具体沙箱&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>模板变更不追溯&lt;/td>
+&lt;td>已预热的 Pod 继续执行旧策略，要滚动更新 Pool 才生效&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>运行时 patch 需要预置 token&lt;/td>
+&lt;td>分配后仍可动态改策略（SDK 走 server 鉴权），但模板必须先带 token&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>sandbox_id 归因缺失是我认为池化模式目前最实际的短板：一个 Pool 服务多个租户时，deny webhook 只知道&amp;quot;有沙箱撞了黑名单&amp;rdquo;，不知道是谁。审计闭环断了。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="池化出口--higress粗粒度给-sidecar细粒度给网关">池化出口 + Higress：粗粒度给 sidecar，细粒度给网关
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>这是我自己方案里最想展开的部分。egress 的能力边界卡在两个地方：没有端口维度、没有 L7。企业内网场景（内部 HTTP API、NodePort 服务）恰好需要这两样。既然集群里已有 Higress 网关，与其改造 egress，不如分层。&lt;/p>
+&lt;/blockquote>
+&lt;p>先固化平台级基线。&lt;code>/var/egress/rules/deny.always&lt;/code>（优先级高于用户策略，每分钟热加载，用户不可覆盖）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl"># 平台组件 Service DNS
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">opensandbox-server.opensandbox.svc.cluster.local
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">opensandbox-ingress-gateway.opensandbox.svc.cluster.local
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 集群内部 CIDR：平台组件 + 沙箱间互访一刀切
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">10.244.0.0/16 # Pod CIDR
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">10.96.0.0/12 # Service CIDR
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 上层业务运行时
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">10.40.0.0/16
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">*.admin.corp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>用户策略（Pool 模板）只放外部服务和网关：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;defaultAction&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;deny&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;egress&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="nt">&amp;#34;action&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;allow&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;api.openai.com&amp;#34;&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="nt">&amp;#34;action&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;allow&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;*.pypi.org&amp;#34;&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="nt">&amp;#34;action&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;allow&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;higress-gateway.corp.internal&amp;#34;&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>&lt;span class="nt">&amp;#34;action&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;allow&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;10.20.0.0/16&amp;#34;&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>分层架构：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">沙箱应用容器
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">egress sidecar（dns+nft，defaultAction: deny）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │ 只放行：外部服务域名 + Higress 网关
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ├──────────────► 外部服务（LLM / GitHub / 包源）——域名直连
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Higress 网关（L7：路径级 allow/deny、认证、限流）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> │
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ▼
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">内部服务（HTTP API / NodePort 服务）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>分工：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>职责&lt;/th>
+&lt;th>粒度&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>egress&lt;/td>
+&lt;td>默认拒绝 + 白名单；强制内部流量必须走网关；隔离平台组件/业务运行时&lt;/td>
+&lt;td>域名 / IP / CIDR&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Higress&lt;/td>
+&lt;td>路径/方法级 allow/deny、认证、限流&lt;/td>
+&lt;td>HTTP 路由&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>关键机制是&lt;strong>egress 把集群内部 CIDR 全 deny，只放行网关&lt;/strong>——沙箱想访问内部服务，物理上只有 Higress 一条路。这样 L7 管控点天然收口到网关，Higress 上配路由级策略就够，不用关心流量从哪个沙箱来。这个思路对做网关的人来说很自然：L3/L4 收口是防火墙的活，L7 治理是 API 网关的活，别让一个组件干两层的事。&lt;/p>
+&lt;p>落地时有三个必须踩准的点：&lt;/p>
+&lt;p>&lt;strong>一，内部 Service 要双重放行。&lt;/strong> 访问集群内 Service，域名（过 DNS 层）和 ClusterIP CIDR（过 nft 层）必须&lt;strong>同时&lt;/strong> allow。只放域名会出现最迷惑的现象：&lt;code>nslookup&lt;/code> 正常，TCP 连接超时——nft 把包丢了，而且动态放行失败在沙箱内看和策略拒绝不可区分。&lt;/p>
+&lt;p>&lt;strong>二，通配符不匹配裸域。&lt;/strong> &lt;code>*.pypi.org&lt;/code> 匹配不到 &lt;code>pypi.org&lt;/code> 本身（&lt;code>domain_index.go&lt;/code> 里 exact map 和 wildcard suffix map 是分开的），要两条都加。&lt;/p>
+&lt;p>&lt;strong>三，NodePort 看场景。&lt;/strong> 专用节点池就 allow 节点网段（如 &lt;code>10.30.1.0/24&lt;/code>）；共享节点无法按端口区分，必须让服务走 Higress（网关以 NodePort 暴露，egress 只放网关节点 IP），或者改 ClusterIP + 网关转发。&lt;/p>
+&lt;p>验证不能只看策略文本，要实测行为：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">osb egress get &amp;lt;sandbox-id&amp;gt; -o json &lt;span class="c1"># 确认 mode=deny_all, enforcementMode=dns+nft&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">osb &lt;span class="nb">command&lt;/span> run &amp;lt;sandbox-id&amp;gt; -o raw -- curl -I https://api.github.com &lt;span class="c1"># 放行 → 200&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">osb &lt;span class="nb">command&lt;/span> run &amp;lt;sandbox-id&amp;gt; -o raw -- curl -I https://blocked.corp &lt;span class="c1"># 阻断 → NXDOMAIN&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">osb &lt;span class="nb">command&lt;/span> run &amp;lt;sandbox-id&amp;gt; -o raw -- curl -I http://10.244.0.5 &lt;span class="c1"># 阻断 → 超时&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意 nft 链放行 &lt;code>established,related&lt;/code>，改策略不掐存量连接——验证必须用新连接，不然测的是旧规则。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>如果要在生产用这套组合，我会先补三件事：pool 模式的 sandbox_id 归因（比如 egress 支持分配时注入）、&lt;code>egress.nftables.updates.failed_total&lt;/code> 指标的告警（动态放行失败是 fail-closed 静默故障，现象和策略拒绝一模一样）、以及一份按实际集群 CIDR 生成的 deny.always 模板——CIDR 写错要么误放行要么误阻断，且都很难从现象反推。&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>出口网络这条线到这里基本闭环了：组件内部实现 → 与 K8s 原生方案的取舍 → 池化 + 网关分层。整个 OpenSandbox 源码走读系列的下一篇也是收官篇，会把前面几篇没展开的踩坑合集一次性倒出来。&lt;/p>
+&lt;/blockquote>
+&lt;p>系列索引：&lt;a class="link" href="https://daidaij.github.io/p/opensandbox-1-reconcile/" >（一）CRD Controller 与 Reconcile 循环&lt;/a> · &lt;a class="link" href="https://daidaij.github.io/p/opensandbox-2-lease/" >（二）Sandbox Lease 与生命周期管理&lt;/a> · &lt;a class="link" href="https://daidaij.github.io/p/opensandbox-3-pool/" >（三）池化设计&lt;/a>；下一篇（收官）：&lt;a class="link" href="https://daidaij.github.io/p/opensandbox-5-pitfalls/" >踩坑合集&lt;/a>。&lt;/p></description></item><item><title>OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步</title><link>https://daidaij.github.io/p/opensandbox-3-pool/</link><pubDate>Sun, 06 Sep 2026 20:10:52 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-3-pool/</guid><description>&lt;img src="https://picsum.photos/seed/4d5af0f3/800/600" alt="Featured image of post OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步" />&lt;h1 id="opensandbox-源码走读三池化设计template-更新分配注入与-s3-会话同步">OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>前两篇看了 CRD 模型和创建链路，这篇讲我觉得整套系统里工程含金量最高的部分：池化。AI agent 场景下沙箱创建动辄十几秒，用户等不了——所以要把 pod 提前建好捂热，create 时直接分配。但&amp;quot;复用已运行的 pod&amp;quot;这个约束会连锁引出一堆问题：模板更新了怎么办？用户身份怎么在分配时刻注进去？上一个用户的会话数据怎么保证不串到下一个用户？这篇沿着&amp;quot;模板 → 池 → 分配 → 会话同步&amp;quot;把这条线走完。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="为什么要池化">为什么要池化
+&lt;/h2>&lt;hr>
+&lt;p>非池化路径下，create 一个沙箱意味着：调度 pod → 拉镜像 → 启动容器 → execd 就绪，整个链路秒级起步、镜像大了奔着分钟去。agent 场景里这是不可接受的——用户发一条消息，agent 要在对话内频繁开沙箱跑代码，没人愿意等十几秒的&amp;quot;白屏&amp;quot;。&lt;/p>
+&lt;p>池化的思路很朴素：用 &lt;code>Pool&lt;/code> CRD 预先按模板创建一批 pod 捂着，业务 create 时带 &lt;code>extensions.poolRef&lt;/code>，server 不再建 pod，而是从池里挑一个已运行的分给这个 BatchSandbox：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[业务 create poolRef] --> B[server 建 BatchSandbox CR]
+B --> C[PoolReconciler 分配预热 pod]
+C --> D[taskTemplate 下发到 pod 内 task-executor]
+D --> E[返回 create 成功]&lt;/pre>&lt;p>pod 建好之后所有动作都发生在&amp;quot;已运行的容器&amp;quot;里，这就是池化一切设计的出发点。&lt;/p>
+&lt;h2 id="template-更新sha256-版本号--只换空闲-pod">Template 更新：sha256 版本号 + 只换空闲 pod
+&lt;/h2>&lt;hr>
+&lt;p>Pool 的模板版本不是手填的，是控制器对 &lt;code>spec.template&lt;/code> 做 sha256 算出来的：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/controller/pool_controller.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">PoolReconciler&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">calculateRevision&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pool&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pool&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">template&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">json&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Marshal&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pool&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Template&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">revision&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">sha256&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sum256&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">template&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">hex&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">EncodeToString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">revision&lt;/span>&lt;span class="p">[:&lt;/span>&lt;span class="mi">8&lt;/span>&lt;span class="p">]),&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="c1">// ← 取前 8 字节做版本号
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>新创建的 pod 会打上 &lt;code>sandbox.opensandbox.io/pool-revision&lt;/code> 标签（&lt;code>createPoolPod&lt;/code> 里 &lt;code>pod.Labels[LabelPoolRevision] = updateRevision&lt;/code>），这样池子里每个 pod 属于哪个版本一目了然。&lt;/p>
+&lt;p>更新策略有个关键前提：&lt;strong>只处理 idle pod&lt;/strong>。&lt;code>scheduleSandbox&lt;/code> 里 idle 的定义是&amp;quot;Ready 且未被分配&amp;quot;：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/controller/pool_controller.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">latestAllocation&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Allocator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">GetPoolAllocation&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pool&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">idlePods&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">([]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pod&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">pods&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ok&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">latestAllocation&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">pod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">];&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nx">ok&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="c1">// ← 被分配的不算 idle
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">idlePods&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">append&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">idlePods&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>recreateUpdateStrategy.Compute&lt;/code>（&lt;code>pool_update.go&lt;/code>）的签名直接把这一点写在了参数上：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nf">Compute&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Context&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">updateRevision&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">pods&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">corev1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Pod&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">idlePods&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">UpdateResult&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>替换节奏受 &lt;code>UpdateStrategy.MaxUnavailable&lt;/code>（默认 25%）预算控制，空闲 pod 分批删旧建新。&lt;code>GenerationChangedPredicate&lt;/code> 保证只有 spec 变更才触发 reconcile，status 抖动不会引发无谓轮询。&lt;/p>
+&lt;blockquote>
+&lt;p>只换 idle pod 是对的——已分配的 pod 背后有活着的沙箱，删了就是事故。但它带来一个容易被忽略的推论：如果池子里所有 pod 都被分配了，&lt;code>updatePool&lt;/code> 算出 &lt;code>SupplyUpdateRevision = 0&lt;/code>，一个新 pod 都不会建，整个池子停留在旧版本，而且没有任何告警。升级模板前得先看一眼分配率。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="分配先到先得不认版本号">分配：先到先得，不认版本号
+&lt;/h2>&lt;hr>
+&lt;p>分配算法在 &lt;code>algorithm/packed.go&lt;/code>，简单到值得整段贴出来：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/controller/algorithm/packed.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">type&lt;/span> &lt;span class="nx">PackedSchedule&lt;/span> &lt;span class="kd">struct&lt;/span>&lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">p&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">PackedSchedule&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">Schedule&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">availablePods&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">allRequest&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">SandboxRequest&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">AllocAction&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">action&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">AllocAction&lt;/span>&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ToAllocate&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">][]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ToRelease&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">][]&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">PodSupplement&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">int32&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">req&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">allRequest&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ... 收集 release 请求 ...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">need&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">req&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">PodSupplement&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">need&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">continue&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nb">int32&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">availablePods&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="nx">need&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">action&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ToAllocate&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">req&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">SandboxName&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">availablePods&lt;/span>&lt;span class="p">[:&lt;/span>&lt;span class="nx">need&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="c1">// ← 按列表顺序切
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">availablePods&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">availablePods&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">need&lt;/span>&lt;span class="p">:]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">availablePods&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">action&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ToAllocate&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">req&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">SandboxName&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">availablePods&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">action&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">PodSupplement&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="nx">need&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="nb">int32&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">availablePods&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="c1">// 不够就补建
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">availablePods&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="kc">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">action&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">PodSupplement&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="nx">need&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">action&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>availablePods&lt;/code> 就是上一节的 idle 列表——注意它&lt;strong>不区分 revision&lt;/strong>，新旧版本的 pod 混在一起先到先得。所以模板刚更新完，只要 idle 池里还剩旧 revision 的 pod，新沙箱就可能分到旧 pod。&lt;/p>
+&lt;p>分配关系的记录方式也值得注意：&lt;strong>pod 上没有任何指向 BatchSandbox 的所有权标记&lt;/strong>。pod 只有 &lt;code>pool-name&lt;/code> 和 &lt;code>pool-revision&lt;/code> 两个标签，ownerReference 指向的是 Pool；分配关系单向记在 BatchSandbox 的注解上：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/controller/apis.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">AnnoAllocStatusKey&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="s">&amp;#34;sandbox.opensandbox.io/alloc-status&amp;#34;&lt;/span> &lt;span class="c1">// {&amp;#34;pods&amp;#34;:[&amp;#34;pod-a&amp;#34;]}
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">AnnoAllocReleaseKey&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="s">&amp;#34;sandbox.opensandbox.io/alloc-release&amp;#34;&lt;/span> &lt;span class="c1">// 待释放
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">AnnoAllocReleasedKey&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="s">&amp;#34;sandbox.opensandbox.io/alloc-released&amp;#34;&lt;/span> &lt;span class="c1">// 已释放
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>没有 pod → sandbox 的正向索引，查&amp;quot;这个 pod 属于哪个沙箱&amp;quot;只能反向遍历所有 BatchSandbox 的注解。控制器的 &lt;code>InMemoryAllocationStore&lt;/code> 也是从注解 Recover 出来的，没有独立持久化——好处是注解即真相、重启可恢复，坏处是规模化之后反向查询会很疼。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="分配时刻注入tasktemplate-就是现成的通道">分配时刻注入：taskTemplate 就是现成的通道
+&lt;/h2>&lt;hr>
+&lt;p>池化 pod 是预热的，分配时&lt;strong>不能改 pod spec&lt;/strong>——initContainer、ConfigMap 挂载、env 注入这些&amp;quot;创建时生效&amp;quot;的手段全部失效。分配时刻能做的只有往运行中的容器里执行动作。&lt;/p>
+&lt;p>server 的做法是把注入打包进 taskTemplate。看 &lt;code>batchsandbox_provider.py&lt;/code> 的真实代码：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/services/k8s/batchsandbox_provider.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_build_task_template&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="bp">self&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">entrypoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">env&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">escaped_entrypoint&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s1">&amp;#39; &amp;#39;&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">shlex&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">quote&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">arg&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">arg&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">entrypoint&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">execd_run_as_init&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">user_process_cmd&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;exec /opt/opensandbox/bootstrap.sh &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">escaped_entrypoint&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">else&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">user_process_cmd&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;/opt/opensandbox/bootstrap.sh &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">escaped_entrypoint&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> &amp;amp;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">wrapped_command&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;/bin/sh&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;-c&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">user_process_cmd&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">env_list&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[{&lt;/span>&lt;span class="s2">&amp;#34;name&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">k&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;value&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">v&lt;/span>&lt;span class="p">}&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">k&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">v&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">env&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">items&lt;/span>&lt;span class="p">()]&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">env&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">env_list&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">append&lt;/span>&lt;span class="p">({&lt;/span>&lt;span class="s2">&amp;#34;name&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;OPENSANDBOX_ID&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;value&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;spec&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;process&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;command&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">wrapped_command&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;env&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">env_list&lt;/span>&lt;span class="p">}}}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>有个容易踩的坑藏在 &lt;code>_create_workload_from_pool&lt;/code> 里：不传 entrypoint/env 时走&lt;strong>快路径&lt;/strong>，直接不生成 taskTemplate：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">needs_task_template&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">env&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="ow">or&lt;/span> &lt;span class="n">entrypoint&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">DEFAULT_ENTRYPOINT&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="ow">or&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">execd_run_as_init&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">needs_task_template&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">spec&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;taskTemplate&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_build_task_template&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">entrypoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">env&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">batchsandbox_name&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">else&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># Fast path: the pre-created pool pod keeps running its own warm&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># entrypoint, so no per-allocation env can reach execd.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>快路径省一次任务下发，但代价是连 &lt;code>OPENSANDBOX_ID&lt;/code> 都注入不了，注释里明说了这条路径上 eBPF 审计无法归属 sandbox_id。&lt;/p>
+&lt;p>&amp;ldquo;分配后注入&amp;quot;能成立，靠的是 controller 的 3 秒轮询链路：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">server 创建 BatchSandbox（含 taskTemplate）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → BatchSandboxReconciler 每 3s reconcile
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → taskTemplate 生成 task specs 下发到 pod 内 task-executor（:5758）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> → task-executor 先跑 preStart 钩子，再跑主命令
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这引出一个关键的时序判断：&lt;strong>taskTemplate 是 server 每次分配时生成的，create 请求里的动态参数（user_id、token）在生成那一刻就已知&lt;/strong>，所以可以直接渲染进命令——命令里 &lt;code>cat &amp;gt; file &amp;lt;&amp;lt;'EOF'&lt;/code> 写文件、&lt;code>sh file&lt;/code> 调脚本，注入和调用一次完成。执行天然发生在分配后，不需要新开 k8s exec 接口。exec 只在需要&amp;quot;分配后才知道的信息&amp;rdquo;（pod IP、运行时探测）时才值得引入。&lt;/p>
+&lt;blockquote>
+&lt;p>token 这类敏感凭证注入时要小心：taskTemplate 的命令会进日志，&lt;code>user_auth_token&lt;/code> 千万别拼进命令行，走 env 注入更稳。而且 Pool 模式下 Secret 挂载必须预挂进模板，分配时加不了——所以分配时刻注入 token 实际只有 env 和文件两条路。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="s3-会话同步固定-poststop--中间层静默-exec">S3 会话同步：固定 postStop + 中间层静默 exec
+&lt;/h2>&lt;hr>
+&lt;p>池化还有个更麻烦的问题：pod 是复用的，用户 A 用完回池，用户 B 分到同一个 pod 时绝不能看到 A 的文件。解法是把会话状态放 S3，按前缀隔离：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">s3://&amp;lt;bucket&amp;gt;/tenants/&amp;lt;tenantId&amp;gt;/users/&amp;lt;userId&amp;gt;/sessions/&amp;lt;sessionId&amp;gt;/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>架构上分三层，各管各的：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>职责&lt;/th>
+&lt;th>时机&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Pool 模板&lt;/td>
+&lt;td>共享 emptyDir &lt;code>/shared-workspace&lt;/code>、task-executor 侧 S3 CLI + 凭证（IRSA）&lt;/td>
+&lt;td>一次配置&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>BatchSandbox&lt;/td>
+&lt;td>固定 postStop（与用户无关，所有沙箱一样）&lt;/td>
+&lt;td>建 CR 时带上&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>中间层&lt;/td>
+&lt;td>按用户渲染并注入 sync 脚本、触发 restore&lt;/td>
+&lt;td>分配后 exec&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>固定 postStop 长这样：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">lifecycle&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">postStop&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">execMode&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">Local &lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 在 task-executor 侧执行&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">timeoutSeconds&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">180&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">exec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">command&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;/bin/sh&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;-c&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">args&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="p">|&lt;/span>&lt;span class="sd">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="sd"> set -eu
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="sd"> HOOK=/shared-workspace/.osb-sync-out.sh
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="sd"> if [ -x &amp;#34;$HOOK&amp;#34; ]; then &amp;#34;$HOOK&amp;#34;; fi # ← 存在才跑，注入的回写脚本
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="sd"> find /shared-workspace -mindepth 1 -delete # 清盘防串台&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>中间层的 create 流程对外仍然是一次普通的 create：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">1. 解析身份 → S3_USER_PREFIX
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">2. 创建 BatchSandbox（poolRef + 固定 postStop 的 taskTemplate）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">3. 等待分配的 pod Ready
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">4. 内部 pods/exec 到 task-executor 容器：
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> a. 写入并 chmod +x /shared-workspace/.osb-sync-out.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> b. 后台启动 inbound restore（aws s3 sync ... || true），不等 CLI 结束
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">5. 标记会话已 prepare
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">6. 返回 create 成功
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>delete 时（主动删或 expireTime 到期）走同一条路：删 CR → finalizer → StopTask → postStop 跑 &lt;code>.osb-sync-out.sh&lt;/code> 回写 S3 + 清盘 → pod 回池。到期删除也能回写，这是把回写放进 postStop 而不是让业务在 delete 前自己 sync 的核心理由。&lt;/p>
+&lt;p>为什么脚本要靠 exec 注入、而不是让固定钩子去读用户 env？我查了 task-executor 的实现，Local 钩子的环境是这么构造的：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/task-executor/runtime/process.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">cmd&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Env&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">os&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Environ&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1">// ← 只继承 task-executor 进程自身环境
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>钩子&lt;strong>不继承&lt;/strong> task 的 &lt;code>process.env&lt;/code>，所以&amp;quot;create 时塞个 &lt;code>S3_USER_PREFIX&lt;/code> env、固定 sync 脚本去读&amp;quot;这条路在当前实现下走不通——注入脚本把前缀写进文件，就是在绕这个限制。postStop 钩子在任务终态（成功/失败/超时/删除）时必执行，倒是销毁前持久化产物的可靠挂点。&lt;/p>
+&lt;blockquote>
+&lt;p>这套设计里我最欣赏的是&amp;quot;动态与静态分离&amp;quot;：用户相关的东西（S3 前缀、脚本内容）由中间层运行时注入，用户无关的骨架（postStop 逻辑、清盘）固化在 CR 模板里。业务 SDK 全程只看到 &lt;code>create → 使用 → delete&lt;/code>，pods/exec、S3 命令、脚本路径全都不出中间层。代价是链路变长了：中间层挂了恢复逻辑、postStop 失败是否阻塞回池、restore 还在跑就回池的竞态，这些都是要靠运维约定兜底的模糊地带。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="shardtaskpatches批量创建时的差异化补丁">shardTaskPatches：批量创建时的差异化补丁
+&lt;/h2>&lt;hr>
+&lt;p>最后补一个和 taskTemplate 配套的机制。&lt;code>BatchSandbox&lt;/code> 支持一次创建 N 个沙箱，&lt;code>shardTaskPatches[i]&lt;/code> 按下标对第 i 个副本的任务做覆盖，实现&amp;quot;批量创建、各跑各的&amp;quot;：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">replicas&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">3&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">taskTemplate&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">process&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">command&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;python&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;train.py&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">args&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;--epochs&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;10&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">shardTaskPatches&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>{&lt;span class="w"> &lt;/span>&lt;span class="nt">process&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>{&lt;span class="w"> &lt;/span>&lt;span class="nt">args&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;--epochs&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;10&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;--lr&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;1e-3&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w"> &lt;/span>}&lt;span class="w"> &lt;/span>}&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>- &lt;span class="nt">spec&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>{&lt;span class="w"> &lt;/span>&lt;span class="nt">process&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>{&lt;span class="w"> &lt;/span>&lt;span class="nt">args&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;--epochs&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;10&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;--lr&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s2">&amp;#34;1e-4&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w"> &lt;/span>}&lt;span class="w"> &lt;/span>}&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c"># 副本 2 无 patch → 用默认 taskTemplate&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>合并逻辑在 &lt;code>task_scheduling_strategy_default.go&lt;/code>，就是标准的 strategic merge patch：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">DefaultTaskSchedulingStrategy&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">getTaskSpec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">idx&lt;/span> &lt;span class="kt">int&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">api&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Task&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">task&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">api&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Task&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sprintf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;%s-%d&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Name&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">idx&lt;/span>&lt;span class="p">)}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ShardTaskPatches&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">idx&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ShardTaskPatches&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">taskTemplate&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">DeepCopy&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1">// ← 在深拷贝上合并，不动原模板
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">cloneBytes&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">_&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">json&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Marshal&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">taskTemplate&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">patch&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ShardTaskPatches&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">modified&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">strategicpatch&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">StrategicMergePatch&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cloneBytes&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">patch&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Raw&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">&amp;amp;&lt;/span>&lt;span class="nx">sandboxv1alpha1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplateSpec&lt;/span>&lt;span class="p">{})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">nil&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Errorf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;batchsandbox: failed to merge patch raw %s, idx %d, err %w&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">patch&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Raw&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">idx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// ...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">task&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Process&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nf">convertProcessSpec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">newTaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Process&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TimeoutSeconds&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// ← timeout 取基础模板
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Process&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">task&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Process&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nf">convertProcessSpec&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Process&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">s&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TaskTemplate&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">TimeoutSeconds&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">task&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kc">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>几个容易记错的语义：env 数组按 &lt;code>name&lt;/code> merge（同名覆盖、异名保留，patch 删不掉模板里的 env）；&lt;code>timeoutSeconds&lt;/code> 永远取基础模板，patch 里改了不算数；patch 数量和 replicas 不匹配时静默兜底，多补丁忽略、少补丁用模板，没有告警。注意 server API 并不暴露 &lt;code>shardTaskPatches&lt;/code>，只能直接操作 CR；server 的池化分配路径走的是单任务模板（&lt;code>_build_task_template&lt;/code>），没有 shard 能力。 RL 训练/评测这类 &amp;ldquo;high-throughput agentic-RL&amp;rdquo; 场景是它的主场：配合 &lt;code>taskResourcePolicyWhenCompleted: Release&lt;/code>，任务跑完 pod 立刻回池，批量沙箱用完即焚。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>把这条链路串起来看，池化设计的精髓是&amp;quot;把不确定性往后推&amp;quot;：模板预热消灭冷启动，revision 机制管住模板演化，taskTemplate 把分配时刻的动态注入变成一次任务下发，postStop + S3 前缀把有状态会话塞进无状态池。每一环都不复杂，但约束传导得很干净——&amp;ldquo;复用已建 pod&amp;quot;这一条，决定了注入只能走任务下发、清理只能靠钩子、隔离只能靠外部存储。如果要说短板，我觉得是可观测性：快路径注入不了 ID、旧 revision 无告警、postStop 失败只记注解，这些都得自己补监控。&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>下一篇走读出口网络：沙箱的 egress 代理、token 鉴权和域名白名单是怎么做的。&lt;/p>
+&lt;/blockquote></description></item><item><title>OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理</title><link>https://daidaij.github.io/p/opensandbox-2-lease/</link><pubDate>Sun, 06 Sep 2026 20:10:30 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-2-lease/</guid><description>&lt;img src="https://picsum.photos/seed/3bbf7078/800/600" alt="Featured image of post OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理" />&lt;h1 id="opensandbox-源码走读二sandbox-lease-与生命周期管理">OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>沙箱这类&amp;quot;按需创建、用完即弃&amp;quot;的资源，最怕的不是创建慢，而是没人回收——客户端崩了、网络断了，服务端还替它养着一个占 CPU 占内存的容器。这次把 OpenSandbox 的 lease（租约）机制翻了一遍：TTL 怎么算、到期谁去杀、续约有几条路、以及&amp;quot;伪永久&amp;quot;模式的清理边界。代码基于 main 分支（2026-08 核对）。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="为什么需要-lease没有它会出什么事故">为什么需要 lease：没有它会出什么事故
+&lt;/h2>&lt;hr>
+&lt;p>先想清楚问题。沙箱不是无状态的 HTTP 请求，它是一个持续占用资源的容器/ Pod。调用方（比如一个 Agent 运行时）创建沙箱后，可能：&lt;/p>
+&lt;ul>
+&lt;li>进程崩溃，永远不会再发&amp;quot;删除&amp;quot;请求；&lt;/li>
+&lt;li>网络分区，删除请求丢了；&lt;/li>
+&lt;li>业务 bug，for 循环里创建了 1000 个沙箱然后忘了。&lt;/li>
+&lt;/ul>
+&lt;p>没有租约机制，这些沙箱就变成孤儿——API 层面查得到，但没人对它们负责。Docker 里一个容器几百 MB 内存，K8s 里一个 Pod 还带 sidecar，泄漏速度远超普通连接池。&lt;/p>
+&lt;p>OpenSandbox 的解法是经典的 lease 模型：&lt;strong>创建时必须声明租期（或者明确声明不设租期），到期由服务端单方面回收&lt;/strong>。入口在创建请求的 &lt;code>timeout&lt;/code> 字段（秒，最小 60），服务端换算成绝对时间戳：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/services/docker/docker_service.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_prepare_creation_context&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">request&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">CreateSandboxRequest&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="nb">tuple&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">Optional&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">datetime&lt;/span>&lt;span class="p">]]:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sandbox_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">generate_sandbox_id&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">created_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">expires_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">None&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">request&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">timeout&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">expires_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">calculate_expiration_or_raise&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">created_at&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">request&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">timeout&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># ← createdAt + timeout&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">created_at&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">expires_at&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意 &lt;code>timeout is None&lt;/code> 这个分支——它不是&amp;quot;忘了传&amp;quot;，而是一个正式模式（后面讲）。租期计算和上限校验都在 &lt;code>services/validators.py&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/services/validators.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">ensure_timeout_within_limit&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timeout_seconds&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">max_timeout_seconds&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">timeout_seconds&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1"># ← 伪永久模式，跳过校验&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">calculate_expiration_or_raise&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">datetime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="n">timeout_seconds&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">max_timeout_seconds&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1"># ← 服务端没配上限 = 不限&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">timeout_seconds&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">max_timeout_seconds&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">raise&lt;/span> &lt;span class="n">HTTPException&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">status_code&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">400&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>max_sandbox_timeout_seconds&lt;/code> 是 &lt;code>[server]&lt;/code> 配置里的 TTL 上限（&lt;code>config.py&lt;/code>，默认 &lt;code>None&lt;/code> 不限）。多租户部署建议配一个，否则调用方传个 &lt;code>timeout=999999999&lt;/code> 也能过——虽然 &lt;code>calculate_expiration_or_raise&lt;/code> 会把 datetime 溢出转成 400，但&amp;quot;合法地租一年&amp;quot;依然拦不住。&lt;/p>
+&lt;blockquote>
+&lt;p>lease 存的是绝对时间戳（&lt;code>expiresAt&lt;/code>）而不是剩余秒数，这个选择是对的：服务端重启、时钟回拨、续约覆盖，都以一个不可变的时间点为准，不需要维护递减计数器。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="到期执行docker-定时器-vs-k8s-控制器">到期执行：Docker 定时器 vs K8s 控制器
+&lt;/h2>&lt;hr>
+&lt;p>&lt;code>expiresAt&lt;/code> 算出来了，谁来负责到期杀沙箱？Docker 和 K8s 两条运行时走了完全不同的实现路线。&lt;/p>
+&lt;p>Docker 路线是&lt;strong>进程内 Timer&lt;/strong>。每个沙箱一个 &lt;code>threading.Timer&lt;/code>，续约时直接替换旧 timer：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/services/docker/docker_service.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_schedule_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="bp">self&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">update_expiration&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">delay&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">max&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mf">0.0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">expires_at&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">))&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">total_seconds&lt;/span>&lt;span class="p">())&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">timer&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">Timer&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">delay&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_expire_sandbox&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">args&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,),&lt;/span> &lt;span class="n">kwargs&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">expire_kwargs&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">timer&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">daemon&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">True&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">with&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_expiration_lock&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># Replace existing timer (if any) so renew operations take effect immediately&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">existing&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_expiration_timers&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">pop&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">existing&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">existing&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">cancel&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">update_expiration&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_sandbox_expirations&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">expires_at&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_expiration_timers&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">timer&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">timer&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">start&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>进程内 Timer 有个致命问题：server 重启，内存里的 timer 全丢。所以启动时有一段 restore 逻辑，遍历所有容器 label 重建 timer，已过期的立即补杀：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># docker_service.py（启动恢复，简化）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">expires_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_get_tracked_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">labels&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">expires_at&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_has_manual_cleanup&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">labels&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">restored&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">continue&lt;/span> &lt;span class="c1"># ← 伪永久沙箱跳过调度&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">expires_at&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="n">now&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">expired_entries&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">append&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">mount_keys&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="c1"># 已过期，pass 2 补杀&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">continue&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_schedule_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>_get_tracked_expiration&lt;/code> 的查找顺序是 内存缓存 → 文件元数据存储 → 容器 label，三层兜底保证重启后也能恢复租约。而 &lt;code>_expire_sandbox&lt;/code> 的回调里还有个细节我挺喜欢——杀之前再查一次当前租约，&lt;strong>续约竞态时放弃删除&lt;/strong>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># docker_service.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">current_expires&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_get_tracked_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">labels&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">current_expires&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">current_expires&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_schedule_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">current_expires&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">update_expiration&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">False&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">logger&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">info&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Sandbox &lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2"> was renewed (expires &lt;/span>&lt;span class="si">%s&lt;/span>&lt;span class="s2">); aborting expiration.&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>没有这个检查，就会出现&amp;quot;用户刚续约，过期定时器还是把沙箱杀了&amp;quot;的灵异事件。另外定时器触发时如果暂时查不到容器（瞬时报错），会 30 秒后重试而不是放弃——lease 到期是确定性的，只是延迟，不会丢。&lt;/p>
+&lt;p>K8s 路线完全没有定时器这回事，靠的是&lt;strong>控制器 reconcile&lt;/strong>。&lt;code>expiresAt&lt;/code> 写进 BatchSandbox CR 的 &lt;code>spec.expireTime&lt;/code>，控制器每次 reconcile 检查：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// kubernetes/internal/controller/batchsandbox_controller.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="nx">expireAt&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Spec&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ExpireTime&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">expireAt&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">now&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Now&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">expireAt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Before&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">now&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">DeletionTimestamp&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">log&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Info&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;batch sandbox expired, delete&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;expireAt&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">expireAt&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">r&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Delete&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">batchSbx&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="o">...&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="c1">// ← 到期直接删 CR
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">DurationStore&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// ← 未到期，把差值塞回去驱动下次 requeue
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两条路线对&amp;quot;到期后是删是留&amp;quot;还有一个共同的开关：&lt;code>shutdown_policy: Delete|Retain&lt;/code>（&lt;code>config.py:700&lt;/code>）。设成 &lt;code>Retain&lt;/code> 时过期只终止不清理，用于调试或事后取证。&lt;/p>
+&lt;blockquote>
+&lt;p>Timer（推）vs reconcile（拉）是分布式系统里到期处理的两种基本形态。Timer 精确但要自己处理重启恢复；reconcile 天然幂等、重启免费，但精度受 requeue 间隔限制。OpenSandbox 两种都用了，各自贴合运行时特性，这个选择没毛病。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="手动续约renew-expiration-的三条约束">手动续约：renew-expiration 的三条约束
+&lt;/h2>&lt;hr>
+&lt;p>租约要能续，否则长任务都得把 &lt;code>timeout&lt;/code> 估到最大。续约 API 只有一个端点：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">POST /sandboxes/{id}/renew-expiration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{ &amp;#34;expiresAt&amp;#34;: &amp;#34;2026-08-19T12:00:00Z&amp;#34; } // 绝对时间，必填
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>路由是薄壳，直接委托 service 层（&lt;code>api/lifecycle.py:344-384&lt;/code>）。真正有意思的是它背后的三条约束：&lt;/p>
+&lt;p>&lt;strong>约束一：只能延长，不能缩短。&lt;/strong> spec 里写死 &amp;ldquo;Must be in the future and after the current expiresAt time&amp;rdquo;，服务端校验在 &lt;code>validators.py&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">ensure_future_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">expires_at&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">tzinfo&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">normalized&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">replace&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tzinfo&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># naive 时间按 UTC 处理&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">else&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">normalized&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">expires_at&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">astimezone&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">normalized&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="n">datetime&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">now&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">timezone&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">utc&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">raise&lt;/span> &lt;span class="n">HTTPException&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">status_code&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">400&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">detail&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;code&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;INVALID_EXPIRATION&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">normalized&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这意味着你&lt;strong>不能通过续约来提前回收&lt;/strong>一个沙箱，也不能给伪永久沙箱&amp;quot;补&amp;quot;一个过期时间——后者直接 409：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># docker_service.py renew_expiration&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_has_manual_cleanup&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">labels&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">raise&lt;/span> &lt;span class="n">HTTPException&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">status_code&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">HTTP_409_CONFLICT&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">detail&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;code&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">SandboxErrorCodes&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">INVALID_EXPIRATION&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;message&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;Sandbox &lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> does not have automatic expiration enabled.&amp;#34;&lt;/span>&lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_get_tracked_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">labels&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">raise&lt;/span> &lt;span class="n">HTTPException&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">status_code&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">409&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># ← label 丢失也拒绝，宁可不续&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>约束二：lease 状态要三处同步。&lt;/strong> Docker 实现里，续约成功要同时改内存 timer、文件元数据、容器 label 三个地方：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># docker_service.py renew_expiration（注释是原文）&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># Persist the new timeout in memory; the file-backed override also keeps renewals correct across restarts&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_schedule_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">new_expiration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">try&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_metadata_store&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">set_expiration&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">new_expiration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">except&lt;/span> &lt;span class="ne">OSError&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="n">exc&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">logger&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">warning&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Failed to persist expiration override ...&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># ← 失败只记日志&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">labels&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">SANDBOX_EXPIRES_AT_LABEL&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">new_expiration&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">isoformat&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">try&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">with&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_docker_operation&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;update sandbox labels&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_update_container_labels&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">container&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">labels&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">except&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">DockerException&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="ne">TypeError&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="n">exc&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">logger&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">warning&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Failed to refresh labels ...&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>三处里任何一处失败都是 warning 而不是报错——好在查找时有 fallback 链兜底，但严格说这不是事务性的。&lt;/p>
+&lt;p>&lt;strong>约束三：K8s 侧要同步 CR 和 label。&lt;/strong> &lt;code>kubernetes_service.py&lt;/code> 的 &lt;code>renew_expiration&lt;/code> 同时更新 BatchSandbox 的 &lt;code>spec.expireTime&lt;/code> 和对应 label，保证 reconcile 逻辑和 &lt;code>kubectl&lt;/code> 排障看到的值一致。&lt;/p>
+&lt;blockquote>
+&lt;p>409 的设计值得玩味：续约不能作用于伪永久沙箱，这是一个&lt;strong>用状态机拒绝而不是静默成功&lt;/strong>的例子。如果这里静默返回 200，调用方会以为沙箱有了租约，实际永远不会过期——比 409 危险得多。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="自动续约osep-0009访问即续命">自动续约（OSEP-0009）：访问即续命
+&lt;/h2>&lt;hr>
+&lt;p>手动续约要求调用方自己记得续，OpenSandbox 在 OSEP-0009 里做了访问驱动的自动续约：&lt;strong>反向代理观测到流量，就替沙箱续一次命&lt;/strong>。&lt;/p>
+&lt;p>激活是三方握手：服务端 &lt;code>[renew_intent] enabled=true&lt;/code>、ingress 模式还要开 Redis、创建沙箱时 opt-in 一个 extension。opt-in 的合法性在创建时校验：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/extensions/validation.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ACCESS_RENEW_EXTEND_SECONDS_MIN&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">300&lt;/span> &lt;span class="c1"># 5 分钟&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ACCESS_RENEW_EXTEND_SECONDS_MAX&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">86400&lt;/span> &lt;span class="c1"># 24 小时&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;extensions&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nt">&amp;#34;access.renew.extend.seconds&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;3600&amp;#34;&lt;/span> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;timeout&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="mi">600&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>注意传的是&lt;strong>字符串形式的十进制整数&lt;/strong>，范围 300~86400，非法值创建即 400。每次访问触发的续约量就是 &lt;code>now + extend.seconds&lt;/code>。&lt;/p>
+&lt;p>触发源有两条路：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[客户端流量] -->|经 server proxy| B[ProxyRenewCoordinator&lt;br/>api/proxy.py 埋点]
+A -->|经 ingress gateway| C[Go 侧 Publisher&lt;br/>components/ingress/pkg/renewintent]
+B --> D[RenewIntentConsumer&lt;br/>统一 asyncio 队列]
+C -->|Redis List| E[BRPOP feeder]
+E --> D
+D --> F{AccessRenewController 门控}
+F -->|通过| G[renew_expiration]&lt;/pre>&lt;p>所有路径最终汇到 &lt;code>integrations/renew_intent/controller.py&lt;/code> 的门控，逻辑很收敛：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">_try_renew_sync&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="bp">self&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">source&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="nb">bool&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">sandbox&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_sandbox_service&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">get_sandbox&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">except&lt;/span> &lt;span class="n">HTTPException&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">False&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">sandbox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">status&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">state&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lower&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="s2">&amp;#34;running&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">False&lt;/span> &lt;span class="c1"># ← 非 Running 不续&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">sandbox&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">expires_at&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">False&lt;/span> &lt;span class="c1"># ← 伪永久沙箱不参与自动续约&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">extend&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_extension_service&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">get_access_renew_extend_seconds&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">extend&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">False&lt;/span> &lt;span class="c1"># ← 未 opt-in 不续&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">candidate&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">now&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">timedelta&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">seconds&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">extend&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">new_expires&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">max&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">candidate&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">current&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># ← 单调不减，天然幂等&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>max(candidate, current)&lt;/code> 这个写法保证了重复消费或乱序消费都不会把租约改小，配合每沙箱 &lt;code>asyncio.Lock&lt;/code> 串行化，基本堵死了竞态。&lt;/p>
+&lt;p>坑都在外围。我对照实现把 OSEP 设计稿和代码过了一遍，这几个点值得记：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>Redis 启用时 proxy 路径没有冷却&lt;/strong>。&lt;code>consumer.py&lt;/code> 的 &lt;code>_process_work&lt;/code> 里，&lt;code>self._redis is not None&lt;/code> 时直接续约，完全跳过 &lt;code>min_interval&lt;/code> 节流：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># consumer.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">async&lt;/span> &lt;span class="k">with&lt;/span> &lt;span class="n">st&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lock&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_redis&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_controller&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">renew_after_gates&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">work&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">source&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">work&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">source&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="c1"># ← 无 min_interval 检查&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">now&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">monotonic&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">st&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">last_success_monotonic&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="kc">None&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">now&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">st&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">last_success_monotonic&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="bp">self&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">_min_interval&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>高 QPS 访问同一个沙箱时，续约 API 调用会非常频繁。续约本身幂等所以不出错，纯属浪费。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>没有分布式锁&lt;/strong>。OSEP 设计了 &lt;code>opensandbox:renew:lock:{sandbox_id}&lt;/code>，实现只有进程内 &lt;code>asyncio.Lock&lt;/code>。多副本部署 proxy 模式会重复续约——反正 &lt;code>max()&lt;/code> 单调不减，影响有限；ingress 模式靠 BRPOP 竞争天然去重。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>best-effort 语义&lt;/strong>。intent 无 ack，消费后进程崩了就丢；超过 &lt;code>INTENT_MAX_AGE_SECONDS=300&lt;/code> 的 intent 直接丢弃；ingress 发布队列满（容量 8192）直接 drop。自动续约是&amp;quot;尽力而为&amp;quot;，不能当强保证用。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Redis 不可用静默降级&lt;/strong>。连接失败降级为 proxy-only 模式，只打日志。ingress 场景下自动续约整个失效，但没有任何告警指标——沙箱会悄悄开始过期。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>内存上限&lt;/strong>。proxy 路径每沙箱状态的 LRU 上限是 &lt;code>PROXY_RENEW_MAX_TRACKED_SANDBOXES = 8192&lt;/code>（&lt;code>renew_intent/constants.py&lt;/code>），超了驱逐（持锁的除外）。规模再大就要靠 Redis 模式了。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>还有一个最容易被忽略的：&lt;strong>SDK 默认不走 proxy&lt;/strong>。Python SDK 的 &lt;code>ConnectionConfig.use_server_proxy&lt;/code> 默认 &lt;code>False&lt;/code>，工具调用（exec/文件操作）直连沙箱 IP:44772 的 execd 端口——这条路径 server 根本观测不到流量，自动续约完全不生效。业务想要&amp;quot;活跃即续命&amp;quot;，必须显式走 proxy 或 ingress。&lt;/p>
+&lt;blockquote>
+&lt;p>自动续约有个隐含的哲学转变：TTL 从&amp;quot;调用方声明的租期&amp;quot;变成了&amp;quot;最后一次访问之后的空闲超时&amp;quot;。这更像 HTTP session 而不是传统 lease。但 best-effort 的投递语义意味着它只能做兜底，关键业务还是应该显式管理租约。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="伪永久manual-cleanup-lease-的另一个极端">伪永久（manual cleanup）： lease 的另一个极端
+&lt;/h2>&lt;hr>
+&lt;p>创建时不传 &lt;code>timeout&lt;/code>，&lt;code>expiresAt&lt;/code> 就是 &lt;code>None&lt;/code>，schema 里的原文是：&amp;ldquo;When omitted or null, the sandbox will not auto-terminate and must be deleted explicitly&amp;rdquo;——&lt;strong>不自动终止，必须显式删除&lt;/strong>。&lt;/p>
+&lt;p>实现上就是打一个 label / 不设字段，然后让所有过期逻辑绕行：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># server/opensandbox_server/services/k8s/create_helpers.py&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">expires_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">None&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">request&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">timeout&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">expires_at&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">calculate_expiration_or_raise&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">created_at&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">request&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">timeout&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">labels&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">Dict&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="n">SANDBOX_ID_LABEL&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">sandbox_id&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">expires_at&lt;/span> &lt;span class="ow">is&lt;/span> &lt;span class="kc">None&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">labels&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">SANDBOX_MANUAL_CLEANUP_LABEL&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;true&amp;#34;&lt;/span> &lt;span class="c1"># ← 唯一的区别就是一个 label&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>K8s 侧 &lt;code>spec.expireTime&lt;/code> 不设置，控制器的 expire 分支直接跳过；Docker 侧过期扫描器看到 &lt;code>manual-cleanup=true&lt;/code> 就 restore 后 continue（前面启动恢复那段代码里已经有了）。清理完全靠上层业务在会话结束时调 &lt;code>DELETE /sandboxes/{id}&lt;/code>。&lt;/p>
+&lt;p>这个模式是为池化场景准备的：TTL 到期误杀正在使用的会话，比多养几个空闲沙箱的代价大得多。但它把回收责任完全推给了调用方，边界条件都得自己兜：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>上层忘删 = 永久泄漏&lt;/strong>。伪永久沙箱没有任何服务端兜底回收，必须业务侧自建清理（比如定期扫描 &lt;code>expiresAt == null&lt;/code> 且长时间无访问的沙箱）。而 SDK 自带的 &lt;code>releaseAllIdle&lt;/code> 是严格串行的，实测 500 个空闲沙箱要 ~480 秒（上游 issue #1472），批量清理根本指望不上，得自实现并发 kill。&lt;/li>
+&lt;li>&lt;strong>单向门&lt;/strong>。创建时没传 timeout，事后不能通过 renew-expiration 补上（409）。伪永久是一个创建时就必须做的决定。&lt;/li>
+&lt;li>&lt;strong>Pool 模式下&amp;quot;删除&amp;quot;本身有坑&lt;/strong>。这是风险清单里最扎心的部分：#954（分配到的 Pod 被外部删除后 &lt;code>alloc-status&lt;/code> 注解残留，&lt;code>supplement&lt;/code> 恒为 0，沙箱&lt;strong>永久不可用&lt;/strong>）、#1433（&lt;code>poolRef&lt;/code> 可变更导致 in-use Pod 被当孤儿回收 + 新池永不分配）、#1423（Pool 控制器六重缺陷复合成自维持的 Pod 创建/删除风暴，实测约一半创建请求失败）。这三个 issue 截至核对都没有修复 PR。&lt;/li>
+&lt;li>&lt;strong>&amp;ldquo;挂了自动拉起&amp;quot;不存在&lt;/strong>。上游明确 resume 只恢复有意的 Paused 状态，Terminated/Failed 不自动重启（#1127/#1328，SDK resume 报 409）。重建 = 新 sandbox ID + 内存和未持久化状态全丢。所以伪永久不是&amp;quot;永久可用&amp;rdquo;，只是&amp;quot;不会因为 TTL 被服务端杀掉&amp;quot;。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>伪永久 + 上层主动删除，本质上是把 lease 的责任从服务端转移到了业务侧。服务端甩掉了误杀风险，但换来的是&amp;quot;业务必须自己靠谱&amp;quot;的前提。如果业务侧的清理兜底写得不靠谱，孤儿沙箱问题会以更隐蔽的方式回来——TTL 模式至少有个确定性的最后期限。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="configenv-注入链一句话版">config/env 注入链：一句话版
+&lt;/h2>&lt;hr>
+&lt;p>生命周期之外，把配置注入链也简单记一笔（详细展开值得单独一篇）。核心结论：&lt;strong>server 侧固定注入的 env 只有一个&lt;/strong>——K8s 运行时的 &lt;code>EXECD=/opt/opensandbox/execd&lt;/code>（&lt;code>services/k8s/provider_common.py&lt;/code> 的 &lt;code>_build_main_container&lt;/code>），其余全是 API 请求 &lt;code>env&lt;/code> 字段透传。&lt;code>sandbox_id&lt;/code> 不走 env，走 label &lt;code>opensandbox.io/id&lt;/code>；egress/secure-access 的 token 走 annotation。&lt;/p>
+&lt;p>有一个和生命周期直接相关的注入条件要注意：创建请求里的 &lt;code>env&lt;/code> 和 &lt;code>entrypoint&lt;/code> 是通过 taskTemplate 生效的，&lt;strong>触发条件是 env 非空或 entrypoint 非默认值&lt;/strong>，都没传就走快路径——env 注不进去。所以&amp;quot;创建时注入用户 token&amp;quot;这类操作必须确认 taskTemplate 真的被触发了，否则沙箱起来了但没有你要的变量，而且不会报错。&lt;/p>
+&lt;p>egress 是个例外支线：&lt;code>OPENSANDBOX_EGRESS_*&lt;/code> 前缀的 key 会被 &lt;code>split_egress_env&lt;/code> 拆出来进 sidecar，不在白名单（&lt;code>ALLOWED_EGRESS_ENV_VARS&lt;/code>）直接 ValueError，创建失败——这是少数&amp;quot;配置错误会在创建时 fail-loud&amp;quot;的地方。&lt;/p>
+&lt;h2 id="边界条件自查清单">边界条件自查清单
+&lt;/h2>&lt;hr>
+&lt;p>把这次走读里值得在集成前确认的边界收拢一下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>边界&lt;/th>
+&lt;th>行为&lt;/th>
+&lt;th>出处&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>timeout 传 0 / 负数&lt;/td>
+&lt;td>创建 400（最小 60）&lt;/td>
+&lt;td>&lt;code>validators.py&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>timeout 超服务端上限&lt;/td>
+&lt;td>创建 400&lt;/td>
+&lt;td>&lt;code>ensure_timeout_within_limit&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>续约时间早于现在&lt;/td>
+&lt;td>400&lt;/td>
+&lt;td>&lt;code>ensure_future_expiration&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>续约时间早于当前 expiresAt&lt;/td>
+&lt;td>spec 禁止（只能延长）&lt;/td>
+&lt;td>&lt;code>sandbox-lifecycle.yml&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>伪永久沙箱调续约&lt;/td>
+&lt;td>409&lt;/td>
+&lt;td>&lt;code>docker_service.py:1199&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>自动续约对伪永久沙箱&lt;/td>
+&lt;td>静默跳过（门控 return False）&lt;/td>
+&lt;td>&lt;code>controller.py:69&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>lease 状态 label 丢失&lt;/td>
+&lt;td>拒绝续约（409），但过期调度也可能 skip+warning&lt;/td>
+&lt;td>&lt;code>docker_service.py&lt;/code> restore 逻辑&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Pod 被外部删除（Pool）&lt;/td>
+&lt;td>沙箱永久不可用，无自愈&lt;/td>
+&lt;td>#954&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>TTL 过期自动删除（K8s）&lt;/td>
+&lt;td>PVC ownerReferences 可能缺失导致泄漏&lt;/td>
+&lt;td>#1199&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>server 长期运行&lt;/td>
+&lt;td>httpx 连接池疑似泄漏，约 1 周耗尽&lt;/td>
+&lt;td>#1386&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>最后一条单独说：#1386 不是沙箱的问题，是 server 自己的。续约、状态查询全走 server，server 挂了所有沙箱的 lease 管理瘫痪——Docker 模式下 timer 停摆但容器还在跑，K8s 模式下 reconcile 停摆 expireTime 形同虚设。&lt;strong>server 本身是这个 lease 系统的单点&lt;/strong>，生产部署要按&amp;quot;它会挂&amp;quot;来设计：监控 httpx 连接池、周期性重启、 lease 到期查询别全压在一个实例上。&lt;/p>
+&lt;blockquote>
+&lt;p>走读完整体判断：OpenSandbox 的 lease 设计在&amp;quot;单机/中小规模&amp;quot;上是完整的——绝对时间戳、续约单调性、重启恢复、竞态放弃删除，该有的细节都有。但规模化风险集中在 K8s Pool 一侧（#954/#1433/#1423 三个无 PR 的 P0），伪永久模式的回收责任又全压给业务方。如果要上生产，我会选 TTL + 自动续约组合而不是伪永久：让服务端兜底最后期限，业务侧只负责&amp;quot;保活&amp;quot;，这比&amp;quot;保活 + 回收&amp;quot;两个责任都自担要安全。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>下一篇预告：沙箱池化设计——Pool CRD、alloc-status 注解协议、预热与分配路径，以及为什么池化模式在当前上游版本要先踩一遍 #1423 的坑再决定开不开。&lt;/p>
+&lt;/blockquote></description></item><item><title>OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环</title><link>https://daidaij.github.io/p/opensandbox-1-reconcile/</link><pubDate>Sun, 06 Sep 2026 20:10:26 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-1-reconcile/</guid><description>&lt;img src="https://picsum.photos/seed/c9e1e1dc/800/600" alt="Featured image of post OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环" />&lt;h1 id="opensandbox-源码走读一crd-controller-与-reconcile-循环">OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>最近在看 OpenSandbox（阿里的沙箱开源项目）的控制面实现。它把&amp;quot;沙箱&amp;quot;建模成 K8s CRD，用一个 controller-runtime 算子驱动整个生命周期。这篇是我对自己 fork 里 &lt;code>kubernetes/&lt;/code> 目录的走读笔记：从 &lt;code>POST /sandboxes&lt;/code> 的参数怎么落进 BatchSandbox spec，到 Reconcile 每一步在干什么，再到失败之后靠什么重试。代码都来自本地 clone（controller-runtime v0.21.0）。&lt;/p>
