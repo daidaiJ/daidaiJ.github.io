@@ -4114,7 +4114,7 @@ B -->|三场景对照实验立住| F[保留：3 个场景工具]&lt;/pre>&lt;p>&
 &lt;/blockquote></description></item><item><title>Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</link><pubDate>Sun, 06 Sep 2026 20:03:25 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</guid><description>&lt;img src="https://picsum.photos/seed/43e49826/800/600" alt="Featured image of post Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策" />&lt;h1 id="higress-端点级断路器二全拉黑放行最反直觉的设计决策">Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策
 &lt;/h1>&lt;hr>
 &lt;blockquote>
-&lt;p>系列第二篇。上一篇写了慢故障的统计口径——5s 去重窗口、70s 阈值拉黑、TTL 惰性恢复，这一篇只讲一个分支：&lt;strong>当所有端点都被拉黑时，插件选择放行、不做屏蔽&lt;/strong>，让请求继续打到所有节点上。第一次推演到这个 case 时，我的直觉答案是&amp;quot;该 503&amp;quot;；把时间轴往下多推一步，就改了主意。&lt;/p>
+&lt;p>系列第二篇。上一篇写了慢故障的统计口径——5s 去重间隔、70s 慢阈值 × 2&lt;del>3 次确认拉黑、TTL 30&lt;/del>60s 惰性恢复，这一篇只讲一个分支：&lt;strong>当所有端点都被拉黑时，插件选择放行、不做屏蔽&lt;/strong>，让请求继续打到所有节点上。第一次推演到这个 case 时，我的直觉答案是&amp;quot;该 503&amp;quot;；把时间轴往下多推一步，就改了主意。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="从一次差点全拉黑的推演讲起">从一次&amp;quot;差点全拉黑&amp;quot;的推演讲起
 &lt;/h2>&lt;hr>
@@ -4129,8 +4129,8 @@ B -->|三场景对照实验立住| F[保留：3 个场景工具]&lt;/pre>&lt;p>&
 &lt;/span>&lt;span class="lnt">6
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">t=0s 抖动开始，请求陆续失败
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=8s 端点 A 失败率过阈值，拉黑 → 流量集中到 B、C
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-text" data-lang="text">&lt;span class="line">&lt;span class="cl">t=0s 抖动开始，请求陆续变慢/超时
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=8s 端点 A 慢样本确认满 2~3 次，拉黑 → 流量集中到 B、C
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=15s B 被集中流量压垮，拉黑 → 流量全压 C
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=22s C 独木难支，也拉黑
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">t=23s 候选集为空 —— 此刻屏蔽过滤要不要生效？
@@ -4185,7 +4185,7 @@ B -->|三场景对照实验立住| F[保留：3 个场景工具]&lt;/pre>&lt;p>&
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="nf">filterEndpoints&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">eps&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">Endpoint&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">Endpoint&lt;/span> &lt;span class="p">{&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">healthy&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">make&lt;/span>&lt;span class="p">([]&lt;/span>&lt;span class="nx">Endpoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">eps&lt;/span>&lt;span class="p">))&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ep&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">eps&lt;/span> &lt;span class="p">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nf">blacklisted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="c1">// 黑名单来自慢阈值判定（70s + 5s 去重确认）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">!&lt;/span>&lt;span class="nf">blacklisted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ep&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="c1">// 黑名单来自慢阈值判定（70s × 2~3 次确认，5s 去重间隔）
 &lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">healthy&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nb">append&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">healthy&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ep&lt;/span>&lt;span class="p">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
@@ -4220,7 +4220,7 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;/div>
 &lt;/div>&lt;p>这行 503 我保留，而且认为它是对的——因为它的前提是&lt;strong>每个 provider 都真实尝试过且失败&lt;/strong>。端点级拉黑放行针对的是另一种情况：请求还没发出去，就被统计先验判死了。两者的区别一句话：&lt;strong>试出来的全失败可以 503，统计出来的全失败必须放行&lt;/strong>。&lt;/p>
 &lt;blockquote>
-&lt;p>这个设计不是我拍脑袋拍出来的。APISIX 的 &lt;code>ai-proxy-multi&lt;/code> 在实例健康过滤上做了完全相同的选择：所有实例均无健康节点时返回 &lt;code>{all_unhealthy=true}&lt;/code>，回退为&amp;quot;全量可用&amp;rdquo;，不直接 503。它的设计取舍表里写得很直白，理由是&amp;quot;避免误判把实例永久打死；宁可试错&amp;quot;。机制有差异——APISIX 的 fail-open 建立在 active health check 判死之上，我的拉黑来自被动耗时统计（5s 去重 + 70s 阈值）——但兜底语义一致，说明这是这一类系统共同交过学费换来的结论。&lt;/p>
+&lt;p>这个设计不是我拍脑袋拍出来的。APISIX 的 &lt;code>ai-proxy-multi&lt;/code> 在实例健康过滤上做了完全相同的选择：所有实例均无健康节点时返回 &lt;code>{all_unhealthy=true}&lt;/code>，回退为&amp;quot;全量可用&amp;rdquo;，不直接 503。它的设计取舍表里写得很直白，理由是&amp;quot;避免误判把实例永久打死；宁可试错&amp;quot;。机制有差异——APISIX 的 fail-open 建立在 active health check 判死之上，我的拉黑来自被动耗时统计（5s 去重间隔 + 70s × 2~3 次确认）——但兜底语义一致，说明这是这一类系统共同交过学费换来的结论。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="误判从哪来">误判从哪来
 &lt;/h2>&lt;hr>
@@ -4250,9 +4250,9 @@ F -->|失败| H[失败样本继续入账&lt;br/>回池后重新判定是否再�
 &lt;td>两三个失败就能把失败率顶过阈值，统计噪声被放大成&amp;quot;故障&amp;quot;&lt;/td>
 &lt;/tr>
 &lt;tr>
-&lt;td>5s 去重窗口的局限&lt;/td>
-&lt;td>窗口内同端点失败去重计数，防单次抖动被放大&lt;/td>
-&lt;td>但窗口一过同一场故障重新起算——30 秒的抖动会被切成 6 段逐段入账，去重防的是重复计数，防不了跨窗口的持续误判&lt;/td>
+&lt;td>5s 去重间隔的局限&lt;/td>
+&lt;td>间隔内同端点慢样本去重计数，防单次抖动被放大&lt;/td>
+&lt;td>但间隔一过同一场故障重新起算——30 秒的抖动能贡献约 6 个样本，足够攒满 2~3 次确认，去重防的是重复计数，防不了跨间隔的持续误判&lt;/td>
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
