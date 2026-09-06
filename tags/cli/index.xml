@@ -1,4 +1,427 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cli on 潘达窝</title><link>https://daidaij.github.io/tags/cli/</link><description>Recent content in Cli on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:04:24 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/cli/index.xml" rel="self" type="application/rss+xml"/><item><title>给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据</title><link>https://daidaij.github.io/p/cbm-toolset-pruning/</link><pubDate>Sun, 06 Sep 2026 20:04:24 +0800</pubDate><guid>https://daidaij.github.io/p/cbm-toolset-pruning/</guid><description>&lt;img src="https://picsum.photos/seed/e7f46986/800/600" alt="Featured image of post 给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据" />&lt;h1 id="给-mcp-服务器做减法一实测判负的工具与裁剪依据">给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>我深度用了两周 codebase-memory-mcp（下称 cbm），一个把代码库索引成知识图谱的 MCP 服务器，15 个工具。结论是：15 个里只有 3 个场景真正立住了，其余全部判负——要么被 codegraph 同类工具碾压，要么 CLI 里一行命令就有等价物，不值得在每轮对话里交定义层税。这篇记录判负的证据和方法，不记录情绪。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="先算账15-个工具的定义层税单">先算账：15 个工具的定义层税单
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>判负之前先量化&amp;quot;养着这些工具要花多少钱&amp;quot;。MCP 的成本模型里有个容易被忽略的项：工具定义不是调用时才付费，而是&lt;strong>每个会话每轮对话都常驻在上下文里&lt;/strong>。&lt;/p>
+&lt;/blockquote>
+&lt;p>cbm 是 stdio server，我就以 MCP 客户端身份把它拉起来，抓 &lt;code>tools/list&lt;/code> 的真实载荷。探针是个几十行的 Node 脚本（简化版）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// mcp_probe.cjs：拉起 stdio server，抓 initialize + tools/list 全量载荷
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">child&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">spawn&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">cmd&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">stdio&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;pipe&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;pipe&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;inherit&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">send&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">jsonrpc&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;2.0&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">method&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;initialize&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">params&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">protocolVersion&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;2024-11-05&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">capabilities&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{},&lt;/span> &lt;span class="nx">clientInfo&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">name&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;probe&amp;#34;&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">send&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">jsonrpc&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;2.0&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">method&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;notifications/initialized&amp;#34;&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">send&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">jsonrpc&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;2.0&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">method&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="s2">&amp;#34;tools/list&amp;#34;&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">child&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stdout&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">on&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;data&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">buf&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 按 Content-Length 拆帧，落盘每个响应的原始字节数
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">frames&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">msg&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">bytes&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">buf&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">length&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">payload&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">msg&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>初版只量了 tools/list，后来发现漏了两项：MCP initialize 响应里的 &lt;code>instructions&lt;/code> 字段（规范客户端会注入系统提示词）和 prompts 列表。补齐后的完整账单：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>定义层&lt;/th>
+&lt;th>codegraph&lt;/th>
+&lt;th>cbm 全量&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>tools/list（描述+schema）&lt;/td>
+&lt;td>6,762B ≈ 1,691 tok&lt;/td>
+&lt;td>22,441B ≈ 5,610 tok（&lt;strong>15 个工具&lt;/strong>）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>instructions 字段&lt;/td>
+&lt;td>4,226B ≈ 1,057 tok&lt;/td>
+&lt;td>808B ≈ 202 tok&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>prompts 列表&lt;/td>
+&lt;td>无&lt;/td>
+&lt;td>2 个 ≈ 37 tok&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>定义层小计&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>≈ 2,748 tok&lt;/strong>&lt;/td>
+&lt;td>&lt;strong>≈ 5,850 tok&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>payload 字节数到手后换算 token。这里有个容易自欺的地方：用 bytes/4 估是乐观值，对 schema 这种标点密集的 JSON，真实分词更接近 bytes/3~3.5：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-js" data-lang="js">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 估算口径：两档一起报，给区间不给单点
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">tokensOptimistic&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">bytes&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 乐观下界
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">tokensRealistic&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">bytes&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="mf">3.5&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 标点密集 JSON 的经验档
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两个 server 一起挂着，定义层合计 &lt;strong>≈ 8,600 tokens/会话&lt;/strong>，乐观估算下真实体感可能到 10-11K。&lt;/p>
+&lt;blockquote>
+&lt;p>最扎眼的是 codegraph 那行 4.2KB 的 instructions：一整套行为指令（&amp;ldquo;直接回答别委派子 agent&amp;quot;&amp;ldquo;先于 Read/Grep 调用&amp;rdquo;）。这是把工具用法写死进系统提示词，替模型做工作方式决策。cbm 反过来，instructions 很短，但用 15 个工具的长描述把复杂性全堆在 tools/list 里。两种路线，交的税一样。&lt;/p>
+&lt;/blockquote>
+&lt;p>调用时的开销另算，而且更隐蔽：cbm 每个结果是&lt;strong>双份返回&lt;/strong>——tree 文本和 structuredContent JSON 是同一份数据给两遍，结果侧直接 ×2。codegraph 单份但载荷密，官方自己承认常驻上下文 +80%。&lt;/p>
+&lt;p>结果侧的浪费也顺手写进了探针：同一个结果，&lt;code>content&lt;/code> 里是 tree 文本，&lt;code>structuredContent&lt;/code> 里是同数据的 JSON 序列化。对模型来说信息为零增益，token 直接翻倍。&lt;/p>
+&lt;h2 id="判负的标准三条硬证据">判负的标准：三条硬证据
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>&amp;ldquo;我感觉没用&amp;quot;不是裁剪依据，MCP 工具面的每一次删减都要能回答：删了之后工作流会不会退化？&lt;/p>
+&lt;/blockquote>
+&lt;p>我的判负标准是三条，全部可复测：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>真实调用率&lt;/strong>：回看若干个真实会话的调用记录，哪些工具被 agent 主动调过；&lt;/li>
+&lt;li>&lt;strong>结果质量&lt;/strong>：调了之后，是否真的省掉了后续的 grep/Read 次数，还是拿到结果还得回原始文件验证；&lt;/li>
+&lt;li>&lt;strong>CLI 等价性&lt;/strong>：这个工具在 &lt;code>cbm cli&lt;/code> 里有没有一行等价命令——有的话，退出 MCP 只损失&amp;quot;agent 自主发现&amp;quot;这一点，能力不丢。&lt;/li>
+&lt;/ol>
+&lt;p>第 1 条有个陷阱要说明：agent 不调 ≠ 工具差。可能是 schema 写得糊、描述太长模型没读进去。但对裁剪来说结论一样成立——&lt;strong>一个 agent 不会主动调的工具，挂在工具面里就是纯税&lt;/strong>。&lt;/p>
+&lt;blockquote>
+&lt;p>这三条里第 3 条最关键，它把&amp;quot;裁剪&amp;quot;从减法变成了搬家：MCP 定义层省下的 token 是确定的，能力通过 CLI 随时可取回。没有等价物的工具才需要真正纠结去留。&lt;/p>
+&lt;/blockquote>
+&lt;p>还有一个反向的佐证：实测里 agent 对工具的&lt;strong>误用&lt;/strong>集中出现在少数几个工具上——schema 越长、描述越糊，模型越容易拿错误的参数组合去撞。工具面越长这个问题越严重，15 个工具互相干扰，单个工具的描述再精准也救不回来。&lt;/p>
+&lt;h2 id="逐个判负砍掉的留下的可惜的">逐个判负：砍掉的、留下的、可惜的
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>15 个工具过一遍筛子。判负名单按&amp;quot;被谁替代&amp;quot;分组，证据都来自实测记录和上游 issue。&lt;/p>
+&lt;/blockquote>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[cbm 15 个工具] --> B{三条硬证据筛}
+B -->|被 codegraph 碾压| C[判负组 1：符号级查询]
+B -->|CLI 有等价物| D[判负组 2：管理面]
+B -->|真实会话零调用| E[判负组 3：list_projects]
+B -->|三场景对照实验立住| F[保留：3 个场景工具]&lt;/pre>&lt;p>&lt;strong>判负组 1：符号级查询，被 codegraph 碾压。&lt;/strong> 这是最大的一组。符号搜索、取源码、调用链——这些是 codegraph 的基本盘，而且强得多：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>能力&lt;/th>
+&lt;th>cbm 工具&lt;/th>
+&lt;th>codegraph 对应&lt;/th>
+&lt;th>判负理由&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>符号搜索&lt;/td>
+&lt;td>search_graph&lt;/td>
+&lt;td>search&lt;/td>
+&lt;td>codegraph 一次返回限定元数据，够用且轻&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>取源码&lt;/td>
+&lt;td>get_code_snippet&lt;/td>
+&lt;td>node / &lt;strong>explore&lt;/strong>&lt;/td>
+&lt;td>explore 一次拉一组符号的完整源码，cbm 做不到&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>调用链&lt;/td>
+&lt;td>trace_path&lt;/td>
+&lt;td>callers / callees / trace&lt;/td>
+&lt;td>cbm 有 #1991：每请求固定 ~12ms 地板（0.9.0 时代是亚毫秒），codegraph 无此税&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>trace_path&lt;/code> 的判负最干脆：调用链分析 codegraph 的 &lt;code>callers&lt;/code>/&lt;code>callees&lt;/code>/&lt;code>trace&lt;/code> 全覆盖，cbm 这边还背着 12ms/请求的进程间协调地板。同一次查询，没有理由选慢的那个。&lt;/p>
+&lt;p>&lt;strong>判负组 2：管理面，全走 CLI。&lt;/strong> 索引、同步、daemon 控制（&lt;code>index_repository&lt;/code>、&lt;code>daemon stop&lt;/code>、config 类）占了好几个工具位，但它们的调用者是&lt;strong>人&lt;/strong>，不是 agent——我从来没需要让模型自主决定&amp;quot;什么时候重建索引&amp;rdquo;。这类工具留在 MCP 工具面里，等于让每轮对话为低频管理操作付常驻税。&lt;/p>
+&lt;p>&lt;strong>判负组 3：&lt;code>list_projects&lt;/code>。&lt;/strong> T1-T3 对照实验里，三个真实场景（架构概览、图查询、变更影响）它一次都没进过调用路径，而 CLI 里一行就有。典型的&amp;quot;挂在那显得功能全&amp;quot;的工具。&lt;/p>
+&lt;p>&lt;strong>唯一可惜的舍弃：&lt;code>semantic_query&lt;/code>。&lt;/strong> 概念级查找（&amp;ldquo;找处理重试的逻辑&amp;quot;这类不精确匹配符号名的需求）是符号搜索真覆盖不了的。但它依赖向量语义边——而语义边恰恰是素材里判定&amp;quot;贬值最快&amp;quot;的那类增值插件。如果哪天真需要，方案是把它做成搜索工具的可选参数挂 vector 索引，不单开工具。&lt;/p>
+&lt;p>&lt;strong>留下的：3 个场景。&lt;/strong> 对照实验里立住的三个，恰好都是 codegraph 没有的能力：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">get_architecture # 架构概览：Leiden 社区划分、复杂度热点、循环依赖
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">query_graph # 图查询：写 Cypher 做&amp;#34;谁调了 X&amp;#34;、跨模块模式确认
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">detect_changes # 变更影响：git diff → 受影响符号的传递集（提交前自检）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"># 另有两个排查辅助留在 CLI 侧，不进 MCP：
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">index_status # 索引新鲜度——结果失真前先看这个
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">check_index_coverage # 覆盖度审计——parse_partial 区域的图结果不可信
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这 3 个能立住不是偶然：get_architecture 的 Leiden 社区和 detect_changes 的传递影响集是&lt;strong>图算法&lt;/strong>，tree-sitter 解析完之后的加工增值；而符号级查询本质是&amp;quot;更贵的 grep&amp;rdquo;，模型演进越快这类工具越容易被原生搜索追平。不贬值的是图算法、覆盖度审计、跨会话索引资产——裁剪就是留下不贬值的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="中间档scout-和-arch为什么不选">中间档：scout 和 arch，为什么不选
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>裁剪不是只有&amp;quot;全留&amp;quot;和&amp;quot;全退&amp;quot;两个选项。cbm 官方有 tool-profile，自编译还能加自定义档，我在这两档之间停留过，最后还是走了 CLI。&lt;/p>
+&lt;/blockquote>
+&lt;p>scout 档是零改动方案，一行配置：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;mcpServers&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;codebase-memory-mcp&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;command&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;codebase-memory-mcp&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;args&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;--tool-profile=scout&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>arch 档官方没给，要自己编译——在 &lt;code>src/mcp/mcp.c&lt;/code> 的 &lt;code>mcp_tool_allowed()&lt;/code> 里加一组工具名，约 20 行：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 思路示意：在白名单函数里加一个档位判断
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nf">strcmp&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">profile&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;arch&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nf">tool_in&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">tool&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;get_architecture&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;query_graph&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;detect_changes&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s">&amp;#34;index_status&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;check_index_coverage&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;list_projects&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">NULL&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>三档的省幅：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>档位&lt;/th>
+&lt;th>动作&lt;/th>
+&lt;th>定义层 token&lt;/th>
+&lt;th>相对现状&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>现状两件套&lt;/td>
+&lt;td>—&lt;/td>
+&lt;td>~8,600&lt;/td>
+&lt;td>—&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>scout 档&lt;/td>
+&lt;td>一行配置&lt;/td>
+&lt;td>~5,840&lt;/td>
+&lt;td>省 ~32%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arch 档&lt;/td>
+&lt;td>自编译补丁&lt;/td>
+&lt;td>~4,550&lt;/td>
+&lt;td>省 ~48%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>退出 MCP&lt;/td>
+&lt;td>CLI + skill&lt;/td>
+&lt;td>~2,750&lt;/td>
+&lt;td>省 68%&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>scout/arch 档对&amp;quot;还想留在 MCP 里&amp;quot;的人是合理阶梯。但它们有个共同问题：&lt;strong>判负的工具只是被藏起来了，定义层的判断负担还在&lt;/strong>——我要持续维护&amp;quot;哪些该露出来&amp;quot;的清单，而 CLI 路线把这个维护成本一次性归零。既然判负证据已经够了，中间档只是延迟同一个结论，我没有停在那。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="保留集的工作流cli--skill-配方">保留集的工作流：CLI + skill 配方
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>退出 MCP 之后，cbm 的形态从&amp;quot;server 常驻&amp;quot;变成&amp;quot;按需起进程&amp;rdquo;。三个场景各自有固定配方：&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 场景 1：架构概览——大仓库第一刀，先看事实上的模块切分&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cbm cli get_architecture --aspects clusters
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 场景 2：跨模块确认——Cypher 直查&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cbm cli query_graph --query &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 场景 3：commit 影响半径——提交前跑一次当自检&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cbm cli detect_changes --since HEAD~1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>和 CLI 配套的是把配方烧进一个 skill：skill 里写死&amp;quot;什么信号出现时调哪个 CLI 命令、结果为空怎么排查&amp;quot;。这相当于把&amp;quot;MCP 工具描述&amp;quot;的引导职能从定义层搬到了 skill 文本——区别是 skill 文本只在需要时加载，不占每轮对话。&lt;/p>
+&lt;blockquote>
+&lt;p>说白了这是一笔交换：放弃 agent 的&lt;strong>自主发现&lt;/strong>（模型自己看到工具描述决定调用），换成&lt;strong>确定性调度&lt;/strong>（skill 规则触发）。实测下来 agent 自主发现 15 个工具的成功率并不高——schema 太长，描述互相干扰，误用和空转不少。确定性调度反而准。&lt;/p>
+&lt;/blockquote>
+&lt;p>两个 server 的分工随之定型，索引也分成两层：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">codegraph = 活层（always-on，保存后 ~0.3s 增量，喂日常符号工作）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cbm = 深层（milestone/按需全量，喂架构分析与影响面，用完 daemon stop）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>裁剪后的定义层税单：8,600 → 只剩 codegraph ≈ 2,750 tok，&lt;strong>省 68%&lt;/strong>，且 cbm 的结果侧双份开销也一并消失。&lt;/p>
+&lt;h2 id="反向参照如果只留-8-个工具理想长什么样">反向参照：如果只留 8 个工具，理想长什么样
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>判负做完，我把两个 server 的能力摊在桌面上重新排列了一次：假如从零设计一个最小工具面，它应该是什么形状。这张表也是裁剪依据的一部分——它划出了&amp;quot;该留的&amp;quot;和&amp;quot;增值插件&amp;quot;的边界。&lt;/p>
+&lt;/blockquote>
+&lt;p>六个能力层、8 个工具，管理面全部走 CLI 不占 MCP 定义层：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>工具&lt;/th>
+&lt;th>接口要点&lt;/th>
+&lt;th>对应物&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>L1 定位&lt;/td>
+&lt;td>search&lt;/td>
+&lt;td>名称/正则/BM25，返回限定元数据&lt;/td>
+&lt;td>codegraph search&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L2 读取&lt;/td>
+&lt;td>source&lt;/td>
+&lt;td>符号 → 源码+签名+紧邻调用&lt;/td>
+&lt;td>codegraph node / explore&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L3 关系&lt;/td>
+&lt;td>relations&lt;/td>
+&lt;td>方向(in/out/path)+边类型，游标分页&lt;/td>
+&lt;td>codegraph callers/callees/trace&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L4 变更&lt;/td>
+&lt;td>impact / diff_impact&lt;/td>
+&lt;td>符号级影响；git diff → 传递影响集&lt;/td>
+&lt;td>codegraph impact / cbm detect_changes&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L5 导览&lt;/td>
+&lt;td>architecture&lt;/td>
+&lt;td>modules(社区)/cycles/hotspots&lt;/td>
+&lt;td>cbm get_architecture（独有）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L6 信任&lt;/td>
+&lt;td>coverage&lt;/td>
+&lt;td>逐文件解析覆盖+索引新鲜度&lt;/td>
+&lt;td>cbm check_index_coverage（独有）&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>按短描述+精简 schema 算，8 工具的定义层预算约 3-4KB ≈ 900 tok。对比现状 8,600，省幅在 70% 以上。&lt;/p>
+&lt;p>同样重要的是&lt;strong>明确排除&lt;/strong>的清单——这些是调研里判定&amp;quot;贬值最快&amp;quot;的增值插件：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">向量语义边、相似度边、跨仓 intelligence、运行时轨迹注入、
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ADR 存图、graph UI、常驻 daemon/协调层
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这张表给我的最大启发是&amp;quot;成本前置 vs 成本后置&amp;quot;的分野：cbm 是成本前置 + 捆绑销售（耐用品和易耗品强制一起买），codegraph 是成本后置 + 行为导演。模型演进越快，为弱模型设计的补偿性智能贬值越快——L1 到 L3 那几层本质是&amp;quot;更贵的 grep&amp;quot;，而 L5/L6 依赖的图算法和覆盖度审计不会贬值。裁剪清单和这张表是同一个判断的两个投影。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="代价核对判负清单之外的理由">代价核对：判负清单之外的理由
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>工具面裁剪解决 token，但 cbm 的账不止这一页。记录性能侧的实测，作为&amp;quot;为什么不留着试试&amp;quot;的补充证据。&lt;/p>
+&lt;/blockquote>
+&lt;p>2026-09-04 的一次普通会话里抓到的数字（本机 Windows 11，~1900 文件的 C 项目）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>指标&lt;/th>
+&lt;th>实测值&lt;/th>
+&lt;th>对应上游 issue&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>index worker 内存&lt;/td>
+&lt;td>&lt;strong>2.7GB&lt;/strong>（预算 2.8GB 几乎打满）&lt;/td>
+&lt;td>#1973：预算是 advisory，宁可 OOM 不降级&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>MCP stdio server&lt;/td>
+&lt;td>空闲时段 ~30% 单核&lt;/td>
+&lt;td>#1764：每个空闲客户端烧 ~0.7 核&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>二进制体积&lt;/td>
+&lt;td>282MB 单个 exe&lt;/td>
+&lt;td>—&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>watcher&lt;/td>
+&lt;td>每 3~5 秒一轮自触发重索引&lt;/td>
+&lt;td>#1953：git 策略对 untracked 文件敏感，工具产物喂它死循环&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>失败 worker&lt;/td>
+&lt;td>无退避无限重 fork&lt;/td>
+&lt;td>#2015：4h43m 内 2233 个 worker&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>触发链已经实锤：会话工具在仓库里写 &lt;code>.codegraph/&lt;/code> 这类产物目录 → git-strategy watcher 判定 changed → daemon 反复 fork worker。解法之一是把产物目录 gitignore，但更根本的是——&lt;strong>一个&amp;quot;高性能&amp;quot;卖点著称的索引服务，默认配置下会和客户端工具互相喂出死循环&lt;/strong>，这本身就是工具面之外的设计债。&lt;/p>
+&lt;blockquote>
+&lt;p>cbm 的深度（LSP 类型解析 + 语义边）是用内存和常驻进程换的，codegraph 的增量快是用磁盘和 WAL 换的，没有免费午餐。但&amp;quot;深度&amp;quot;大部分在判负清单里已经卖不出去了——剩下 3 个场景恰恰不依赖常驻 daemon，按需起进程跑完就停，反而是对它资源模型最友好的用法。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>裁剪的尽头是一个朴素的判断：MCP 工具面应该只放&amp;quot;agent 每轮都可能自主用到&amp;quot;的东西，低频能力、管理面、被更强工具覆盖的能力，都该退到 CLI。15 个工具筛完剩 3 个场景，token 省 68%，误用率归零（没有可误用的了）——这个比例让我怀疑大部分 MCP 服务器都超配了一倍以上。下一篇写从 MCP 退到 CLI 的过程中暴露的另一类问题：CLI 静默失败——空结果和真失败不可区分，agent 拿着空输出继续推理，比误用工具更危险。所以下一步是给 CLI 做 fail-loud 改造：非法参数报错、空结果带原因、退出码讲真话。&lt;/p>
+&lt;/blockquote></description></item><item><title>wiki CLI 工具设计</title><link>https://daidaij.github.io/p/wiki-cli-design/</link><pubDate>Sun, 23 Aug 2026 14:47:30 +0800</pubDate><guid>https://daidaij.github.io/p/wiki-cli-design/</guid><description>&lt;img src="https://picsum.photos/seed/e782c1e9/800/600" alt="Featured image of post wiki CLI 工具设计" />&lt;h1 id="wiki-cli-工具设计">wiki CLI 工具设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>一个基于 agent hook 设计的命令行工具：会话结束 hook 自动跑同步，把项目 wiki 知识、Obsidian 校对、Hugo 博客发布串成一条自动化流水线。核心思想：hook 驱动自动化，数据面与控制流分离。源码：&lt;a class="link" href="https://github.com/daidaiJ/my-wiki-repo" target="_blank" rel="noopener"
