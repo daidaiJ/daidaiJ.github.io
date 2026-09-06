@@ -1637,7 +1637,8 @@ D --> E[返回 create 成功]&lt;/pre>&lt;p>pod 建好之后所有动作都发�
 &lt;h2 id="自动续约osep-0009访问即续命">自动续约（OSEP-0009）：访问即续命
 &lt;/h2>&lt;hr>
 &lt;p>手动续约要求调用方自己记得续，OpenSandbox 在 OSEP-0009 里做了访问驱动的自动续约：&lt;strong>反向代理观测到流量，就替沙箱续一次命&lt;/strong>。&lt;/p>
-&lt;p>激活是三方握手：服务端 &lt;code>[renew_intent] enabled=true&lt;/code>、ingress 模式还要开 Redis、创建沙箱时 opt-in 一个 extension。opt-in 的合法性在创建时校验：&lt;/p>
+&lt;p>用法上就两步：创建沙箱时在 &lt;code>extensions&lt;/code> 里 opt-in，之后所有&lt;strong>经 server proxy 的调用&lt;/strong>（exec/文件/健康检查，转发前有 &lt;code>_schedule_proxy_renew&lt;/code> 埋点）自动续期；ingress 模式额外开 Redis。但整条链路有一个唯一的坑，先说在前面——&lt;strong>服务端开关&lt;/strong>。&lt;code>[renew_intent] enabled&lt;/code> 默认 &lt;code>False&lt;/code>，而创建时对 extension 的校验只查值的格式（300~86400 的字符串十进制整数），&lt;strong>不查服务端开关&lt;/strong>。也就是说客户端全做对了、proxy 调用一切正常，server 没开开关就一个字都不续——&lt;code>proxy_renew.py&lt;/code> 第 38 行直接短路返回，无日志无报错，沙箱到点照样被杀。排查&amp;quot;自动续约不生效&amp;quot;，第一个要看的不是客户端配置，是 server config 里这个开关。&lt;/p>
+&lt;p>opt-in 的合法性在创建时校验的只有这个：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -1839,6 +1840,11 @@ F -->|通过| G[renew_expiration]&lt;/pre>&lt;p>所有路径最终汇到 &lt;cod
 &lt;td>自动续约对伪永久沙箱&lt;/td>
 &lt;td>静默跳过（门控 return False）&lt;/td>
 &lt;td>&lt;code>controller.py:69&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>server 未开 renew_intent.enabled&lt;/td>
+&lt;td>opt-in 照常创建、proxy 照常转发，但续约零次（开关默认 False）&lt;/td>
+&lt;td>&lt;code>config.py&lt;/code> / &lt;code>proxy_renew.py:38&lt;/code>&lt;/td>
 &lt;/tr>
 &lt;tr>
 &lt;td>lease 状态 label 丢失&lt;/td>
