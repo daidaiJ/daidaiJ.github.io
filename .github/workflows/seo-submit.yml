@@ -1,0 +1,106 @@
+name: SEO Submit (IndexNow + Google Indexing API)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pandawo/content/**'
+  workflow_dispatch:
+
+jobs:
+  submit:
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: seo-submit-${{ github.ref }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.139.3'
+          extended: true
+
+      # 构建一次只为拿到 sitemap.xml，用来把变更的 md 文件映射成真实线上 URL
+      # （permalink 是 /p/:slug/，frontmatter 里自定义 slug 时文件名推不出来）
+      - name: Build site for sitemap
+        working-directory: ./pandawo
+        run: hugo --baseURL https://daidaij.github.io/ --minify
+
+      - name: Collect changed post URLs
+        id: collect
+        run: |
+          CHANGED=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD -- 'pandawo/content/post' \
+            | sed -e 's|^pandawo/content/post/||' \
+                  -e 's|/index\.md$||' \
+                  -e 's|\.md$||' \
+                  -e 's|\.zh-cn$||' \
+                  -e 's|/$||' \
+            | tr '[:upper:]' '[:lower:]' | sort -u)
+          URLS=""
+          for slug in $CHANGED; do
+            url="https://daidaij.github.io/p/${slug}/"
+            if grep -q "<loc>${url}</loc>" pandawo/public/sitemap.xml; then
+              URLS="${URLS}${url},"
+            else
+              echo "::warning::sitemap 中未找到 ${url}，已跳过（可能自定义了 slug 或页面被删除）"
+            fi
+          done
+          echo "urls=${URLS%,}" >> "$GITHUB_OUTPUT"
+          echo "变更文章: ${URLS%,}"
+
+      - name: Submit to IndexNow (Bing / Yandex / Seznam)
+        if: steps.collect.outputs.urls != ''
+        env:
+          URLS: ${{ steps.collect.outputs.urls }}
+        run: |
+          KEY=$(tr -d '[:space:]' < pandawo/static/9820e3ea86e346c3a400ea79341c5b42.txt)
+          IFS=',' read -ra LIST <<< "$URLS"
+          JSON_LIST=$(printf '"%s",' "${LIST[@]}" | sed 's/,$//')
+          HTTP_CODE=$(curl -s -o /tmp/indexnow-resp.txt -w "%{http_code}" -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{\"host\":\"daidaij.github.io\",\"key\":\"${KEY}\",\"keyLocation\":\"https://daidaij.github.io/${KEY}.txt\",\"urlList\":[${JSON_LIST}]}")
+          cat /tmp/indexnow-resp.txt
+          echo "IndexNow HTTP ${HTTP_CODE}"
+          # 200/202 = 提交成功；400/403 = 密钥或参数问题
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "202" ]; then
+            echo "::error::IndexNow 提交失败"
+            exit 1
+          fi
+
+      - name: Submit to Google Indexing API
+        if: steps.collect.outputs.urls != ''
+        env:
+          URLS: ${{ steps.collect.outputs.urls }}
+          SA_JSON: ${{ secrets.GOOGLE_INDEXING_SA_JSON }}
+        run: |
+          pip install --quiet google-auth requests
+          python3 - <<'PY'
+          import json
+          import os
+
+          from google.auth.transport.requests import AuthorizedSession
+          from google.oauth2 import service_account
+
+          urls = [u for u in os.environ["URLS"].split(",") if u]
+          creds = service_account.Credentials.from_service_account_info(
+              json.loads(os.environ["SA_JSON"]),
+              scopes=["https://www.googleapis.com/auth/indexing"],
+          )
+          session = AuthorizedSession(creds)
+          failed = False
+          for u in urls:
+              r = session.post(
+                  "https://indexing.googleapis.com/v3/urlNotifications:publish",
+                  json={"url": u, "type": "URL_UPDATED"},
+              )
+              print(u, r.status_code, r.text)
+              if r.status_code >= 400:
+                  failed = True
+          if failed:
+              raise SystemExit(1)
+          PY
