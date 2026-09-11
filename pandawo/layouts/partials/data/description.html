@@ -1,0 +1,19 @@
+<!-- Use site subtitle by default -->
+{{ $description := .Site.Params.sidebar.subtitle }}
+
+<!-- Seprate description exists -->
+{{ if .Site.Params.description }}
+    {{ $description = .Site.Params.description }}
+{{ end }}
+
+{{ if .Description }}
+    <!-- Page description exists -->
+    {{ $description = .Description }}
+{{ else if .IsPage }}
+    <!-- Use page summary -->
+    {{ $description = .Summary }}
+{{ end }}
+
+{{/* frontmatter 里可能带字面 \r \n 转义序列，先剥掉再折叠空白；htmlUnescape 还原 &quot; 等实体 */}}
+{{ $description = replaceRE "\\\\r|\\\\n" " " $description }}
+{{ return (replaceRE "\\s+" " " ($description | plainify | htmlUnescape)) }}

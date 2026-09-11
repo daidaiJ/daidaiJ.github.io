@@ -1,0 +1,119 @@
+<!-- 懒加载音乐播放器：点击后加载 APlayer。
+     播放链：Meting API 在线曲目（frontmatter musicid，默认渡口 5264842）
+             → 失效（API 挂 5s 超时 / 无版权 / 音频流 error 或起播 8s 超时）
+             → 本地静态资源 /music/dukou.aac 兜底
+     如替换兜底文件，同步改 LOCAL_FALLBACK 里的 name/artist/url。 -->
+{{- with .Params.musicid -}}
+<div class="music-lazy" data-music-id="{{ . }}">
+    <button type="button">♪ 点击加载音乐播放器</button>
+</div>
+<script>
+    (function () {
+        var METING_API = 'https://api.injahow.cn/meting/?server=netease&type=song&id=';
+        var APLAYER_CSS = 'https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css';
+        var APLAYER_JS = 'https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js';
+        var API_TIMEOUT = 5000;   // Meting API 5s 不响应视为挂
+        var PLAY_TIMEOUT = 8000;  // 点播放后 8s 没真正出声（缓冲过慢）换本地
+        var LOCAL_FALLBACK = {
+            name: '渡口',
+            artist: '蔡琴',
+            url: '/music/dukou.aac',
+            cover: '/music/dukou-cover.png',
+            lrc: '/music/dukou.lrc'
+        };
+
+        function loadScript(src) {
+            return new Promise(function (resolve, reject) {
+                var s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        function loadCss(href) {
+            return new Promise(function (resolve, reject) {
+                var l = document.createElement('link');
+                l.rel = 'stylesheet';
+                l.href = href;
+                l.onload = resolve;
+                l.onerror = reject;
+                document.head.appendChild(l);
+            });
+        }
+        function fetchWithTimeout(url, ms) {
+            var ctrl = new AbortController();
+            var timer = setTimeout(function () { ctrl.abort(); }, ms);
+            return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
+        }
+
+        function mountPlayer(wrap, tracks, allowFallback) {
+            wrap.classList.add('music-loaded');
+            wrap.replaceChildren();
+            var ap = new APlayer({
+                container: wrap,
+                mini: false,
+                autoplay: false,
+                lrcType: 3,
+                audio: tracks
+            });
+
+            function fallback() {
+                if (allowFallback && tracks[0].url !== LOCAL_FALLBACK.url) {
+                    mountPlayer(wrap, [LOCAL_FALLBACK], false);
+                }
+            }
+
+            // APlayer 的 <audio> 首次播放才创建，轮询补挂监听
+            var poll = setInterval(function () {
+                var media = ap.audio || wrap.querySelector('audio');
+                if (!media) return;
+                clearInterval(poll);
+                media.addEventListener('error', fallback);
+                // 起播看门狗：play 后 PLAY_TIMEOUT 内 currentTime 没动/没缓冲够 → 换本地
+                media.addEventListener('play', function () {
+                    if (!allowFallback) return;
+                    var deadline = Date.now() + PLAY_TIMEOUT;
+                    var watchdog = setInterval(function () {
+                        if (media.paused || media.currentTime > 0.2 || media.readyState >= 3) {
+                            clearInterval(watchdog);
+                            return;
+                        }
+                        if (Date.now() > deadline) {
+                            clearInterval(watchdog);
+                            fallback();
+                        }
+                    }, 500);
+                });
+            }, 300);
+            setTimeout(function () { clearInterval(poll); }, 30000);
+        }
+
+        document.querySelectorAll('.music-lazy').forEach(function (wrap) {
+            var btn = wrap.querySelector('button');
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+                var id = wrap.getAttribute('data-music-id');
+                btn.textContent = '加载中…';
+                Promise.all([loadCss(APLAYER_CSS), loadScript(APLAYER_JS)])
+                    .then(function () {
+                        return fetchWithTimeout(METING_API + id, API_TIMEOUT).then(function (r) { return r.json(); });
+                    })
+                    .then(function (list) {
+                        if (!Array.isArray(list) || !list.length || !list[0].url) throw new Error('bad list');
+                        mountPlayer(wrap, [{
+                            name: list[0].name || list[0].title,
+                            artist: list[0].artist || list[0].author,
+                            url: list[0].url,
+                            cover: list[0].pic,
+                            lrc: list[0].lrc
+                        }], true);
+                    })
+                    .catch(function () {
+                        mountPlayer(wrap, [LOCAL_FALLBACK], false);
+                    });
+            }, { once: true });
+        });
+    })();
+</script>
+{{- end -}}

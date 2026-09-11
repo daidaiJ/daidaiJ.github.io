@@ -41,3 +41,18 @@ document.querySelectorAll('[data-collapse-action]').forEach(btn => {
         }
     });
 });
+// 纵向滚轮穿透：新版 Chromium/Edge 会把纵向滚轮优先消费给横向滚动容器
+// （相关文章横条、超宽代码块），光标悬停其上时页面滚动被"冻结"。
+// 这里把纵向 delta 还给页面；横向滚动（shift+滚轮 / 触控板横扫）保持原生行为。
+const wheelPassthrough = (el: HTMLElement) => {
+    el.addEventListener('wheel', (e) => {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            e.preventDefault();
+            window.scrollBy({ top: e.deltaY, behavior: 'instant' });
+        }
+    }, { passive: false });
+};
+
+document.querySelectorAll<HTMLElement>('.related-content').forEach(wheelPassthrough);
+document.querySelectorAll<HTMLElement>('.highlight .lntable td:last-child').forEach(wheelPassthrough);
+document.querySelectorAll<HTMLElement>('.highlight > pre').forEach(wheelPassthrough);

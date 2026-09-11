@@ -1,0 +1,11 @@
+{{/* 站点级覆盖：移除 Vibrant（仅 tile 布局取色用，本站为 list 布局；如启用 tile 需恢复该行） */}}
+
+{{- $opts := dict "minify" hugo.IsProduction -}}
+{{- $script := resources.Get "ts/main.ts" | js.Build $opts | fingerprint -}}
+
+<script type="text/javascript" src="{{ $script.RelPermalink }}" defer></script>
+
+{{- with resources.Get "ts/custom.ts" -}}
+    {{- $customScript := . | js.Build $opts | fingerprint -}}
+    <script type="text/javascript" src="{{ $customScript.RelPermalink }}" defer></script>
+{{- end -}}
