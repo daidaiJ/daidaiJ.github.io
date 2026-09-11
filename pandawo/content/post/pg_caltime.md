@@ -5,6 +5,7 @@ description: "Use pg database to count online time"
 date: 2025-12-05T17:00:24+08:00
 lastmod: 2025-12-05T17:00:24+08:00
 draft: false
+math: true
 toc: true
 hidden: false
 weight: false
