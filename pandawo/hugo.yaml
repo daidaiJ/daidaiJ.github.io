@@ -14,18 +14,13 @@ DefaultContentLanguage: zh-cn
 # This will make .Summary and .WordCount behave correctly for CJK languages.
 hasCJKLanguage: true
 
+# 单语言站点（zh-cn）。曾配置占位 en 语言，会生成 "Example Site" 空白页
+# 并进入 sitemap/语言切换器，对 SEO 有害，已移除；如需双语再重新配置。
 languages:
-    en:
-        languageName: English
-        title: Example Site
-        weight: 1
-        params:
-            sidebar:
-                subtitle: Example description
     zh-cn:
         languageName: 中文
         title: 潘达窝
-        weight: 2
+        weight: 1
         params:
             sidebar:
                 subtitle: 潘达张的个人博客
@@ -46,7 +41,6 @@ permalinks:
     page: /:slug/
 
 params:
-    musicid: 5264842
     mainSections:
         - post
     featuredImageField: image
@@ -70,7 +64,7 @@ params:
             src: panda.png
 
     article:
-        math: true
+        math: false
         mermaid: true
         toc: true
         readingTime: true
@@ -266,3 +260,12 @@ minify:
   disableHTML: false
   disableCSS: false
   disableJS: false
+
+# 构建缓存：资源编译/外部资源获取结果持久化，加速本地与 CI 重复构建
+caches:
+  assets:
+    dir: :resourceDir/_gen
+    maxAge: 720h
+  getresource:
+    dir: :cacheDir/:project
+    maxAge: 720h

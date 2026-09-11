@@ -36,7 +36,7 @@ jobs:
 
       - name: Build
         working-directory: ./pandawo
-        run: hugo --baseURL https://daidaij.github.io/ --minify
+        run: hugo --baseURL https://daidaij.github.io/ --minify --gc
 
       # 图片优化
       - name: Optimize Images

@@ -17,3 +17,14 @@ Thumbs.db
 *.swp
 # 本地密钥（严禁提交）
 .secrets/
+
+# 本地工具缓存与临时产物
+.codegraph/
+.qwen/
+.playwright-mcp/
+graphify-out/
+pandawo/.codegraph/
+pandawo/.qwen/
+pandawo/.playwright-mcp/
+pandawo/graphify-out/
+pandawo/public-test/
