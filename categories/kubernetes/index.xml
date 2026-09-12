@@ -1,4 +1,90 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes on 潘达窝</title><link>https://daidaij.github.io/categories/kubernetes/</link><description>Recent content in Kubernetes on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:11:17 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/kubernetes/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单</title><link>https://daidaij.github.io/p/opensandbox-5-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:11:17 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-5-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/441fa0fb/800/600" alt="Featured image of post OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单" />&lt;h1 id="opensandbox-源码走读五收官踩坑合集3s-轮询execd-限制与风险清单">OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes on 潘达窝</title><link>https://daidaij.github.io/categories/kubernetes/</link><description>Recent content in Kubernetes on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 08:52:46 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/kubernetes/index.xml" rel="self" type="application/rss+xml"/><item><title>OpenSandbox Pool 压测自噬复盘：销毁 293，运行 193</title><link>https://daidaij.github.io/p/opensandbox-pool-churn/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-pool-churn/</guid><description>&lt;img src="https://picsum.photos/seed/a1d6f19c/800/600" alt="Featured image of post OpenSandbox Pool 压测自噬复盘：销毁 293，运行 193" />&lt;h1 id="opensandbox-pool-压测自噬复盘销毁-293运行-193">OpenSandbox Pool 压测自噬复盘：销毁 293，运行 193
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>9 月 10 日在 13 节点集群上给 OpenSandbox 的池化模式做压测，撞上一组反直觉的数字：全程销毁了 293 个池 pod，Running 峰值只有 193——池子在一边等 pod 一边删 pod。当天闭环：根因定位、对照上游 #1423、A/B 验证修复（PR #1425）。这篇按证据链复盘，重点是一张快照的反推和几个推翻直觉的结论。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="现象四件套">现象四件套
+&lt;/h2>&lt;p>环境：poolMin=20 / poolMax=400，池模板 2c4G，13 个候选节点，负载按 40 一档递增到 ~100 并发。四个反直觉的现象同时出现：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>销毁量畸高&lt;/strong>：293 SuccessfulDelete 对 193 Running 峰值，删除远多于沙箱主动释放&lt;/li>
+&lt;li>&lt;strong>自噬标志&lt;/strong>：&lt;code>supplyCnt&amp;gt;0&lt;/code>（有 sandbox 在等 pod）与 &lt;code>scaleIn&amp;gt;0&lt;/code>（池在删 pod）并存&lt;/li>
+&lt;li>&lt;strong>池冻结&lt;/strong>：churn 期间 Pool 零 reconcile，重启 controller 无效&lt;/li>
+&lt;li>&lt;strong>水位反直觉&lt;/strong>：alloc 不到 poolMax 的 1/3（~100/400）就触发——&amp;ldquo;打满才出事&amp;quot;的直觉不成立&lt;/li>
+&lt;/ol>
+&lt;h2 id="一张快照的反推">一张快照的反推
+&lt;/h2>&lt;p>~100 并发时对控制器日志采样：&lt;code>maxNewPods=272&lt;/code>、&lt;code>desiredSchedulableCnt=121&lt;/code>、&lt;code>totalPodCnt=128&lt;/code>。三个数字互相咬合：&lt;/p>
+&lt;p>&lt;code>totalPodCnt = PoolMax - maxNewPods = 400 - 272 = 128&lt;/code>（terminating pod 不可见）。而 &lt;code>desired = alloc + supply + desiredBuffer = 121&lt;/code>：如果 buffer 在带内 [10, 40]，代入公式得 desired 必然 ≥ 128，不可能等于 121。&lt;strong>唯一自洽解是 buffer 越过了上限 40&lt;/strong>——alloc≈80、supply≈19、buffer≈48。&lt;/p>
+&lt;p>也就是说：128 个 pod 只有 ~80 个被分配，~48 个躺在 idle，19 个 sandbox 在等 pod，池子同时在删 pod。pod 就绪只要 6-10 秒，分配在下一个 reconcile 周期就该发生——48 个长期卡在 idle 是真 Pending，池子却把它们当成&amp;quot;富余缓冲&amp;quot;在删。&lt;/p>
+&lt;h2 id="根因三个缺陷叠加成循环">根因：三个缺陷叠加成循环
+&lt;/h2>&lt;p>位置都在 &lt;code>pool_controller.go&lt;/code>（修复前的 fork 版本）：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>buffer 统计口径包含未 Ready 的 pod&lt;/strong>。&lt;code>bufferCnt = schedulableCnt - allocatedCnt&lt;/code>，Pending/ContainerCreating 全算富余；而分配器只把 Ready pod 分给 sandbox。调度卡住的 pod 长期躺在 idle 集合，在扩缩容公式里被计成缓冲&lt;/li>
+&lt;li>&lt;strong>scale-in 无门控，且最老优先&lt;/strong>。&lt;code>pickPodsToDelete&lt;/code> 只按 &lt;code>CreationTimestamp&lt;/code> 升序——最老的 idle pod 恰是卡得最久、马上就绪的那批，trim 定向淘汰最接近可用的 pod。utils 里考虑 Ready 状态的 &lt;code>ComparePodsForDeletion&lt;/code> 存在，但只用在滚动更新路径&lt;/li>
+&lt;li>&lt;strong>门控不对称 + 删除正反馈&lt;/strong>。创建侧有 25% &lt;code>maxUnavailable&lt;/code> 预算门，删除侧没有任何上限；每删一个未 Ready pod，&lt;code>notReadyCnt-1&lt;/code>，创建预算+1——删除动作直接放大下一轮创建&lt;/li>
+&lt;/ol>
+&lt;p>循环全貌：创建 → 调度不上（Pending）→ 计入 buffer → buffer 越上限触发 trim → 最老优先删掉 → 预算回血 → 再创建。&lt;strong>20-30 个长期 Pending 不是副作用，是 25% 预算的平衡点&lt;/strong>：desired≈120 时预算≈30，控制器创建到顶线即停，与观测精确吻合。&lt;/p>
+&lt;h2 id="触发条件是一条不等式">触发条件是一条不等式
+&lt;/h2>&lt;p>把代码翻成数学：buffer 在带内时 &lt;code>scaleIn ≡ 0&lt;/code>（代数恒等，无论 alloc 多大都剪不动）；trim 只能发生在 buffer 越上限的带外，触发条件联立为：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">alloc ≳ 3×bufferMax − supply 且 alloc ≳ 2×supply + 3×midpoint
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>三个推论，逐条回收排查当时的疑问：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>为什么 MVP 小池（poolMin 4 / poolMax 24）复现不出来&lt;/strong>：带外锚点 midpoint 是绝对值（25），不随池规模缩小，小池的 alloc 在数学上不可能越过不等式——复现失败不是操作问题&lt;/li>
+&lt;li>&lt;strong>为什么 1/3 水位就中&lt;/strong>：门槛是绝对数不是占比，alloc≈100 时 &lt;code>100 &amp;gt; 2×10+75&lt;/code> 已满足，&amp;ldquo;水位线&amp;quot;直觉失效&lt;/li>
+&lt;li>&lt;strong>创建超时参数不在风暴环路上&lt;/strong>：风暴的燃料是&amp;quot;未 Ready 在途被误计入 buffer&amp;rdquo;，循环自给自足，不需要任何请求先失败。测试环境 60s 失败潮只是加速器——生产 240s 没有失败潮照样中招&lt;/li>
+&lt;/ol>
+&lt;h2 id="ab-验证和一次差点污染结论的部署失误">A/B 验证，和一次差点污染结论的部署失误
+&lt;/h2>&lt;p>k3s 双节点缩比复现：主容器 &lt;code>sleep 70 &amp;amp;&amp;amp; touch /tmp/ready&lt;/code> 模拟慢启动（对应上游 kata-qemu 60s+），同负载（400 创建请求）、同池规格，唯一变量是 controller 代码。&lt;/p>
+&lt;p>前侧（pre-#1425）四症状全部复现：TOTAL 锯齿 143→124→145→132→…、冻结 ≥14 分钟、alloc 99 + 25 Pending 冻结终态。&lt;/p>
+&lt;p>后侧第一次跑出来&amp;quot;仅 1 次删除、无冻结&amp;rdquo;，差点直接写进报告判定修复有效。复盘取证发现&lt;strong>那次 #1425 根本没接管&lt;/strong>：镜像没进 worker 节点的 containerd，新 pod 一直没 Ready，&lt;code>kubectl logs deploy/&lt;/code> 静默打到旧 pod。关键指纹是决策日志的 caller 行号——前侧二进制的决策日志在 &lt;code>pool_controller.go:1119&lt;/code>，#1425 因为新增了 &lt;code>countReadyIdlePods&lt;/code> 漂移到 &lt;code>:1132&lt;/code>，两轮日志全是 &lt;code>:1119&lt;/code>。&lt;/p>
+&lt;p>重测（先验接管：RS &lt;code>readyReplicas=1&lt;/code> + caller &lt;code>:1132&lt;/code> 实测）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>指标&lt;/th>
+&lt;th>前（A）&lt;/th>
+&lt;th>后重测（B′）&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>决策连续性&lt;/td>
+&lt;td>冻结 ≥14 分钟&lt;/td>
+&lt;td>全程连续，869 次决策，最大空窗 ≤1 分钟&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>TOTAL 轨迹&lt;/td>
+&lt;td>锯齿自噬，冻死在 124&lt;/td>
+&lt;td>每波一次性收缩 137→108，精确收敛到 alloc+bufferMin&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>删除&lt;/td>
+&lt;td>无上限&lt;/td>
+&lt;td>每轮 ≤25% 封顶&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>buffer 口径&lt;/td>
+&lt;td>含 Pending/在途&lt;/td>
+&lt;td>Ready-only，bufferCnt=0 实时可见&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>判定：前坏后好成立，本 fork 合 #1425（上游 &lt;a class="link" href="https://github.com/opensandbox-group/OpenSandbox/issues/1423" target="_blank" rel="noopener"
+>#1423&lt;/a> / &lt;a class="link" href="https://github.com/opensandbox-group/OpenSandbox/pull/1425" target="_blank" rel="noopener"
+>#1425&lt;/a>）。&lt;/p>
+&lt;blockquote>
+&lt;p>方法论教训进了复现配方：A/B 切镜像后必须先验证新 pod 接管再开压。&lt;code>kubectl rollout status&lt;/code> 卡住时不会把错误推到操作者眼前，&lt;code>kubectl logs&lt;/code> 会静默打旧 pod——&amp;ldquo;看起来在跑&amp;quot;和&amp;quot;新代码在跑&amp;quot;是两件事。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="残留">残留
+&lt;/h2>&lt;p>#1425 的 scale-in 仍会删除在途超额 pod（未 Ready 先删，而非跳过）。因有封顶 + 单轮收敛，不复发，属可控行为，另开小 issue 跟进，不重开 #1423。&lt;/p>
+&lt;h2 id="小结">小结
+&lt;/h2>&lt;p>自噬机制一句话：**不可观测的失败被计成富余，富余触发收缩，收缩回血扩容预算。**任何&amp;quot;把在途当库存&amp;quot;的池化系统都有同款风险。修法三板斧也通用：口径改成 Ready-only（假库存消失）、删除加 maxUnavailable 封顶（单轮收敛）、错误路径软 requeue（池不脱离管控）。&lt;/p></description></item><item><title>OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单</title><link>https://daidaij.github.io/p/opensandbox-5-pitfalls/</link><pubDate>Sun, 06 Sep 2026 20:11:17 +0800</pubDate><guid>https://daidaij.github.io/p/opensandbox-5-pitfalls/</guid><description>&lt;img src="https://picsum.photos/seed/441fa0fb/800/600" alt="Featured image of post OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单" />&lt;h1 id="opensandbox-源码走读五收官踩坑合集3s-轮询execd-限制与风险清单">OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>系列最后一篇，不讲架构，专讲坑。调研和使用 OpenSandbox 过程中踩过、或者差点踩到的坑，按&amp;quot;现象 → 定位 → 根因 → 对策&amp;quot;整理成独立小节，可以直接当 checklist 用。&lt;/p>

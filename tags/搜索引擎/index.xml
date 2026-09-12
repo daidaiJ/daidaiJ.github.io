@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>搜索引擎 on 潘达窝</title><link>https://daidaij.github.io/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/</link><description>Recent content in 搜索引擎 on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 09:19:18 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/index.xml" rel="self" type="application/rss+xml"/><item><title>websearch-mcpserver 工具链：检索之外的三件套</title><link>https://daidaij.github.io/p/websearch-mcpserver-toolchain/</link><pubDate>Sat, 12 Sep 2026 09:19:18 +0800</pubDate><guid>https://daidaij.github.io/p/websearch-mcpserver-toolchain/</guid><description>&lt;img src="https://picsum.photos/seed/7a4e1ac3/800/600" alt="Featured image of post websearch-mcpserver 工具链：检索之外的三件套" />&lt;h1 id="websearch-mcpserver-工具链检索之外的三件套">websearch-mcpserver 工具链：检索之外的三件套
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>上一篇写了聚合的四次重做（smartsearch 那条线）。这篇写剩下三个工具——academicsearch、cleanfetch、pdf_parser——和兜着它们的支撑件。单独一个 smartsearch 只解决&amp;quot;搜到&amp;quot;，agent 实际要的是闭环：搜到 → 打开 → 读进去，缺哪环都得自己手搓。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="四个工具怎么分工">四个工具怎么分工
+&lt;/h2>&lt;p>工具注册在 &lt;code>mcp/server.go&lt;/code>，条件化注册 + 动态描述是两个通用设计：&lt;/p>
+&lt;ul>
+&lt;li>smartsearch：LLM 配了就注册带 &lt;code>intent&lt;/code> 参数的版本（agent 声明检索目的换更准的结构化摘要），没配就注册无 intent 版&lt;/li>
+&lt;li>cleanfetch：需显式启用才注册&lt;/li>
+&lt;li>pdf_parser：默认关闭，工具描述按配置动态生成——配了 MinerU OCR 就多一句&amp;quot;扫描件可回退 OCR&amp;quot;，只配了 Token 就只说远程精准解析&lt;/li>
+&lt;/ul>
+&lt;p>动态描述这个点值得说一下：&lt;strong>agent 看到的工具描述永远和实际能力一致&lt;/strong>，不会出现&amp;quot;描述说支持 OCR、实际没配 Token 调了报错&amp;quot;的错位。&lt;/p>
+&lt;h2 id="academicsearch九引擎垂直线">academicsearch：九引擎垂直线
+&lt;/h2>&lt;p>学术检索是独立的一条垂直线：arXiv、PubMed、Europe PMC、DBLP、DOAJ、Crossref、Semantic Scholar、Google Scholar、OpenAlex 九个引擎并行，全部国内可直连或可代理。&lt;/p>
+&lt;p>评分在通用 Wigolo 之上叠学术特有信号，&lt;code>pkg/search/academic_enhance.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// CiteFactor 引用数增强因子：对数压缩避免高引论文完全碾压，clamp 到 [1.0, 1.7]。
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="nf">CiteFactor&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">citedBy&lt;/span> &lt;span class="kt">int&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">float64&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">citedBy&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mf">1.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">f&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Log2&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="nb">float64&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">citedBy&lt;/span>&lt;span class="p">))&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="mf">0.05&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">f&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="mf">1.0&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mf">1.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">f&lt;/span> &lt;span class="p">&amp;gt;&lt;/span> &lt;span class="mf">1.7&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="mf">1.7&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">f&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>对数压缩 + clamp 这两个动作缺一不可：不压缩，一篇 Nature 引用 5 万次直接碾压所有结果；不 clamp，低引论文永远没有出头日。之外还有 JournalBoost（高影响力期刊/会议加性加分，大小写不敏感查表）、PDF 全文可用性、时效因子（时间敏感查询近一年 ×1.15）。&lt;/p>
+&lt;p>去重用 DOI + URL 双键合并——&amp;ldquo;一方有 DOI、一方只有相同 URL&amp;quot;的同文不合并是漏报重灾区，双键任一命中即视为同文。&lt;/p>
+&lt;p>对上游的防御分三层：403/429 指数退避（1.5s→3s 带随机抖动）并轮换桌面 UA；CAPTCHA（Google Scholar 的 /sorry 跳转）识别后不浪费重试直接报错；Semantic Scholar 带 Key 遇 429/503 退避，连续失败自动降级匿名模式。每家的 &lt;code>time_range&lt;/code> 语法还各不相同（Crossref 用 &lt;code>filter=from-pub-date:&lt;/code>、DOAJ 用年份闭区间、arXiv 用 UTC 时间戳区间），v3.4.0 把三家各修了一遍。&lt;/p>
+&lt;p>最后是错误透传：部分引擎失败不静默吞掉，失败引擎记入 &lt;code>EngineErrors&lt;/code>，结果末尾提示&amp;quot;部分引擎本次失败，结果可能不完整&amp;rdquo;——agent 知道结果的置信度边界，比拿到一份看起来完整的半成品强。&lt;/p>
+&lt;h2 id="cleanfetch抓取的降级链与安全边界">cleanfetch：抓取的降级链与安全边界
+&lt;/h2>&lt;p>cleanfetch 解决&amp;quot;搜到了，打开看看&amp;quot;。抓取前先过两道安全闸：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>DNS rebinding 防护&lt;/strong>：抓取前解析目标域名，检查所有解析出的 IP 是否内网/私有地址，和 go-webfetch 内部的 BlockPrivateIP 构成双重防护——agent 是会接受模型给的任意 URL 的，SSRF 面必须按&amp;quot;URL 不可信&amp;quot;设计&lt;/li>
+&lt;li>&lt;strong>HEAD 预检&lt;/strong>：先看 Content-Length，超过 &lt;code>max_fetch_size_mb&lt;/code>（默认 10MB）直接拒绝&lt;/li>
+&lt;/ol>
+&lt;p>抓取本体是三层降级：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 第一层：go-webfetch（无需代理）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">result&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">webfetchInst&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Fetch&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">params&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">URL&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="nx">err&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">out&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ferr&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nf">fetchFallbacks&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">params&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">URL&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// Jina → 浏览器兜底
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>go-webfetch 用 tls-client 做 Chrome 131 TLS 指纹伪装（反爬的第一道坎是指纹不是 UA），失败回退 Jina Reader，再不行可选用户自备浏览器命令。关键是 &lt;code>fetchFallbacks&lt;/code> 把每一层的失败原因聚合透传（&lt;code>webfetch: ...; Jina: ...&lt;/code>）——agent 看得到&amp;quot;哪层为什么没成&amp;quot;，而不是一个笼统的 failed。&lt;/p>
+&lt;h2 id="pdf_parser本地优先ai-按需">pdf_parser：本地优先、AI 按需
+&lt;/h2>&lt;p>PDF 解析走的是成本敏感的两段式：本地 PDF 库先抽文本（免费、毫秒级），抽不动（扫描件、图片型 PDF）才按需回退 MinerU OCR（要 Token、要上传、要等）。&lt;code>pkg/webfetch/webfetch.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 本地 PDF 文件：先本地 PDF 库抽文本，读不到再按需走 MinerU OCR
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="nx">strings&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">HasPrefix&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">rawURL&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;file://&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">localPath&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">strings&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">TrimPrefix&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">rawURL&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;file://&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 处理 Windows 三斜杠格式 file:///C:/...
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">f&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">parseLocalPDF&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ctx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">localPath&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>连 Windows 三斜杠的 &lt;code>file:///C:/...&lt;/code> 都单独处理了——agent 给的路径格式从来不讲武德。大文档自动落临时文件而不是塞进工具结果，避免一次解析吃掉半个上下文窗口。&lt;/p>
+&lt;h2 id="go-webfetch从项目里长出来的独立模块">go-webfetch：从项目里长出来的独立模块
+&lt;/h2>&lt;p>网页抓取做到后来发现和搜索一样有通用价值，抽成了独立 Go module（&lt;code>github.com/daidaiJ/go-webfetch&lt;/code>，v0.2.0）发布，主仓库按版本引用。这是这个项目第二次&amp;quot;长出独立资产&amp;quot;——第一次是把 server 包做成可嵌入模块。&lt;/p>
+&lt;h2 id="server-包两种嵌入形态">server 包：两种嵌入形态
+&lt;/h2>&lt;p>&lt;code>server&lt;/code> 包把整个服务做成可复用组件：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">srv&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">server&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">New&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">srv&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Run&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">conf&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 完整托管：引擎、MCP 路由、缓存清理协程、信号处理
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">handler&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nx">srv&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Handler&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="o">*&lt;/span>&lt;span class="nx">conf&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 只要 http.Handler，嵌入已有服务的端口/TLS/中间件栈
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>配合引用计数 daemon（start/stop/kill/status，归零自动优雅退出）和 MCP hooks 的 SessionStart/SessionEnd，多会话共享实例、全关自动停。SearXNG 模式的路由也还留着——第一版没白做，它成了一个可选的引擎源。&lt;/p>
+&lt;h2 id="发布矩阵">发布矩阵
+&lt;/h2>&lt;p>分发按三个渠道拆：GitHub Release 四平台二进制（linux/windows amd64 + darwin amd64/arm64）、GHCR 镜像（linux/amd64+arm64）、MCP Registry 的 mcpb 包。tag 约定是先打 &lt;code>vX.Y.Z&lt;/code> 发 Release 推镜像，发完再单独补 &lt;code>-registry&lt;/code> 后缀 tag 发 MCP Registry（钉同一 commit）——这个顺序是发坏一次学出来的，混在一起推会在 Registry 侧拿到还没构建完的产物。&lt;/p>
+&lt;h2 id="小结">小结
+&lt;/h2>&lt;p>三个工具串起来是一条&amp;quot;搜到 → 打开 → 读进去&amp;quot;的闭环，每个环节都遵循同一套原则：降级链分层且错误透传、安全边界按&amp;quot;输入不可信&amp;quot;设计、贵的能力（OCR、LLM）永远放在按需位置。加上聚合篇的四版演进，这个项目到目前为止最有复用价值的可能不是任何一个具体引擎，而是这套&amp;quot;任何环节都会失败&amp;quot;的组织方式。&lt;/p></description></item><item><title>websearch-mcpserver 复盘：聚合为什么重做了四次</title><link>https://daidaij.github.io/p/websearch-mcpserver-evolution/</link><pubDate>Sat, 12 Sep 2026 09:19:17 +0800</pubDate><guid>https://daidaij.github.io/p/websearch-mcpserver-evolution/</guid><description>&lt;img src="https://picsum.photos/seed/e268d8e8/800/600" alt="Featured image of post websearch-mcpserver 复盘：聚合为什么重做了四次" />&lt;h1 id="websearch-mcpserver-复盘聚合为什么重做了四次">websearch-mcpserver 复盘：聚合为什么重做了四次
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>自建检索服务 2026-03-20 init，六个月 78 个 commit，Go 实现。聚合设计重做了四次，没有一次是计划好的——每次都是撞上一个靠不住的东西才动手。这篇按&amp;quot;是什么靠不住&amp;quot;组织，同时把核心模块的真实实现放进来：引擎接口、KeyPool、apipool、Wigolo 评分管线。工具链的三件套（academicsearch / cleanfetch / pdf_parser）另成一篇。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="前提三个约束">前提：三个约束
+&lt;/h2>&lt;ol>
+&lt;li>国内网络下 Tavily/Exa 这些商业 API 时通时断，Google/DDG 直连基本没戏，代理还得自动检测&lt;/li>
+&lt;li>agent 检索是高频操作，付费额度烧得飞快，手里只有各家散落的免费额度&lt;/li>
+&lt;li>搜索结果对 agent 不友好（无摘要、无元数据、条数失控）的话，一次检索吃掉半个上下文窗口&lt;/li>
+&lt;/ol>
+&lt;h2 id="第一版重做聚合器靠不住">第一版重做：聚合器靠不住
+&lt;/h2>&lt;p>第一版接 searxng，聚合、去重、排序都现成，我只写 MCP 接口的壳。但它把三样东西锁死了：多一个实例的运维、上游引擎在国内的可达性、排序黑盒没法按 agent 场景定制。&lt;/p>
+&lt;p>结论：聚合逻辑是这个项目唯一的核心竞争力，不能外包。于是有了后面所有版本的地基——&lt;/p>
+&lt;h2 id="地基一个-4-方法的引擎接口">地基：一个 4 方法的引擎接口
+&lt;/h2>&lt;p>所有引擎（百度、Bing、Google、DDG、Tavily、Exa、AnySearch、豆包、9 个学术引擎）实现同一个接口，&lt;code>pkg/search/inf.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">SearchInf&lt;/span> &lt;span class="kd">interface&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">Name&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">Search&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">query&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 聚合后的文本结果（喂模型）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">SearchRaw&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">query&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">([]&lt;/span>&lt;span class="nx">SearchResult&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1">// 结构化结果（进评分管线）
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">MergeContent&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">query&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">results&lt;/span> &lt;span class="p">[]&lt;/span>&lt;span class="nx">SearchResult&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">error&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>接口刻意做小，引擎差异靠两个机制吸收：可选能力用单独的小接口（时间范围是 &lt;code>SearchTimeRanger&lt;/code>，实现了才有；豆包的 Custom 端点实现了它）；各家 score 不可比的问题不管——结构化结果只带原始排名，可比性留给评分管线。&lt;/p>
+&lt;p>后面加一个引擎的成本是：写一个文件 + factory 一行注册。这个地基决定了后面三次重做都不用推倒接口层。&lt;/p>
+&lt;h2 id="第二版重做单家引擎靠不住">第二版重做：单家引擎靠不住
+&lt;/h2>&lt;p>直连各引擎自己聚合（&lt;code>e74e427&lt;/code>、&lt;code>f0d9a33&lt;/code>、&lt;code>5890e66&lt;/code>）。多引擎并发、单家失败不阻塞；降级链成型：每个模式主引擎失败自动回退，无 Key 自动降级免费引擎。降级链不是容错补丁，是产品形态本身。&lt;/p>
+&lt;h2 id="第三版重做免费额度靠不住--keypool--apipool">第三版重做：免费额度靠不住 —— KeyPool + apipool
+&lt;/h2>&lt;p>手里散着 anysearch、百度千帆、Tavily、Exa、豆包的 Key，每家免费额度单用不够烧。apipool 每次只调一个供应商，失败自动切换，同一供应商内先试完所有 SK 再换下一家。&lt;/p>
+&lt;p>两个实现细节值得展开。&lt;/p>
+&lt;p>&lt;strong>KeyError 精确失效&lt;/strong>。请求失败时要标记&amp;quot;刚才用的那个 Key&amp;quot;失效，但错误在多层传播后容易把 Key 带进日志。实现是一个专用的 error 包装，&lt;code>pkg/search/apipool.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// KeyError 携带请求失败时实际使用的 API Key，供 apipool 精确标记失效。
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 注意：Error() 不输出 Key 本身，避免 API Key 泄漏到日志。
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">type&lt;/span> &lt;span class="nx">KeyError&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Key&lt;/span> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Err&lt;/span> &lt;span class="kt">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">e&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="nx">KeyError&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="nf">Error&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="kt">string&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">e&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Err&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="kc">nil&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s">&amp;#34;key error&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">e&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Err&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Error&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>KeyPool 冷却自愈&lt;/strong>。Key 失效不是永久的（限流、欠费都会恢复），所以不是删掉而是打 30 分钟冷却戳，&lt;code>pkg/search/keypool.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 轮转游标原子递增，跳过冷却中的 key
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">for&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="nb">uint64&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="p">&amp;lt;&lt;/span> &lt;span class="nx">n&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">idx&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Add&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="nx">n&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">states&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">invalidUntil&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">IsZero&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">After&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">states&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">invalidUntil&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">states&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="nx">invalidUntil&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">time&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">Time&lt;/span>&lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">p&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">keys&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">idx&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 全部失效，返回最早恢复的那个（不等待）
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>轮转指针原子递增，冷却到期的 key 自动回池；全部失效时返回最早恢复的那个而不是直接报错——配合百度网页搜索兜底，池子任何情况下不空转。weighted 策略下供应商有效权重 = 配置权重 × 当前可用 SK 数，Key 冷却权重自动下降、恢复自愈。&lt;/p>
+&lt;h2 id="第四版重做混合结果靠不住--wigolo-管线">第四版重做：混合结果靠不住 —— Wigolo 管线
+&lt;/h2>&lt;p>hybrid 模式全引擎并发后，新问题是 9 个引擎的结果混在一起，转载站、镜像站、SEO 农场霸屏。这条线最终长成了完整的本地评分管线，全程纯启发式——搜索本身不能再引入一次 LLM 调用的成本和延迟。&lt;/p>
+&lt;p>编排层 &lt;code>HybridSearchImpl&lt;/code> 支持按引擎配置过滤：每个引擎可以单独设最低分、单引擎条数上限、引擎权重（影响 RRF 融合分）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">type&lt;/span> &lt;span class="nx">engineFilter&lt;/span> &lt;span class="kd">struct&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">minScore&lt;/span> &lt;span class="kt">float64&lt;/span> &lt;span class="c1">// 最低相关性分数，0 = 不过滤
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">maxSize&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="c1">// 单引擎最大结果数，0 = 使用默认值
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">weight&lt;/span> &lt;span class="kt">float64&lt;/span> &lt;span class="c1">// 引擎权重，影响 RRF 融合分，0 = 默认 1.0
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>核心是 RRF（Reciprocal Rank Fusion），&lt;code>pkg/search/enhance.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">const&lt;/span> &lt;span class="nx">rrfK&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mf">60.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">RRFScore&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ranks&lt;/span> &lt;span class="kd">map&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="kt">string&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">K&lt;/span> &lt;span class="kt">float64&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">float64&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">var&lt;/span> &lt;span class="nx">score&lt;/span> &lt;span class="kt">float64&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="nx">_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">rank&lt;/span> &lt;span class="o">:=&lt;/span> &lt;span class="k">range&lt;/span> &lt;span class="nx">ranks&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">score&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="mf">1.0&lt;/span> &lt;span class="o">/&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">K&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nb">float64&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">rank&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">score&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>只比排名不比分数——第二版做过分数归一化，但各家 score 口径永远做不齐，RRF 从根上绕开。融合之上叠四层信号：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>词汇对齐&lt;/strong>：查询词与标题/内容的词级匹配，停用词表是中英混合场景自己攒的（连 latest/current 这种检索场景特有的口水词都进去了），稀有词和连续短语加权&lt;/li>
+&lt;li>&lt;strong>域名品质惩罚&lt;/strong>：品牌/电商/词典站误匹配降权（独立成 &lt;code>enhance_domain.go&lt;/code>）&lt;/li>
+&lt;li>&lt;strong>共识/权威/时效加分&lt;/strong>：多引擎都返回的结果天然更可信，&lt;code>ConsensusBoost&lt;/code> 按引擎数加性加分&lt;/li>
+&lt;li>&lt;strong>低分阈值过滤 + MMR 贪心重排&lt;/strong>：Token Jaccard 相似度，把转载站和同源博客打散&lt;/li>
+&lt;/ol>
+&lt;p>学术侧是同一套思路的变体，放到工具链那篇细说。&lt;/p>
+&lt;h2 id="检索之上意图摘要与缓存">检索之上：意图、摘要与缓存
+&lt;/h2>&lt;p>smartsearch 的 LLM 集成是可选的，注册逻辑跟着配置走：LLM 开着就注册带 &lt;code>intent&lt;/code> 参数的版本——agent 可以声明检索目的（查资料/找代码/看新闻），后端按意图调摘要策略；没配 LLM 就注册无 intent 版本，功能不缺。&lt;/p>
+&lt;p>流式摘要的降级链：LLM 流式摘要失败 → 非流式摘要 → 原始结果直接返回。摘要永远不是必需品，是锦上添花。&lt;/p>
+&lt;p>缓存用 SQLite（modernc.org/sqlite 纯 Go 驱动，不引 CGO，单二进制能保住），WAL 模式，6 小时过期按最近命中时间算，30 分钟定时清理，学术和非学术结果按参数区分防混用。缓存查询异常就跳过缓存直接搜——缓存也是会坏的，它坏不能拖累主链路。&lt;/p>
+&lt;h2 id="一直都在的暗线网络环境靠不住">一直都在的暗线：网络环境靠不住
+&lt;/h2>&lt;p>散落在所有 commit 里的一条线。系统代理检测做了三层：Windows 注册表（ProxyEnable/ProxyServer）+ WinHTTP + 环境变量，后台 30 秒轮询，&lt;code>DynamicProxyTransport&lt;/code> 请求级动态解析——Clash/V2RayN 开关系统代理不用重启服务，下一个请求自动跟上。加上 DDG 仅在代理可用时进引擎池、Google 默认禁用、Google Scholar 403/429 指数退避加轮换 UA、CAPTCHA 识别后直接报错不浪费重试、arXiv 内置 1 req/s 限流器。&lt;/p>
+&lt;p>结论：引擎可用性不是布尔值，是&amp;quot;在哪个网络环境下&amp;quot;的函数，配置里每个开关背后都是一次实测。&lt;/p>
+&lt;h2 id="无状态开关">无状态开关
+&lt;/h2>&lt;p>2026-07-28 MCP 规范修订把无状态定为方向，8 月底的 v3.2.1（&lt;code>f46b091&lt;/code>）跟着加了 &lt;code>mcp_stateless&lt;/code> 开关：每个 POST 独立处理，免 initialize 握手与 &lt;code>Mcp-Session-Id&lt;/code>，GET SSE 长连直接 405。对这个服务改造成本为零——工具全是请求-响应式，会话本来就用不上。&lt;/p>
+&lt;h2 id="复盘小结">复盘小结
+&lt;/h2>&lt;p>四次重做不是互相推翻，是上一版把某类问题解决干净后暴露出下一类。这个项目对&amp;quot;失败&amp;quot;的处理已经形成固定套路：引擎失败有降级链、Key 失败有冷却池、供应商死光有百度兜底、摘要失败回退原始结果、缓存坏了跳过——设计里没有假设任何东西可靠。工具链的三件套（academicsearch / cleanfetch / pdf_parser）和安全设计在工具链篇。&lt;/p></description></item></channel></rss>

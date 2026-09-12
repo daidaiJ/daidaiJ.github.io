@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Token优化 on 潘达窝</title><link>https://daidaij.github.io/tags/token%E4%BC%98%E5%8C%96/</link><description>Recent content in Token优化 on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 08:52:47 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/token%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>上下文减法（二）：输出侧的四种省法</title><link>https://daidaij.github.io/p/ctx-lean-2-output/</link><pubDate>Sat, 12 Sep 2026 08:52:47 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-2-output/</guid><description>&lt;img src="https://picsum.photos/seed/48034fdc/800/600" alt="Featured image of post 上下文减法（二）：输出侧的四种省法" />&lt;h1 id="上下文减法二输出侧的四种省法">上下文减法（二）：输出侧的四种省法
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>上一篇压缩的是&amp;quot;模型读进来的&amp;quot;，这篇是反方向：模型吐出去的。输出侧手段的原理都是改模型的行为方式，不用动基础设施，装个 skill 或 output style 就生效——门槛低，最近在 trending 上扎堆（ponytail、i-have-adhd 都在周榜上）。我把手头四种按目标分开记，它们的差别比相似处重要。&lt;/p>
+&lt;/blockquote>
+&lt;p>先交代一个共同背景：这类 skill 的数字全部是项目自报，没有独立基准。它们能冲上 trending 靠的是 README 表格和社交媒体传播，传播链上没有验算环节——上一篇里 rtk 被 JetBrains 复测出反向数据的先例在这边同样适用。下文所有百分比按方向性参考理解，真基准是自己跑一天日常任务看前后账单。&lt;/p>
+&lt;h2 id="caveman语言层压缩省-75">caveman：语言层压缩，省 ~75%
+&lt;/h2>&lt;p>caveman 的规则很机械：去掉冠词、客套话、hedging（just/really/basically 全砍），允许片段句，用箭头表达因果（X -&amp;gt; Y），技术术语和代码块不动。官方口径省 ~75%，英文场景体感相仿：&lt;/p>
+&lt;blockquote>
+&lt;p>Not: &amp;ldquo;Sure! I&amp;rsquo;d be happy to help you with that. The issue you&amp;rsquo;re experiencing is likely caused by&amp;hellip;&amp;rdquo;
+Yes: &amp;ldquo;Bug in auth middleware. Token expiry check use &lt;code>&amp;lt;&lt;/code> not &lt;code>&amp;lt;=&lt;/code>. Fix:&amp;rdquo;&lt;/p>
+&lt;/blockquote>
+&lt;p>它省的是 filler 不是信息，判断标准就是去掉冠词和客套后技术内容是否原样。代码解释、错误分析这类结构化输出几乎无损；但中文场景收益打折扣——中文没有冠词，客套话占比也低。&lt;/p>
+&lt;p>另一个使用注意：它的 skill 描述里写明了触发后每轮都保持激活、不会自动漂移回正常文风，关掉要显式说 stop。这种&amp;quot;状态粘性&amp;quot;是这类 skill 的标配设计，不然省三个字漂两个填充词就白装了。&lt;/p>
+&lt;h2 id="stop-slop不省量去-ai-腔">stop-slop：不省量，去 AI 腔
+&lt;/h2>&lt;p>我固化成 skill 的 stop-slop 目标和 caveman 完全不同：不追求短，追求把可预测的 AI 写作模式清掉——填充短语、二元对比结构、被动语态、&amp;ldquo;听起来像金句就重写&amp;rdquo;。&lt;/p>
+&lt;p>这两个经常被混为一谈，实际方向相反：caveman 为了短可以牺牲节奏，stop-slop 为了自然可以多花字，同时开会打架。我的分工：写文章用 stop-slop，终端快速问答用 caveman。&lt;/p>
+&lt;h2 id="ponytail行为层省的是-diff-面积">ponytail：行为层，省的是 diff 面积
+&lt;/h2>&lt;p>trending 上的 ponytail（&amp;ldquo;the laziest senior dev&amp;rdquo;）不碰语言碰行为：让 agent 按最懒的资深工程师方式干活——最小改动、不过度工程、能不加文件就不加。&lt;/p>
+&lt;p>它省 token 的路径是间接的：diff 小了，review 的上下文小了，连带返工和讨论的轮次少了。严格说省的不是单条回复，是整个任务的上下文足迹。四手段里我最看好这类：行为约束的收益不止省钱，还直接降低 agent 把简单事做复杂的概率。&lt;/p>
+&lt;h2 id="i-have-adhdoutput-style收敛话痨">i-have-adhd：output style，收敛话痨
+&lt;/h2>&lt;p>i-have-adhd 是个 output style，解决 agent 话痨：三句能说完的事铺垫十句。和 caveman 的区别是不砍到片段化，只收敛结构——结论先行、不复述问题、不重复已说过的内容。&lt;/p>
+&lt;p>适合当日常默认档，caveman 那种激进档留给明确要省的场景。&lt;/p>
+&lt;h2 id="共同的天花板">共同的天花板
+&lt;/h2>&lt;p>输出侧所有手段共有一个局限：只影响生成，不影响阅读。省的是钱和注意力，不会让上下文窗口多装一条有用的工具输出——窗口管理还是靠上一篇的管道侧手段。两篇是互补关系：管道侧决定模型能看到什么，输出侧决定模型说多少，两头都要做，但别指望一头替代另一头。&lt;/p></description></item><item><title>上下文减法（一）：压缩工具输出的三条路线</title><link>https://daidaij.github.io/p/ctx-lean-1-pipeline/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-1-pipeline/</guid><description>&lt;img src="https://picsum.photos/seed/a1d6f19c/800/600" alt="Featured image of post 上下文减法（一）：压缩工具输出的三条路线" />&lt;h1 id="上下文减法一压缩工具输出的三条路线">上下文减法（一）：压缩工具输出的三条路线
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>agent 干活的成本大头是工具输出：一次构建日志、一份搜索结果、一次 grep，动辄几千 token 进上下文。这半年陆续用了三个从&amp;quot;输出进上下文之前&amp;quot;下手的工具：rtk（命令执行点）、headroom（API 传输层）、context-mode（工具封装层），自己也从 headroom fork 过一个压缩库（only-cc-lite）。这篇按拦截位置整理三条路线的差异，重点是各自的失效方式——压缩率是宣传数字，怎么失效才决定敢不敢用。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="路线一rtk在命令执行点包一层">路线一：rtk，在命令执行点包一层
+&lt;/h2>&lt;p>rtk 是 Rust 写的 CLI 代理，通过 hook 把 agent 的命令调用包一层，输出进上下文前先压缩，go build / go test / golangci-lint 这类高噪声输出正好是它压缩率最高的场景（60-90%）。&lt;/p>
+&lt;p>优点是最早见效：不改架构，装个 hook 全量生效。&lt;/p>
+&lt;p>但我实际用下来踩到一个比费 token 更麻烦的坑：rtk 把 &lt;code>go build&lt;/code> 改写成自己的包装调用后，输出误导性的 &amp;ldquo;Go build: Success&amp;rdquo;——而真实退出码可能仍是非零（卡巴斯基实时扫描锁 go 链接产物导致的偶发失败，就被这个 Success 盖住了）。agent 拿到 Success 就走下一步，错误被静默吞掉，只能靠&amp;quot;看产物文件在不在&amp;quot;兜底。&lt;/p>
+&lt;blockquote>
+&lt;p>这类工具的通用风险：在压缩输出的时候顺手改变了输出语义。对 agent 来说，退出码和报错文本是它判断世界的全部依据，格式压缩可以，语义说谎不行。&lt;/p>
+&lt;/blockquote>
+&lt;p>社区这边的数据更难看。JetBrains 2026 年 7 月做过一次独立基准，把 Claude Code 挂上 rtk 跑真实任务，&lt;strong>成本中位数反而增加 7.6%&lt;/strong>，和 60-90% 的宣传完全相反；Quesma 的分析同样得出基准对不上结论。HN 有个帖子标题就叫 &amp;ldquo;The Token Compression Illusion&amp;rdquo;，评论区推荐 headroom 的理由是它&amp;quot;在仓库里提供准确性基准，压缩的透明度更高&amp;quot;。有意思的是 rtk 的 README 现在自己改了口径：&lt;em>&amp;ldquo;RTK cuts up to 90% of the bash output your agent reads. That is what RTK measures, and it is not the same as cutting your bill by 90%.&amp;quot;&lt;/em>——压掉的输出 token 不等于省掉的账单，账单里还有系统提示、历史和缓存折扣。这个赛道甚至长出了反向工具：TokenTrust 是一个验证层，把 rtk/headroom 这类代理当真实进程跑，检查压缩有没有丢掉任务必需的内容、宣传的节省能否复现。一个赛道出现了专门的打假工具，本身就说明宣传数字该打折听。&lt;/p>
+&lt;h2 id="路线二headroom在-api-传输层做代理">路线二：headroom，在 API 传输层做代理
+&lt;/h2>&lt;p>headroom 把代理架在 agent 和模型 API 之间（&lt;code>ANTHROPIC_BASE_URL&lt;/code> 指过去），压缩面覆盖工具输出、日志、RAG 分块、文件内容甚至会话历史，口径 60-95%。两个不错的设计：原始内容本地保留可恢复（压缩错了有得救）；多 agent 共享同一份压缩上下文（Claude 和 Codex 并排跑时不用各压一份）。&lt;/p>
+&lt;p>社区口碑上 headroom 相对占优，理由就是上面那句&amp;quot;提供准确性基准、透明度更高&amp;rdquo;。但它的失效方式同样隐蔽：issue #746 记录 Claude Code 走这个代理后，原本的 deferred tool schemas（工具目录按需加载）行为失效，工具 schema 全量进上下文。传输层介入改了 agent 的自我优化行为，省下来的输出 token 可能被工具目录的增量吃回去。&lt;/p>
+&lt;h2 id="only-cc-litefork-只留压缩内核">only-cc-lite：fork 只留压缩内核
+&lt;/h2>&lt;p>only-cc-lite 是我从 headroom 抽出来的压缩库。动机：headroom 完整栈带着 ONNX Runtime、fastembed、HuggingFace tokenizers 这些 ML 依赖，而压缩内核本身是纯启发式的——JSON 数组 60-90%、日志按 ERROR/WARN 正则 50-80%、diff 40-60%。&lt;/p>
+&lt;p>fork 后零 ML 依赖，token 计数用字符密度估算（按模型族校准 chars/token），单函数调用就能嵌进 HTTP 代理中间层：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-rust" data-lang="rust">&lt;span class="line">&lt;span class="cl">&lt;span class="k">use&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">only_cc_lite&lt;/span>::&lt;span class="p">{&lt;/span>&lt;span class="n">compress_request&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Provider&lt;/span>&lt;span class="p">};&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kd">let&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">compressed&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">metrics&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">compress_request&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">body&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Provider&lt;/span>::&lt;span class="n">Claude&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这个 fork 给我一个判断：这类工具真正的资产是&amp;quot;哪些格式能压、怎么压&amp;quot;的规则库，不是模型。ML 依赖带来的语义能力，在这个场景的收益撑不起它的部署重量。&lt;/p>
+&lt;h2 id="路线三context-mode在工具封装层">路线三：context-mode，在工具封装层
+&lt;/h2>&lt;p>context-mode（本周 trending 上的项目）走得更激进：MCP server + hooks 拦截工具调用，输出先进沙箱，主 agent 拿到的是一份号称压缩 98% 的摘要。&lt;/p>
+&lt;p>机制上和前两条不是一个物种：工具输出先进本地 SQLite 的 FTS5 索引（分块 + BM25 排序 + Porter 词干化），主 agent 拿短摘要，要细节时自己检索存储。作者在 HN 的表述很准——它是&amp;quot;不让冗余进来，而不是进来之后再剪掉&amp;quot;，和压缩已有输出是两种哲学。98% 这个数字在社交媒体上到处在转，但注意口径：省的是&amp;quot;工具输出&amp;quot;的阅读，不是会话总账单。&lt;/p>
+&lt;p>代价有两层。信息层：主 agent 看不到索引外的细节，它甚至不知道自己漏了什么——格式压缩的错误是&amp;quot;少了几行&amp;quot;，摘要检索的错误是&amp;quot;结论就是错的&amp;quot;，后者不留痕迹。开销层：社区有用户实测发现它往每轮系统提示里注入约 15k token 的说明，轻负载下这部分能吃掉省下的量。每个走这条路线的工具都该被问一句：你的固定开销是多少？&lt;/p>
+&lt;h2 id="三条路线对比">三条路线对比
+&lt;/h2>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>路线&lt;/th>
+&lt;th>拦截位置&lt;/th>
+&lt;th>保真度&lt;/th>
+&lt;th>失效方式&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>rtk&lt;/td>
+&lt;td>命令执行点&lt;/td>
+&lt;td>格式压缩，但可能改语义&lt;/td>
+&lt;td>误导性成功&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>headroom&lt;/td>
+&lt;td>API 传输层&lt;/td>
+&lt;td>格式压缩 + 可恢复&lt;/td>
+&lt;td>干扰 agent 自身优化行为&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>context-mode&lt;/td>
+&lt;td>工具封装层&lt;/td>
+&lt;td>沙箱索引 + 按需检索&lt;/td>
+&lt;td>细节不可见且无感知，固定开销吃收益&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>我的实际组合：rtk 留给确定性的构建/测试输出（并接受要自己核对退出码），only-cc-lite 内核嵌在自己控制面的代理里，沙箱检索路线只用在搜索结果这种&amp;quot;按需取细节&amp;quot;的输出上。选择标准和压缩率无关，和&amp;quot;这段输出被压错时我能不能发现&amp;quot;有关。另外把所有宣传数字当待验证假设——JetBrains 对 rtk 的复测和 TokenTrust 这类验证层的出现说明，README 表格和真实账单之间有很宽的沟，自己跑一天真实任务比任何对比表可信。&lt;/p></description></item></channel></rss>
