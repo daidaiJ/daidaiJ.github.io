@@ -1,4 +1,136 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai on 潘达窝</title><link>https://daidaij.github.io/categories/ai/</link><description>Recent content in Ai on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:07:23 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/ai/index.xml" rel="self" type="application/rss+xml"/><item><title>mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计</title><link>https://daidaij.github.io/p/mmdx-design/</link><pubDate>Sun, 06 Sep 2026 20:07:23 +0800</pubDate><guid>https://daidaij.github.io/p/mmdx-design/</guid><description>&lt;img src="https://picsum.photos/seed/3099de4c/800/600" alt="Featured image of post mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计" />&lt;h1 id="mmdx给-ai-agent-用的-mermaid-渲染器怎么设计">mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ai on 潘达窝</title><link>https://daidaij.github.io/categories/ai/</link><description>Recent content in Ai on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 08:52:45 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/categories/ai/index.xml" rel="self" type="application/rss+xml"/><item><title>2native-ssh-mcp 复盘：一条边界和几个模块设计</title><link>https://daidaij.github.io/p/2native-ssh-mcp-evolution/</link><pubDate>Sat, 12 Sep 2026 08:52:45 +0800</pubDate><guid>https://daidaij.github.io/p/2native-ssh-mcp-evolution/</guid><description>&lt;img src="https://picsum.photos/seed/fdb7c181/800/600" alt="Featured image of post 2native-ssh-mcp 复盘：一条边界和几个模块设计" />&lt;h1 id="2native-ssh-mcp-复盘一条边界和几个模块设计">2native-ssh-mcp 复盘：一条边界和几个模块设计
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>这个 SSH MCP server 8 月底动手，09-11 发到 42 个 commit，Go 实现，单二进制。所有设计决策围绕同一个问题：模型和远端主机之间，边界画在哪。这篇一半讲边界怎么定的，一半讲三个我觉得做得比较有意思的模块——远端进程收割、后台任务协议、输出处理流水线，都带真实代码。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="边界凭据和信任材料不经过模型">边界：凭据和信任材料不经过模型
+&lt;/h2>&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[AI Agent] -- "MCP：4 个工具" --> B[本机进程]
+B -- "SSH" --> C[远端主机]
+B -.-> D[config.json / ssh-agent]
+A -.->|"拿不到"| D&lt;/pre>&lt;p>Agent 只看到 4 个工具（&lt;code>list-servers&lt;/code> / &lt;code>execute-command&lt;/code> / &lt;code>session&lt;/code> / &lt;code>file-transfer&lt;/code>），SSH 连接、密钥、密码都在本机进程里。工具面刻意收敛：后台长任务不是第五个工具，是 &lt;code>execute-command&lt;/code> 的 &lt;code>background: true&lt;/code> 模式；文件传输合成一个 &lt;code>file-transfer&lt;/code>。模型要记的 schema 越少，工具目录占的上下文越少，选错概率也越低。&lt;/p>
+&lt;h2 id="模块一远端进程收割">模块一：远端进程收割
+&lt;/h2>&lt;p>超时命令的清理是个容易被想简单的问题。杀掉 SSH channel 是没用的——channel 断了，远端命令还在跑，下次连接会看到一堆孤儿进程。而且 in-band 的 &lt;code>Signal&lt;/code> 请求 OpenSSH 经常忽略。我的做法分两步，&lt;code>internal/manager/kill.go&lt;/code>：&lt;/p>
+&lt;p>第一步，执行时给命令包一层 pidfile 写入，远端 shell 把自己的 PID 记下来，正常退出时 trap 自动清理：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// The remote shell of an exec channel is its session leader (sshd calls
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// setsid per session), so kill -PID targets the entire group including all
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// children of the command.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">func&lt;/span> &lt;span class="nf">buildPIDWrapperScript&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">command&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pidFile&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">string&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sprintf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;echo $$ &amp;gt; %s 2&amp;gt;/dev/null; trap &amp;#39;rm -f %s&amp;#39; EXIT 2&amp;gt;/dev/null; %s&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">shellQuote&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pidFile&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nf">shellQuote&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pidFile&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nx">command&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第二步，超时（或输出超限中止）时，开一条 secondary exec channel 发收割脚本——不依赖那条可能已经僵死的命令通道：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">func&lt;/span> &lt;span class="nf">remoteKillScript&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">signal&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">pidFile&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="kt">string&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">fmt&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nf">Sprintf&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;pid=$(cat %s 2&amp;gt;/dev/null); [ -n \&amp;#34;$pid\&amp;#34; ] &amp;amp;&amp;amp; { kill -%s -- -\&amp;#34;$pid\&amp;#34; 2&amp;gt;/dev/null; kill -%s \&amp;#34;$pid\&amp;#34; 2&amp;gt;/dev/null; }; exit 0&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">shellQuote&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">pidFile&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nx">signal&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">signal&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两个细节：sshd 每个会话都 setsid，所以远端 shell 就是 session leader，&lt;code>kill -- -PID&lt;/code> 连子进程整组收掉；&lt;code>kill -PID&lt;/code> 后面跟一个裸 PID kill，兜住个别不做 group leader 的 sshd 变体。SIGTERM 之后留 2 秒 grace 再升 SIGKILL，收割脚本本身有硬超时，连接快死也不能把 kill 路径卡住。&lt;/p>
+&lt;h2 id="模块二后台任务的三文件协议">模块二：后台任务的三文件协议
+&lt;/h2>&lt;p>&lt;code>background: true&lt;/code> 的任务要断连存活、可重附着。实现是一套跑在远端的文件协议，&lt;code>internal/manager/background.go&lt;/code> 生成启动脚本：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-sh" data-lang="sh">&lt;span class="line">&lt;span class="cl">setsid sh -c &lt;span class="s1">&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1"> trap &amp;#34;&amp;#34; HUP
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1"> exec &amp;lt;/dev/null
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1"> exec &amp;gt;&amp;gt;&amp;#34;$1&amp;#34; 2&amp;gt;&amp;amp;1 # LOG
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1"> eval &amp;#34;$2&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1"> echo $? &amp;gt; &amp;#34;$3&amp;#34; # EXITF
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s1">&amp;#39;&lt;/span> _ &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$LOG&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$body&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$EXITF&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="p">&amp;amp;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">echo&lt;/span> &lt;span class="nv">$!&lt;/span> &amp;gt; &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$PIDF&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="c1"># PIDF&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sleep &lt;span class="m">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">PID&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="k">$(&lt;/span>cat &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$PIDF&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> 2&amp;gt;/dev/null&lt;span class="k">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">[&lt;/span> -n &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$PID&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> &lt;span class="o">]&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">kill&lt;/span> -0 &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$PID&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span> 2&amp;gt;/dev/null &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">printf&lt;/span> &lt;span class="s1">&amp;#39;__MCP_BG_STARTED__ pid=%s\n&amp;#39;&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$PID&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>设计要点：&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>setsid&lt;/code> + &lt;code>trap &amp;quot;&amp;quot; HUP&lt;/code> + &lt;code>exec &amp;lt;/dev/null&lt;/code> 三件套，SSH 连接断开时 SIGHUP 杀不掉它，真正脱离会话&lt;/li>
+&lt;li>LOG / PIDF / EXITF 三个文件就是任务的全部状态：输出追到 LOG，PID 用于后续 stop，退出码写 EXITF。之后随时可以重附着——&lt;code>ReadSessionOutput&lt;/code> 带 offset 读 LOG 增量，退出码从 EXITF 补&lt;/li>
+&lt;li>启动握手：&lt;code>sleep 1&lt;/code> 后 &lt;code>kill -0&lt;/code> 验活，活着才回 &lt;code>__MCP_BG_STARTED__ pid=...&lt;/code>，没起来明确报 &lt;code>__MCP_BG_FAILED__&lt;/code>。agent 拿到的是确定性的启动结果，不是&amp;quot;应该启动了&amp;quot;&lt;/li>
+&lt;/ol>
+&lt;p>对比把任务状态放在服务端内存的方案，这个协议让状态天然持久（文件在远端）、天然可恢复（断线重连照读），服务端重启都不影响任务。&lt;/p>
+&lt;h2 id="模块三输出三段流水线">模块三：输出三段流水线
+&lt;/h2>&lt;p>所有命令输出在返回给模型前过三段，每段都为&amp;quot;默认开着也不心疼&amp;quot;做过性能设计：&lt;/p>
+&lt;p>第一段 ANSI 剥离。转义序列对模型是纯噪声。实现是线性扫描 + 锚点预扫，不是上来就跑全套正则——大部分输出根本没有转义序列，一次扫描就能短路。&lt;/p>
+&lt;p>第二段脱敏（&lt;code>redactSecrets&lt;/code> 开启时）。secret 正则扫描很贵（每 MiB 约 200ms），做法是用锚点类别做预门控：任何脱敏 pattern 的匹配必然包含自己类别的锚点词，输出里连锚点都没有就整类跳过；最热的 &lt;code>keyword=value&lt;/code> 类 pattern 再换成一个逐字节等价但快约 30 倍的字节扫描器：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-go" data-lang="go">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Anchor classes. Any match of a redaction pattern must contain the class
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// anchor (compared ASCII-case-insensitively — a superset of the case-sensitive
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// PEM pattern), so output that trips no anchor cannot hold a secret.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">const&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">anchorBearer&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="kc">iota&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">anchorPEM&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">anchorKV&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">anchorAny&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="nx">anchorBearer&lt;/span> &lt;span class="p">|&lt;/span> &lt;span class="nx">anchorPEM&lt;/span> &lt;span class="p">|&lt;/span> &lt;span class="nx">anchorKV&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第三段大输出落盘（&lt;code>spill.go&lt;/code>）。超过 &lt;code>outputSpillThreshold&lt;/code> 的输出写本地 &lt;code>.ssh-mcp-out/&lt;/code>（目录 0700、文件 0600），工具结果里只留路径、字节数、行数和开头预览，agent 用 Read/Grep 查全文——想看末尾 100 行不用远程重跑命令。落盘目录有 &lt;code>trimSpillDir&lt;/code> 保底只留最新 N 个文件；落盘失败（磁盘问题等）降级为压缩返回，不丢结果。&lt;/p>
+&lt;h2 id="边界上的门破坏性命令审批">边界上的门：破坏性命令审批
+&lt;/h2>&lt;p>有些命令必须穿过边界。&lt;code>approvalMode: &amp;quot;ask-destructive&amp;quot;&lt;/code> 时，命令命中分类器（内置规则 + &lt;code>approvalPatterns&lt;/code> 扩展 + 豁免名单）就通过 MCP elicitation 弹窗向人确认。两个决策：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>fail-open&lt;/strong>：客户端不支持 elicitation 就照跑，结果里附提示。能力缺口不能把用户锁在门外，锁死比放行代价大&lt;/li>
+&lt;li>&lt;strong>弹窗超时 5 分钟&lt;/strong>：声明支持但永远不回答的客户端，不能把工具调用卡死&lt;/li>
+&lt;/ol>
+&lt;p>时间点上的巧合：做完没多久，MCP 2026-07-28 修订把 elicitation 送进弃用名单（保留 12 个月），替代的 MRTR 语义是返回 &lt;code>input_required&lt;/code> 带上问题、客户端把答案放进 &lt;code>inputResponses&lt;/code> 重试原请求。对审批场景 MRTR 反而更合适：每次审批是可重放、可审计的完整请求；fail-open 的直觉在新语义下退化成&amp;quot;客户端不重试，请求就停在边界上&amp;quot;，错误进不了后端。&lt;/p>
+&lt;h2 id="状态放哪会话几乎不装东西">状态放哪：会话几乎不装东西
+&lt;/h2>&lt;p>HTTP daemon 模式（常驻 + 多客户端）的代价是并发——加固轮修的 data race、引用计数不收敛、输出预算被并发写穿全是它带来的。daemon 非 loopback 监听强制要求 token，没有直接拒绝启动。&lt;/p>
+&lt;p>但 transport 层的 session 几乎不承载状态：SSH 连接在进程内 manager 里，后台任务状态在远端三文件里，重附着靠模型把 session id 当参数传回来。MCP 2026-07-28 把会话从协议里砍掉，对这个工具迁移成本约等于零。&lt;/p>
+&lt;h2 id="两个坑">两个坑
+&lt;/h2>&lt;ol>
+&lt;li>&lt;strong>sftpChunkSize 超过 32KB 是地雷&lt;/strong>（&lt;code>6355520&lt;/code>）。SFTP 协议对包尺寸有 32KB 上限，块大小配置超过会莫名传输失败。默认值钉死，配置范围做钳制&lt;/li>
+&lt;li>&lt;strong>传输和命令执行不该共用连接&lt;/strong>。大文件传输长时间占用 SSH 通道，和命令互相干扰，后来把传输挪到独立连接（&lt;code>221cf27&lt;/code> sftpDedicatedConn）&lt;/li>
+&lt;/ol>
+&lt;h2 id="小结">小结
+&lt;/h2>&lt;p>回收成一条检验标准：新功能进这个项目前，先问这个状态或材料放边界的哪一侧——凭据放进程里（模型看不见），任务状态放远端三文件（模型按需读），大输出放本地磁盘（agent 自己 Grep），危险操作交给人（穿边界走门）。凭据隔离是安全上的边界，输出处理是 token 上的边界，两条线共用同一套思路。&lt;/p></description></item><item><title>mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计</title><link>https://daidaij.github.io/p/mmdx-design/</link><pubDate>Sun, 06 Sep 2026 20:07:23 +0800</pubDate><guid>https://daidaij.github.io/p/mmdx-design/</guid><description>&lt;img src="https://picsum.photos/seed/3099de4c/800/600" alt="Featured image of post mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计" />&lt;h1 id="mmdx给-ai-agent-用的-mermaid-渲染器怎么设计">mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>上一篇《Mermaid 主题定制暗坑大全》把 mermaid 主题系统里的坑挨个盘了一遍，这篇讲我把那些教训固化成的东西：mmdx，一个给 AI agent 用的 Mermaid → SVG/PNG 导出 CLI。重点写它的主题系统组织和全覆盖颜色检测——后者是我认为这个项目里最值钱的设计。&lt;/p>
