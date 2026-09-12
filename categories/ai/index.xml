@@ -670,7 +670,7 @@ Yes: &amp;ldquo;Bug in auth middleware. Token expiry check use &lt;code>&amp;lt;
 &lt;/h2>&lt;p>i-have-adhd 是个 output style，解决 agent 话痨：三句能说完的事铺垫十句。和 caveman 的区别是不砍到片段化，只收敛结构——结论先行、不复述问题、不重复已说过的内容。&lt;/p>
 &lt;p>适合当日常默认档，caveman 那种激进档留给明确要省的场景。&lt;/p>
 &lt;h2 id="共同的天花板">共同的天花板
-&lt;/h2>&lt;p>输出侧所有手段共有一个局限：只影响生成，不影响阅读。省的是钱和注意力，不会让上下文窗口多装一条有用的工具输出——窗口管理还是靠上一篇的管道侧手段。两篇是互补关系：管道侧决定模型能看到什么，输出侧决定模型说多少，两头都要做，但别指望一头替代另一头。&lt;/p></description></item><item><title>上下文减法（一）：压缩工具输出的三条路线</title><link>https://daidaij.github.io/p/ctx-lean-1-pipeline/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-1-pipeline/</guid><description>&lt;img src="https://picsum.photos/seed/a1d6f19c/800/600" alt="Featured image of post 上下文减法（一）：压缩工具输出的三条路线" />&lt;h1 id="上下文减法一压缩工具输出的三条路线">上下文减法（一）：压缩工具输出的三条路线
+&lt;/h2>&lt;p>输出侧所有手段共有一个局限：只影响生成，不影响阅读。省的是钱和注意力，不会让上下文窗口多装一条有用的工具输出——窗口管理还是靠上一篇的管道侧手段。两篇是互补关系：管道侧决定模型能看到什么，输出侧决定模型说多少，两头都要做，但别指望一头替代另一头。&lt;/p></description></item><item><title>上下文减法（一）：压缩工具输出的三条路线</title><link>https://daidaij.github.io/p/ctx-lean-1-pipeline/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-1-pipeline/</guid><description>&lt;img src="https://picsum.photos/seed/7b2e4f9a/800/600" alt="Featured image of post 上下文减法（一）：压缩工具输出的三条路线" />&lt;h1 id="上下文减法一压缩工具输出的三条路线">上下文减法（一）：压缩工具输出的三条路线
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>agent 干活的成本大头是工具输出：一次构建日志、一份搜索结果、一次 grep，动辄几千 token 进上下文。这半年陆续用了三个从&amp;quot;输出进上下文之前&amp;quot;下手的工具：rtk（命令执行点）、headroom（API 传输层）、context-mode（工具封装层），自己也从 headroom fork 过一个压缩库（only-cc-lite）。这篇按拦截位置整理三条路线的差异，重点是各自的失效方式——压缩率是宣传数字，怎么失效才决定敢不敢用。&lt;/p>

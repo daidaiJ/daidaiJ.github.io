@@ -756,7 +756,7 @@ Yes: &amp;ldquo;Bug in auth middleware. Token expiry check use &lt;code>&amp;lt;
 &lt;h2 id="残留">残留
 &lt;/h2>&lt;p>#1425 的 scale-in 仍会删除在途超额 pod（未 Ready 先删，而非跳过）。因有封顶 + 单轮收敛，不复发，属可控行为，另开小 issue 跟进，不重开 #1423。&lt;/p>
 &lt;h2 id="小结">小结
-&lt;/h2>&lt;p>自噬机制一句话：**不可观测的失败被计成富余，富余触发收缩，收缩回血扩容预算。**任何&amp;quot;把在途当库存&amp;quot;的池化系统都有同款风险。修法三板斧也通用：口径改成 Ready-only（假库存消失）、删除加 maxUnavailable 封顶（单轮收敛）、错误路径软 requeue（池不脱离管控）。&lt;/p></description></item><item><title>上下文减法（一）：压缩工具输出的三条路线</title><link>https://daidaij.github.io/p/ctx-lean-1-pipeline/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-1-pipeline/</guid><description>&lt;img src="https://picsum.photos/seed/a1d6f19c/800/600" alt="Featured image of post 上下文减法（一）：压缩工具输出的三条路线" />&lt;h1 id="上下文减法一压缩工具输出的三条路线">上下文减法（一）：压缩工具输出的三条路线
+&lt;/h2>&lt;p>自噬机制一句话：**不可观测的失败被计成富余，富余触发收缩，收缩回血扩容预算。**任何&amp;quot;把在途当库存&amp;quot;的池化系统都有同款风险。修法三板斧也通用：口径改成 Ready-only（假库存消失）、删除加 maxUnavailable 封顶（单轮收敛）、错误路径软 requeue（池不脱离管控）。&lt;/p></description></item><item><title>上下文减法（一）：压缩工具输出的三条路线</title><link>https://daidaij.github.io/p/ctx-lean-1-pipeline/</link><pubDate>Sat, 12 Sep 2026 08:52:46 +0800</pubDate><guid>https://daidaij.github.io/p/ctx-lean-1-pipeline/</guid><description>&lt;img src="https://picsum.photos/seed/7b2e4f9a/800/600" alt="Featured image of post 上下文减法（一）：压缩工具输出的三条路线" />&lt;h1 id="上下文减法一压缩工具输出的三条路线">上下文减法（一）：压缩工具输出的三条路线
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>agent 干活的成本大头是工具输出：一次构建日志、一份搜索结果、一次 grep，动辄几千 token 进上下文。这半年陆续用了三个从&amp;quot;输出进上下文之前&amp;quot;下手的工具：rtk（命令执行点）、headroom（API 传输层）、context-mode（工具封装层），自己也从 headroom fork 过一个压缩库（only-cc-lite）。这篇按拦截位置整理三条路线的差异，重点是各自的失效方式——压缩率是宣传数字，怎么失效才决定敢不敢用。&lt;/p>
