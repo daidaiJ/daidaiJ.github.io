@@ -1,7 +1,8 @@
-{{/* 外链封面候选：艺术主图 + CDN 备份 + 摄影兜底。返回 dict。 */}}
+{{/* 按 seed 把主源打散到 met / unsplash / picsum；同图走 wsrv 备份，跨源做故障降级。 */}}
 {{- $permalink := .permalink | default "" -}}
 {{- $seed := .seed | default "" -}}
 {{- $arts := site.Data.cover_art.paintings | default slice -}}
+{{- $unsplashPool := site.Data.cover_art.unsplash | default slice -}}
 
 {{- if not $seed -}}
     {{- $u := urls.Parse $permalink -}}
@@ -16,21 +17,38 @@
 
 {{- $digits := replaceRE "[^0-9]" "" (md5 $seed) -}}
 {{- if lt (len $digits) 1 -}}{{- $digits = "1" -}}{{- end -}}
-{{- $idx := 0 -}}
-{{- if gt (len $arts) 0 -}}
-    {{- $num := replaceRE "^0+" "" (substr (printf "%s000000" $digits) 0 6) -}}
-    {{- if eq $num "" -}}{{- $num = "0" -}}{{- end -}}
-    {{- $idx = mod (int $num) (len $arts) -}}
-{{- end -}}
+{{- $srcRaw := replaceRE "^0+" "" (substr (printf "%s1" $digits) 0 4) -}}
+{{- if eq $srcRaw "" -}}{{- $srcRaw = "1" -}}{{- end -}}
+{{- $artRaw := replaceRE "^0+" "" (substr (printf "%s9" $digits) 4 4) -}}
+{{- if eq $artRaw "" -}}{{- $artRaw = "1" -}}{{- end -}}
+{{- $srcNum := int $srcRaw -}}
+{{- $artNum := int $artRaw -}}
+
+{{- $names := slice "met" "unsplash" "picsum" -}}
+{{- $primary := index $names (mod $srcNum 3) -}}
 
 {{- $met := $permalink -}}
 {{- if gt (len $arts) 0 -}}
-    {{- $met = index $arts $idx -}}
+    {{- $met = index $arts (mod $artNum (len $arts)) -}}
 {{- end -}}
 
-{{- $origin := replace (replace $met "https://" "") "http://" "" -}}
-{{- $wsrv := printf "https://wsrv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
-{{- $weserv := printf "https://images.weserv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+{{- $unsplash := "" -}}
+{{- if gt (len $unsplashPool) 0 -}}
+    {{- $unsplash = index $unsplashPool (mod $artNum (len $unsplashPool)) -}}
+{{- end -}}
+
 {{- $picsum := printf "https://picsum.photos/seed/%s/800/600.webp" $seed -}}
 
-{{- return (dict "met" $met "wsrv" $wsrv "weserv" $weserv "picsum" $picsum "seed" $seed) -}}
+{{- $primaryUrl := $picsum -}}
+{{- if eq $primary "met" -}}
+    {{- $primaryUrl = $met -}}
+{{- else if and (eq $primary "unsplash") $unsplash -}}
+    {{- $primaryUrl = $unsplash -}}
+{{- end -}}
+
+{{- $origin := replace (replace $primaryUrl "https://" "") "http://" "" -}}
+{{- $origin = replace (replace $origin "?" "%3F") "&" "%26" -}}
+{{- $wsrv := printf "https://wsrv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+{{- $weserv := printf "https://images.weserv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+
+{{- return (dict "primary" $primary "primaryUrl" $primaryUrl "met" $met "unsplash" $unsplash "picsum" $picsum "wsrv" $wsrv "weserv" $weserv "seed" $seed) -}}

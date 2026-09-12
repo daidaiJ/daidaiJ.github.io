@@ -1,5 +1,5 @@
-# Met Open Access 绘画（CC0）。seed 哈希到下标，封面稳定且互不撞车。
-# 只用 web-large，体积接近 800px，适合做封面。
+# 封面内容池。seed 先决定用哪一家，再在该池里取稳定下标。
+# Met：Open Access 绘画（CC0），web-large ≈ 800px。
 paintings:
   - https://images.metmuseum.org/CRDImages/ep/web-large/DP-42549-001.jpg
   - https://images.metmuseum.org/CRDImages/ep/web-large/DP346474.jpg
@@ -30,3 +30,27 @@ paintings:
   - https://images.metmuseum.org/CRDImages/ep/web-large/DP-17408-001.jpg
   - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25462-001.jpg
   - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25463-001.jpg
+
+# Unsplash 绘画/抽象；imgix 直接出 800x600，无 302。
+unsplash:
+  - https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1547891654-e66ed70ebb4d?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1561214115-f2f134cc491c?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1578301978693-85ee9c4f4805?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1547826039-bfc35e0b1f82?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1482160549825-59d1b23cb208?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1579762593175-202260defb77?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1549490349-8643363923c5?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1571115764595-232c5b4baabb?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1536924940846-227afb31bf2a?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1549887534-1541e9326642?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1501472313899-0285995c0ca7?w=800&h=600&fit=crop&auto=format&q=60
+  - https://images.unsplash.com/photo-1515405295579-ba7b45403062?w=800&h=600&fit=crop&auto=format&q=60
