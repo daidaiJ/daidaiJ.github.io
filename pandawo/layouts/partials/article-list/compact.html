@@ -32,8 +32,7 @@
                         alt="{{ .Title }}"
                         loading="lazy">
                 {{ else }}
-                    {{/* 站点级覆盖：外链封面是列表页 LCP，不做 lazy；标注真实尺寸防 CLS */}}
-                    <img src="{{ $image.permalink }}" width="800" height="600" loading="eager" decoding="async" alt="Featured image of post {{ .Title }}" />
+                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" "eager") }}
                 {{ end }}
             </div>
         {{ end }}

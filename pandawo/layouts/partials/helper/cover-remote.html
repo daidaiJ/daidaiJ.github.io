@@ -1,0 +1,36 @@
+{{/* 外链封面候选：艺术主图 + CDN 备份 + 摄影兜底。返回 dict。 */}}
+{{- $permalink := .permalink | default "" -}}
+{{- $seed := .seed | default "" -}}
+{{- $arts := site.Data.cover_art.paintings | default slice -}}
+
+{{- if not $seed -}}
+    {{- $u := urls.Parse $permalink -}}
+    {{- $parts := split $u.Path "/" -}}
+    {{- if and (ge (len $parts) 3) (eq (index $parts 1) "seed") -}}
+        {{- $seed = index $parts 2 -}}
+    {{- end -}}
+{{- end -}}
+{{- if not $seed -}}
+    {{- $seed = substr (md5 $permalink) 4 8 -}}
+{{- end -}}
+
+{{- $digits := replaceRE "[^0-9]" "" (md5 $seed) -}}
+{{- if lt (len $digits) 1 -}}{{- $digits = "1" -}}{{- end -}}
+{{- $idx := 0 -}}
+{{- if gt (len $arts) 0 -}}
+    {{- $num := replaceRE "^0+" "" (substr (printf "%s000000" $digits) 0 6) -}}
+    {{- if eq $num "" -}}{{- $num = "0" -}}{{- end -}}
+    {{- $idx = mod (int $num) (len $arts) -}}
+{{- end -}}
+
+{{- $met := $permalink -}}
+{{- if gt (len $arts) 0 -}}
+    {{- $met = index $arts $idx -}}
+{{- end -}}
+
+{{- $origin := replace (replace $met "https://" "") "http://" "" -}}
+{{- $wsrv := printf "https://wsrv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+{{- $weserv := printf "https://images.weserv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+{{- $picsum := printf "https://picsum.photos/seed/%s/800/600.webp" $seed -}}
+
+{{- return (dict "met" $met "wsrv" $wsrv "weserv" $weserv "picsum" $picsum "seed" $seed) -}}

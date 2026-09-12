@@ -1,0 +1,32 @@
+# Met Open Access 绘画（CC0）。seed 哈希到下标，封面稳定且互不撞车。
+# 只用 web-large，体积接近 800px，适合做封面。
+paintings:
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-42549-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP346474.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DT1502_cropped2.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP349564.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP259921.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25466-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-14936-039.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DT840.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25445-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25461-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25460-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DT1933.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP273977.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/dp130799.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-14344-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-14347-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP356136.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DT1978.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-14201-049.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-13360-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-17680-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-21027-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP320103.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-14286-011.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-17777-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DT1882.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-17408-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25462-001.jpg
+  - https://images.metmuseum.org/CRDImages/ep/web-large/DP-25463-001.jpg

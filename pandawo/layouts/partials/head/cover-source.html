@@ -1,0 +1,108 @@
+{{/* 按访客实际网络探测封面图源，失败自动降级。探测结果缓存 24h。 */}}
+<script>
+(function () {
+    var KEY = 'pw-cover-v1';
+    var TTL = 86400000;
+    var DEFAULT = ['met', 'wsrv', 'weserv', 'picsum'];
+    var PROBES = {
+        met: 'https://images.metmuseum.org/CRDImages/ep/web-large/DT1502_cropped2.jpg',
+        wsrv: 'https://wsrv.nl/?url=wsrv.nl/lichtenstein.jpg&w=32&h=32',
+        weserv: 'https://images.weserv.nl/?url=wsrv.nl/lichtenstein.jpg&w=32&h=32',
+        picsum: 'https://picsum.photos/id/237/32/32.webp'
+    };
+
+    function read() {
+        try {
+            var o = JSON.parse(localStorage.getItem(KEY) || '');
+            if (o && o.order && o.order.length && (Date.now() - o.ts) < TTL) return o.order;
+        } catch (e) {}
+        return null;
+    }
+
+    function write(order) {
+        try { localStorage.setItem(KEY, JSON.stringify({ order: order, ts: Date.now() })); } catch (e) {}
+    }
+
+    var order = read() || DEFAULT;
+
+    function urlsOf(el) {
+        var out = [];
+        for (var i = 0; i < order.length; i++) {
+            var u = el.getAttribute('data-' + order[i]);
+            if (u) out.push(u);
+        }
+        return out;
+    }
+
+    function bind(el) {
+        if (el.getAttribute('data-pw-bound')) return;
+        el.setAttribute('data-pw-bound', '1');
+        var urls = urlsOf(el);
+        if (!urls.length) return;
+        var i = urls.indexOf(el.getAttribute('src') || '');
+        if (i < 0) {
+            i = 0;
+            el.src = urls[0];
+        }
+        el.addEventListener('error', function () {
+            i += 1;
+            if (i < urls.length) el.src = urls[i];
+        });
+    }
+
+    function scan(node) {
+        if (!node || node.nodeType !== 1) return;
+        if (node.matches && node.matches('img[data-cover-fallback]')) bind(node);
+        if (node.querySelectorAll) {
+            var list = node.querySelectorAll('img[data-cover-fallback]');
+            for (var i = 0; i < list.length; i++) bind(list[i]);
+        }
+    }
+
+    var obs = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+            var nodes = muts[i].addedNodes;
+            for (var j = 0; j < nodes.length; j++) scan(nodes[j]);
+        }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+
+    function probe(url) {
+        return new Promise(function (resolve, reject) {
+            var img = new Image();
+            var t0 = performance.now();
+            var to = setTimeout(function () { img.src = ''; reject(new Error('timeout')); }, 2500);
+            img.onload = function () { clearTimeout(to); resolve(performance.now() - t0); };
+            img.onerror = function () { clearTimeout(to); reject(new Error('error')); };
+            img.src = url;
+        });
+    }
+
+    function race() {
+        if (read()) return;
+        Promise.all(DEFAULT.map(function (k) {
+            return probe(PROBES[k]).then(function (ms) {
+                return { k: k, ms: ms };
+            }).catch(function () {
+                return { k: k, ms: 1e9 };
+            });
+        })).then(function (rows) {
+            rows.sort(function (a, b) { return a.ms - b.ms; });
+            var next = [];
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].ms < 1e9) next.push(rows[i].k);
+            }
+            if (!next.length) next = DEFAULT.slice();
+            write(next);
+            order = next;
+        });
+    }
+
+    var start = function () {
+        if (window.requestIdleCallback) requestIdleCallback(race, { timeout: 4000 });
+        else setTimeout(race, 2000);
+    };
+    if (document.readyState === 'complete') start();
+    else window.addEventListener('load', start);
+})();
+</script>

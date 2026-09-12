@@ -1,0 +1,17 @@
+{{- $permalink := .permalink -}}
+{{- $alt := .alt -}}
+{{- $loading := .loading | default "eager" -}}
+{{- $priority := .priority | default "" -}}
+{{- $c := partial "helper/cover-remote" (dict "permalink" $permalink "seed" .seed) -}}
+<img src="{{ $c.met }}"
+    width="800"
+    height="600"
+    loading="{{ $loading }}"
+    decoding="async"
+    {{- if $priority }} fetchpriority="{{ $priority }}"{{ end }}
+    alt="{{ $alt }}"
+    data-cover-fallback
+    data-met="{{ $c.met }}"
+    data-wsrv="{{ $c.wsrv }}"
+    data-weserv="{{ $c.weserv }}"
+    data-picsum="{{ $c.picsum }}" />

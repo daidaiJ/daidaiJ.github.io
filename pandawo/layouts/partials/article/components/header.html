@@ -28,8 +28,8 @@
                         decoding="async"
                         alt="Featured image of post {{ .Title }}" />
                 {{ else }}
-                    {{/* 外链封面：eager + 高优先级 + 真实尺寸（800x600）防 CLS */}}
-                    <img src="{{ $image.permalink }}" width="800" height="600" loading="eager" fetchpriority="high" decoding="async" alt="Featured image of post {{ .Title }}" />
+                    {{/* 外链封面：艺术主源 + 运行时按网络选最快，失败自动降级 */}}
+                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" "eager" "priority" "high") }}
                 {{ end }}
             </a>
         </div>

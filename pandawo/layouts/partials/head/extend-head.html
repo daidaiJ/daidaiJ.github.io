@@ -1,10 +1,15 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-{{/* 封面图源：picsum 会 302 到 fastly CDN，两个域都预热连接 */}}
+{{/* 封面多源：Met 直连（艺术风）+ wsrv Cloudflare 备份 + picsum 兜底 */}}
+<link rel="preconnect" href="https://images.metmuseum.org" crossorigin>
+<link rel="dns-prefetch" href="https://images.metmuseum.org">
+<link rel="preconnect" href="https://wsrv.nl" crossorigin>
+<link rel="dns-prefetch" href="https://wsrv.nl">
 <link rel="preconnect" href="https://picsum.photos">
 <link rel="dns-prefetch" href="https://picsum.photos">
 <link rel="preconnect" href="https://fastly.picsum.photos" crossorigin>
 <link rel="dns-prefetch" href="https://fastly.picsum.photos">
+{{- partial "head/cover-source.html" . -}}
 {{/* 字体 CSS 异步加载：不阻塞渲染（font-display:swap 先用回退字体再换装） */}}
 <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css" media="print" onload="this.media='all'">
