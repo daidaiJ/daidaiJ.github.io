@@ -1,6 +1,8 @@
 {{/* 按 seed 把主源打散到 met / unsplash / picsum；同图走 wsrv 备份，跨源做故障降级。 */}}
 {{- $permalink := .permalink | default "" -}}
 {{- $seed := .seed | default "" -}}
+{{- $w := .w | default 800 -}}
+{{- $h := .h | default 600 -}}
 {{- $arts := site.Data.cover_art.paintings | default slice -}}
 {{- $unsplashPool := site.Data.cover_art.unsplash | default slice -}}
 
@@ -34,10 +36,12 @@
 
 {{- $unsplash := "" -}}
 {{- if gt (len $unsplashPool) 0 -}}
-    {{- $unsplash = index $unsplashPool (mod $artNum (len $unsplashPool)) -}}
+    {{- /* unsplash 池 URL 带 imgix 参数，列表场景按展示尺寸重写（met 源是固定文件无法缩放） */ -}}
+    {{- $u := index $unsplashPool (mod $artNum (len $unsplashPool)) -}}
+    {{- $unsplash = replaceRE "w=800&" (printf "w=%v&" $w) (replaceRE "h=600&" (printf "h=%v&" $h) $u) -}}
 {{- end -}}
 
-{{- $picsum := printf "https://picsum.photos/seed/%s/800/600.webp" $seed -}}
+{{- $picsum := printf "https://picsum.photos/seed/%s/%v/%v.webp" $seed $w $h -}}
 
 {{- $primaryUrl := $picsum -}}
 {{- if eq $primary "met" -}}
@@ -48,7 +52,7 @@
 
 {{- $origin := replace (replace $primaryUrl "https://" "") "http://" "" -}}
 {{- $origin = replace (replace $origin "?" "%3F") "&" "%26" -}}
-{{- $wsrv := printf "https://wsrv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
-{{- $weserv := printf "https://images.weserv.nl/?url=%s&w=800&h=600&fit=cover&output=webp" $origin -}}
+{{- $wsrv := printf "https://wsrv.nl/?url=%s&w=%v&h=%v&fit=cover&output=webp" $origin $w $h -}}
+{{- $weserv := printf "https://images.weserv.nl/?url=%s&w=%v&h=%v&fit=cover&output=webp" $origin $w $h -}}
 
 {{- return (dict "primary" $primary "primaryUrl" $primaryUrl "met" $met "unsplash" $unsplash "picsum" $picsum "wsrv" $wsrv "weserv" $weserv "seed" $seed) -}}

@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox 源码走读（一）：CRD Controller 与 Reconcile 循环"
 slug: opensandbox-1-reconcile
-description: ""
+description: "OpenSandbox 源码走读（一）：三个 CRD 与对应 Reconciler 的职责划分，从 reconcile 循环看沙箱是如何被调谐出来的。"
 date: 2026-09-06T20:10:26+08:00
 lastmod: 2026-09-06T20:10:26+08:00
 draft: false

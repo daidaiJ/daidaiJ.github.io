@@ -1,7 +1,7 @@
 ---
 title: "Gpu test python script  "
 slug: ""
-description: ""
+description: "记录一个 GPU 压测用的 Python 脚本：argparse 参数化、耗时统计与结果输出的写法。"
 date: 2025-12-15T18:30:17+08:00
 lastmod: 2025-12-15T18:30:17+08:00
 draft: false

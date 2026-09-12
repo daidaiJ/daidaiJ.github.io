@@ -1,7 +1,7 @@
 ---
 title: "Kafka_go"
 slug: "kafka_go"
-description: ""
+description: "Kafka 的 docker-compose 部署笔记：数据目录权限、broker 配置与 Go 客户端连调要点。"
 date: 2024-12-27T11:43:59+08:00
 lastmod: 2024-12-27T11:43:59+08:00
 draft: false

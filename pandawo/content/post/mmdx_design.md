@@ -1,7 +1,7 @@
 ---
 title: "mmdx：给 AI agent 用的 Mermaid 渲染器怎么设计"
 slug: mmdx-design
-description: ""
+description: "给 AI agent 设计的 Mermaid 渲染器 mmdx：如何在“LLM 写得出语法”和“交得出图”之间补上校验、渲染与降级链路。"
 date: 2026-09-06T20:07:23+08:00
 lastmod: 2026-09-06T20:07:23+08:00
 draft: false

@@ -1,7 +1,7 @@
 ---
 title: "给 MCP 服务器做减法（一）：实测判负的工具与裁剪依据"
 slug: cbm-toolset-pruning
-description: ""
+description: "给 MCP 服务器做减法（一）：以客户端身份实测 cbm 全部工具的真实载荷，列出实测判负的五个工具与裁剪依据。"
 date: 2026-09-06T20:04:24+08:00
 lastmod: 2026-09-06T20:04:24+08:00
 draft: false

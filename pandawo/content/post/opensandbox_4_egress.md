@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox 源码走读（四）：出口网络——NetworkPolicy、Egress Sidecar 与池化出口"
 slug: opensandbox-4-egress
-description: ""
+description: "OpenSandbox 源码走读（四）：出口网络怎么用 NetworkPolicy 与 egress sidecar 实现，以及池化出口的复用逻辑。"
 date: 2026-09-06T20:10:55+08:00
 lastmod: 2026-09-06T20:10:55+08:00
 draft: false

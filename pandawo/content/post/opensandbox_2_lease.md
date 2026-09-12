@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox 源码走读（二）：Sandbox Lease 与生命周期管理"
 slug: opensandbox-2-lease
-description: ""
+description: "OpenSandbox 源码走读（二）：用 Sandbox Lease 解决“创建者崩溃后沙箱没人删”的生命周期难题。"
 date: 2026-09-06T20:10:30+08:00
 lastmod: 2026-09-06T20:10:30+08:00
 draft: false

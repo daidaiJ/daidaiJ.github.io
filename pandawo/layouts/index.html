@@ -1,0 +1,32 @@
+{{ define "main" }}
+    {{ $pages := where .Site.RegularPages "Type" "in" .Site.Params.mainSections }}
+    {{ $notHidden := where .Site.RegularPages "Params.hidden" "!=" true }}
+    {{ $filtered := ($pages | intersect $notHidden) }}
+    {{ $pag := .Paginate ($filtered) }}
+
+    <section class="article-list">
+        {{ range $index, $element := $pag.Pages }}
+            {{/* 首页列表：仅第一页首张封面保持 eager+high（LCP），其余 lazy 并按展示尺寸拉图；渲染后清理，避免污染单页渲染 */}}
+            {{ $element.Store.Set "coverLoading" "lazy" }}
+            {{ $element.Store.Set "coverPriority" "none" }}
+            {{ $element.Store.Set "coverW" 480 }}
+            {{ $element.Store.Set "coverH" 360 }}
+            {{ if and (eq $pag.PageNumber 1) (eq $index 0) }}
+                {{ $element.Store.Set "coverLoading" "eager" }}
+                {{ $element.Store.Set "coverPriority" "high" }}
+            {{ end }}
+            {{ partial "article-list/default" . }}
+            {{ $element.Store.Delete "coverLoading" }}
+            {{ $element.Store.Delete "coverPriority" }}
+            {{ $element.Store.Delete "coverW" }}
+            {{ $element.Store.Delete "coverH" }}
+        {{ end }}
+    </section>
+
+    {{- partial "pagination.html" . -}}
+    {{- partial "footer/footer" . -}}
+{{ end }}
+
+{{ define "right-sidebar" }}
+    {{ partial "sidebar/right.html" (dict "Context" . "Scope" "homepage") }}
+{{ end }}

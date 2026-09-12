@@ -1,7 +1,7 @@
 ---
 title: "wiki CLI 工具设计"
 slug: wiki-cli-design
-description: ""
+description: "wiki CLI 的设计思路：正文进知识库、项目侧只留窗口链接，收工 hook 自动反转笔记，跨项目检索且不污染项目仓库。"
 date: 2026-08-23T14:47:30+08:00
 lastmod: 2026-09-06T00:00:00+08:00
 draft: false

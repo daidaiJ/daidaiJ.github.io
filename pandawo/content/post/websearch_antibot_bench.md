@@ -1,7 +1,7 @@
 ---
 title: "过机器人检测对照实测：脚本与测试方案"
 slug: websearch-antibot-bench
-description: ""
+description: "对 nodriver、patchright 等方案过机器人检测的对照实测：固定出口与判定标准后，给出可信的通过率排名和各自的失效场景。"
 date: 2026-09-12T11:02:00+08:00
 lastmod: 2026-09-12T11:02:00+08:00
 draft: false

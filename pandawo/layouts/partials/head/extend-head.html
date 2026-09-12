@@ -12,12 +12,16 @@
 <link rel="preconnect" href="https://fastly.picsum.photos" crossorigin>
 <link rel="dns-prefetch" href="https://fastly.picsum.photos">
 {{- partial "head/cover-source.html" . -}}
-{{/* 字体 CSS 异步加载：不阻塞渲染（font-display:swap 先用回退字体再换装） */}}
-<link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css" />
+{{/* 字体 CSS 异步加载：不 preload 整套字族（首屏关键路径留给封面），失败时回退系统字体栈 */}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css"></noscript>
 
 {{/* 结构化数据：文章页 BlogPosting，主页 WebSite；jsonify+safeJS 保证 JSON 合法 */}}
+{{- $coverImage := "" -}}
+{{- if and .IsPage .Params.image -}}
+    {{- $c := partial "helper/cover-remote" (dict "permalink" (.Params.image | absURL)) -}}
+    {{- $coverImage = $c.primaryUrl -}}
+{{- end -}}
 {{- if .IsPage -}}
 {{- $json := dict
     "@context" "https://schema.org"
@@ -30,7 +34,7 @@
     "publisher" (dict "@type" "Organization" "name" .Site.Title "logo" (dict "@type" "ImageObject" "url" ("favicon.ico" | absURL)))
     "mainEntityOfPage" (dict "@type" "WebPage" "@id" .Permalink)
     "keywords" (delimit (.Params.tags | default slice) ", ")
-    "image" (cond (.Params.image) (.Params.image | absURL) "")
+    "image" $coverImage
     "inLanguage" "zh-CN"
 -}}
 <script type="application/ld+json">{{ $json | jsonify | safeJS }}</script>

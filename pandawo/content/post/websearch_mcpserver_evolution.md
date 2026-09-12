@@ -1,7 +1,7 @@
 ---
 title: "websearch-mcpserver 复盘：聚合为什么重做了四次"
 slug: websearch-mcpserver-evolution
-description: ""
+description: "复盘 websearch-mcpserver 的聚合逻辑为什么重做了四次：聚合是检索工具真正的核心竞争力，不能外包给上游搜索 API。"
 date: 2026-09-12T09:19:17+08:00
 lastmod: 2026-09-12T09:19:17+08:00
 draft: false

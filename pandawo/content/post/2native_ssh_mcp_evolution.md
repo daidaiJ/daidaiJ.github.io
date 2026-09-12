@@ -1,7 +1,7 @@
 ---
 title: "2native-ssh-mcp 复盘：一条边界和几个模块设计"
 slug: 2native-ssh-mcp-evolution
-description: ""
+description: "2native-ssh-mcp 的模块设计复盘：一条“agent 拿不到凭据”的安全边界，加上会话管理、命令安全与输出限制几个模块的取舍。"
 date: 2026-09-12T08:52:45+08:00
 lastmod: 2026-09-12T08:52:45+08:00
 draft: false

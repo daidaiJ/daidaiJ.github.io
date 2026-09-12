@@ -2,10 +2,10 @@
 {{- $alt := .alt -}}
 {{- $loading := .loading | default "eager" -}}
 {{- $priority := .priority | default "" -}}
-{{- $c := partial "helper/cover-remote" (dict "permalink" $permalink "seed" .seed) -}}
+{{- $c := partial "helper/cover-remote" (dict "permalink" $permalink "seed" .seed "w" (.w | default 800) "h" (.h | default 600)) -}}
 <img src="{{ $c.primaryUrl }}"
-    width="800"
-    height="600"
+    width="{{ .w | default 800 }}"
+    height="{{ .h | default 600 }}"
     loading="{{ $loading }}"
     decoding="async"
     {{- if $priority }} fetchpriority="{{ $priority }}"{{ end }}

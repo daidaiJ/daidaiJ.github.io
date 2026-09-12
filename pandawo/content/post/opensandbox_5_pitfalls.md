@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox 源码走读（五·收官）：踩坑合集——3s 轮询、execd 限制与风险清单"
 slug: opensandbox-5-pitfalls
-description: ""
+description: "OpenSandbox 源码走读收官篇：3s 轮询、execd 限制等踩坑点的源码定位，以及一份使用风险清单。"
 date: 2026-09-06T20:11:17+08:00
 lastmod: 2026-09-06T20:11:17+08:00
 draft: false

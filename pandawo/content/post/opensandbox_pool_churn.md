@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox Pool 压测自噬复盘：销毁 293，运行 193"
 slug: opensandbox-pool-churn
-description: ""
+description: "复盘 OpenSandbox Pool 压测中的“自噬”现象：销毁量畸高、供给与回收并存、池冻结的定位过程和最终结论。"
 date: 2026-09-12T08:52:46+08:00
 lastmod: 2026-09-12T08:52:46+08:00
 draft: false

@@ -1,13 +1,10 @@
 ---
-title: "Search"
+title: "搜索"
 slug: "search"
 layout: "search"
 outputs:
     - html
     - json
-build:
-    list: never
-    render: always
 menu:
     main:
         weight: -60

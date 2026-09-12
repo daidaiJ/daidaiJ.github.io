@@ -1,7 +1,7 @@
 ---
 title: "websearch-mcpserver 工具链：检索之外的三件套"
 slug: websearch-mcpserver-toolchain
-description: ""
+description: "websearch-mcpserver 的三个辅助工具（smartsearch、cleanfetch、pdf_parser）如何按配置动态注册与生成工具描述，让 agent 只看到它该用的能力。"
 date: 2026-09-12T09:19:18+08:00
 lastmod: 2026-09-12T09:19:18+08:00
 draft: false

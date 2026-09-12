@@ -32,7 +32,7 @@
                         alt="{{ .Title }}"
                         loading="lazy">
                 {{ else }}
-                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" "eager") }}
+                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" "lazy" "w" 240 "h" 180) }}
                 {{ end }}
             </div>
         {{ end }}

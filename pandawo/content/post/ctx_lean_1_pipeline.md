@@ -1,7 +1,7 @@
 ---
 title: "上下文减法（一）：压缩工具输出的三条路线"
 slug: ctx-lean-1-pipeline
-description: ""
+description: "上下文减法第一篇：按拦截位置把压缩工具输出的方案分成三条路线（命令执行点、API 传输层、工具封装层），重点比较各自的失效方式。"
 date: 2026-09-12T08:52:46+08:00
 lastmod: 2026-09-12T08:52:46+08:00
 draft: false
@@ -17,7 +17,7 @@ tags:
     - mcp
     - agent
     - token优化
-image: https://picsum.photos/seed/a1d6f19c/800/600
+image: https://picsum.photos/seed/7b2e4f9a/800/600
 ---
 # 上下文减法（一）：压缩工具输出的三条路线
 ------

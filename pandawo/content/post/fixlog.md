@@ -1,7 +1,7 @@
 ---
 title: "lumberjack 日志库组件权限陷阱"
 slug: "lumberjack"
-description: ""
+description: "排查 lumberjack 滚动日志文件权限变成 0600 的坑：默认收紧权限是为了审计要求，想自定义只能先按目标权限把文件建出来让它复制。"
 date: 2025-07-20T15:09:23+08:00
 lastmod: 2025-07-20T15:09:23+08:00
 draft: false

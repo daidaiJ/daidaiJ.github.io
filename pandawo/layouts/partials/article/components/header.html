@@ -1,3 +1,10 @@
+{{/* 站点级覆盖：封面即文章页 LCP，默认 eager + 高优先级；
+     列表场景由调用方（layouts/index.html）通过 Store 覆盖为 lazy + 小尺寸 */}}
+{{- $coverW := .Store.Get "coverW" | default 800 -}}
+{{- $coverH := .Store.Get "coverH" | default 600 -}}
+{{- $loading := .Store.Get "coverLoading" | default "eager" -}}
+{{- $priority := .Store.Get "coverPriority" | default "high" -}}
+{{- if eq $priority "none" -}}{{- $priority = "" -}}{{- end -}}
 <header class="article-header">
     {{- $image := partialCached "helper/image" (dict "Context" . "Type" "article") .RelPermalink "article" -}}
     {{ if $image.exists }}
@@ -10,26 +17,25 @@
                     {{- $Srcset := "" -}}
 
                     {{- if (default true .Page.Site.Params.imageProcessing.cover.enabled) -}}
-                        {{- $thumbnail := $image.resource.Resize "800x" -}}
-                        {{- $thumbnailRetina := $image.resource.Resize "1600x" -}}
-                        {{- $Srcset = printf "%s 800w, %s 1600w" $thumbnail.RelPermalink $thumbnailRetina.RelPermalink -}}
+                        {{- $thumbnail := $image.resource.Resize (printf "%dx" $coverW) -}}
+                        {{- $thumbnailRetina := $image.resource.Resize (printf "%dx" (mul $coverW 2)) -}}
+                        {{- $Srcset = printf "%s %dw, %s %dw" $thumbnail.RelPermalink $coverW $thumbnailRetina.RelPermalink (mul $coverW 2) -}}
                         {{- $Permalink = $thumbnail.RelPermalink -}}
                         {{- $Width = $thumbnail.Width -}}
                         {{- $Height = $thumbnail.Height -}}
                     {{- end -}}
 
-                    {{/* 站点级覆盖：封面即文章页 LCP，eager + 高优先级 */}}
                     <img src="{{ $Permalink }}"
                         {{ with $Srcset }}srcset="{{ . }}"{{ end }}
                         width="{{ $Width }}"
                         height="{{ $Height }}"
-                        loading="eager"
-                        fetchpriority="high"
+                        loading="{{ $loading }}"
+                        {{ with $priority }}fetchpriority="{{ . }}"{{ end }}
                         decoding="async"
                         alt="Featured image of post {{ .Title }}" />
                 {{ else }}
                     {{/* 外链封面：艺术主源 + 运行时按网络选最快，失败自动降级 */}}
-                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" "eager" "priority" "high") }}
+                    {{ partial "article/components/cover-img" (dict "permalink" $image.permalink "alt" (printf "Featured image of post %s" .Title) "loading" $loading "priority" $priority "w" $coverW "h" $coverH) }}
                 {{ end }}
             </a>
         </div>

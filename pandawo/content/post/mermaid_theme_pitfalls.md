@@ -1,7 +1,7 @@
 ---
 title: "Mermaid 主题定制暗坑大全"
 slug: mermaid-theme-pitfalls
-description: ""
+description: "Mermaid 主题定制的暗坑合集：Theme.calculate 的覆盖顺序、颜色散落的位置，以及用 getComputedStyle 验证 CSS 生效链的方法。"
 date: 2026-09-06T20:06:28+08:00
 lastmod: 2026-09-06T20:06:28+08:00
 draft: false

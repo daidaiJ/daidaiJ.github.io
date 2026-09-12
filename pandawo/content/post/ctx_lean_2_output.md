@@ -1,7 +1,7 @@
 ---
 title: "上下文减法（二）：输出侧的四种省法"
 slug: ctx-lean-2-output
-description: ""
+description: "上下文减法第二篇：盘点四类从输出侧省 token 的 skill 方案，并提醒它们的数字全部是项目自报，只能按方向性参考。"
 date: 2026-09-12T08:52:47+08:00
 lastmod: 2026-09-12T08:52:47+08:00
 draft: false

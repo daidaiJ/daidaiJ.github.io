@@ -1,7 +1,7 @@
 ---
 title: "Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策"
 slug: higress-endpoint-breaker-all-black
-description: ""
+description: "Higress 端点级断路器（二）：为什么“所有端点都被拉黑时选择放行”比返回 503 更合理——把时间轴多推一步的推演过程。"
 date: 2026-09-06T20:03:25+08:00
 lastmod: 2026-09-06T20:03:25+08:00
 draft: false

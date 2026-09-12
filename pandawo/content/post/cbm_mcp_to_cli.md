@@ -1,7 +1,7 @@
 ---
 title: "给 MCP 服务器做减法（二）：从 MCP 退到 CLI 的 fail-loud 改造"
 slug: cbm-mcp-to-cli
-description: ""
+description: "给 MCP 服务器做减法（二）：把 cbm 从 stdio MCP 退回 CLI 的 fail-loud 改造，daemon 架构下如何消灭静默失败。"
 date: 2026-09-06T20:05:43+08:00
 lastmod: 2026-09-06T20:05:43+08:00
 draft: false

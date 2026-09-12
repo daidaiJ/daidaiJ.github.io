@@ -1,7 +1,7 @@
 ---
 title: "Google ax + substrate：智能体运行时调度架构分析"
 slug: google-ax-agent-runtime
-description: ""
+description: "Google ax + substrate 智能体运行时的架构分析：编排层的调谐循环与事件溯源，和基础设施层之间的职责边界。"
 date: 2026-06-07T09:53:32+08:00
 lastmod: 2026-06-07T09:53:32+08:00
 draft: false

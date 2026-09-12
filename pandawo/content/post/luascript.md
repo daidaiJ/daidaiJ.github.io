@@ -1,7 +1,7 @@
 ---
 title: "Luascript"
 slug: ""
-description: ""
+description: "一段 Redis Lua 原子计数脚本的笔记：键不存在时初始化、存在时自增，避免并发读改写竞态。"
 date: 2024-12-05T14:42:14+08:00
 lastmod: 2024-12-05T14:42:14+08:00
 draft: false

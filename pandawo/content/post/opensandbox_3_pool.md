@@ -1,7 +1,7 @@
 ---
 title: "OpenSandbox 源码走读（三）：池化设计——Template 更新、分配注入与 S3 会话同步"
 slug: opensandbox-3-pool
-description: ""
+description: "OpenSandbox 源码走读（三）：池化设计如何把秒级起步的建箱压到毫秒级——Template 更新、分配注入与 S3 会话同步。"
 date: 2026-09-06T20:10:52+08:00
 lastmod: 2026-09-06T20:10:52+08:00
 draft: false

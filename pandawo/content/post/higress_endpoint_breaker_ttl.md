@@ -1,7 +1,7 @@
 ---
 title: "Higress 端点级断路器（一）：本地 Provider 的端点屏蔽与 TTL 控制"
 slug: higress-endpoint-breaker-ttl
-description: ""
+description: "Higress 端点级断路器（一）：面向“慢故障”的端点屏蔽设计——去重间隔、慢阈值确认拉黑与 TTL 惰性恢复。"
 date: 2026-09-06T19:59:22+08:00
 lastmod: 2026-09-06T19:59:22+08:00
 draft: false

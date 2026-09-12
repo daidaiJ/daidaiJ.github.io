@@ -38,19 +38,8 @@ jobs:
         working-directory: ./pandawo
         run: hugo --baseURL https://daidaij.github.io/ --minify --gc
 
-      # 图片优化
-      - name: Optimize Images
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y optipng jpegoptim
-          find ./pandawo/public -name "*.png" -exec optipng -o5 -quiet {} \; 2>/dev/null || true
-          find ./pandawo/public -name "*.jpg" -exec jpegoptim --max=85 --quiet {} \; 2>/dev/null || true
-
-      # 生成预压缩文件
-      - name: Pre-compress files
-        run: |
-          find ./pandawo/public -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" -o -name "*.json" -o -name "*.svg" \) ! -name "*.gz" ! -name "*.br" -exec gzip -k -9 {} \;
-          find ./pandawo/public -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" -o -name "*.json" -o -name "*.svg" \) ! -name "*.gz" ! -name "*.br" -exec brotli -k -9 {} \;
+      # 预压缩已移除：封面全是远程图，public 里几乎没有可压位图；
+      # GitHub Pages 的 Fastly 会现场压缩，仓库里的 .gz/.br 不会带 Content-Encoding。
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
