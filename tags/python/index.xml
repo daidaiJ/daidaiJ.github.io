@@ -1,4 +1,367 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Python on 潘达窝</title><link>https://daidaij.github.io/tags/python/</link><description>Recent content in Python on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Wed, 15 Apr 2026 15:33:03 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/python/index.xml" rel="self" type="application/rss+xml"/><item><title>统计大模型流式响应的token usage</title><link>https://daidaij.github.io/p/sse-usage/</link><pubDate>Wed, 15 Apr 2026 15:33:03 +0800</pubDate><guid>https://daidaij.github.io/p/sse-usage/</guid><description>&lt;img src="https://picsum.photos/seed/fd9c5bb3/800/600" alt="Featured image of post 统计大模型流式响应的token usage" />&lt;h1 id="llm-流式响应的-usage-怎么统计">LLM 流式响应的 usage 怎么统计？
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Python on 潘达窝</title><link>https://daidaij.github.io/tags/python/</link><description>Recent content in Python on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 11:02:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/python/index.xml" rel="self" type="application/rss+xml"/><item><title>过机器人检测对照实测：脚本与测试方案</title><link>https://daidaij.github.io/p/websearch-antibot-bench/</link><pubDate>Sat, 12 Sep 2026 11:02:00 +0800</pubDate><guid>https://daidaij.github.io/p/websearch-antibot-bench/</guid><description>&lt;img src="https://picsum.photos/seed/e92866f1/800/600" alt="Featured image of post 过机器人检测对照实测：脚本与测试方案" />&lt;h1 id="过机器人检测对照实测脚本与测试方案">过机器人检测对照实测：脚本与测试方案
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>agent 的搜索和抓取路径迟早撞盾：Cloudflare、雷池、DataDome、百度 wappass。网上一搜全是&amp;quot;某隐身浏览器无敌&amp;quot;的传说，但没人给得出可复现的对照数据。这篇记录我在 websearch-mcpserver 里搭的一套实测：脚本怎么组织、判定怎么下、哪些坑会让你得出错误结论。实测日期 2026-09-12，结论绑定当天的出口（家宽直连 + HK 代理），挑战站策略会变，方法比数字保值。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="要回答的问题">要回答的问题
+&lt;/h2>&lt;hr>
+&lt;p>核心问题只有一个：&lt;strong>在搜索热路径和抓取路径上，隐身浏览器方案到底比 TLS 指纹伪装多过多少东西？值不值得上？&lt;/strong>&lt;/p>
+&lt;p>网上答案两极：要么&amp;quot;过不了 Cloudflare，别想了&amp;quot;，要么&amp;quot;nodriver 完爆一切&amp;quot;。都不带出口环境、不带判定标准。要自己测，先固定变量：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>出口&lt;/strong>：家宽直连 vs HK 代理（&lt;code>127.0.0.1:7897&lt;/code>），分开记录。后面会看到出口 IP 信誉比任何指纹都重要&lt;/li>
+&lt;li>&lt;strong>IP 状态&lt;/strong>：冷启动 vs 打热。同一 IP 连打十几分钟后，裸 HTTP 的基线表现都会变&lt;/li>
+&lt;li>&lt;strong>后端矩阵&lt;/strong>：裸 HTTP、curl_cffi（&lt;code>impersonate=chrome&lt;/code>）、Playwright/Patchright + 系统 Edge、nodriver/zendriver + 系统 Edge headed、Camoufox（魔改 Firefox）、CloakBrowser（魔改 Chromium）、SeleniumBase UC&lt;/li>
+&lt;li>&lt;strong>目标&lt;/strong>：搜索站（思否/百度/Google）+ 挑战页矩阵（九种盾各选一个代表）&lt;/li>
+&lt;/ul>
+&lt;p>整个研究放在 &lt;code>tmp/antibot-research/&lt;/code>（gitignore，不进发行物），四个脚本分工：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">run_bench.py # 搜索站对照：统一框架 + 9 个浏览器后端
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">run_challenges.py # 挑战页矩阵：复用 bench 框架，换目标换判定
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">probe_baidu_binsearch.py # 百度限流探测：恢复窗口二分搜索
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">baseline/ # Go 侧 go-webfetch 的对照基线
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">artifacts/ # 每次响应的 HTML 全量落盘
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="统一框架一个-result-走天下">统一框架：一个 Result 走天下
+&lt;/h2>&lt;hr>
+&lt;p>&lt;code>run_bench.py&lt;/code> 的骨架很朴素：一个 dataclass 记录所有证据，一个注册表挂后端，一个判定函数下结论。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="nd">@dataclass&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">Result&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">backend&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">target&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">url&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">proxy&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">status&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">int&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">final_url&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span> &lt;span class="c1"># 重定向后的最终 URL，wappass/sorry 全靠它&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nb">bytes&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">int&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">elapsed_ms&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">int&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">verdict&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;ERROR&amp;#34;&lt;/span> &lt;span class="c1"># OK / BLOCKED / GATED&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">reason&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span> &lt;span class="c1"># 机器可读的原因签名&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">error&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">snippet&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">artifact&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span> &lt;span class="c1"># HTML 落盘路径&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">title&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">evidence&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span> &lt;span class="c1"># 抽出来的有机结果标题&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>设计上三个决定后来证明都很关键：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>&lt;code>final_url&lt;/code> 单独记&lt;/strong>。百度验证码是 200 + 重定向到 &lt;code>wappass.baidu.com&lt;/code>，Google 是 200 + &lt;code>/sorry/&lt;/code>。只看 status code 会把 BLOCKED 判成 OK&lt;/li>
+&lt;li>&lt;strong>&lt;code>evidence&lt;/code> 记有机结果标题&lt;/strong>。判定&amp;quot;拿到了真实 SERP&amp;quot;的证据不是&amp;quot;页面很大&amp;quot;，而是抽得出真实的 &lt;code>&amp;lt;h3&amp;gt;&lt;/code> 标题链&lt;/li>
+&lt;li>&lt;strong>每次响应全量落盘 &lt;code>artifacts/&lt;/code>&lt;/strong>。事后发现判定可疑时可以人工复判，不用重跑（重跑会污染 IP 状态）&lt;/li>
+&lt;/ol>
+&lt;p>后端全部挂进一张注册表，跑哪个选哪个：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">BACKENDS&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">dict&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">Callable&lt;/span>&lt;span class="p">[[&lt;/span>&lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">],&lt;/span> &lt;span class="n">Result&lt;/span>&lt;span class="p">]]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;curl_cffi&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_curl_cffi&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;playwright&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_playwright&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">False&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;patchright&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_patchright&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;nodriver&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_nodriver&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;zendriver&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_zendriver&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;camoufox&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_camoufox&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">False&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;cloakbrowser&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_cloakbrowser&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;seleniumbase&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="k">lambda&lt;/span> &lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">run_seleniumbase&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">u&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">p&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">headed&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="kc">True&lt;/span>&lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>主循环里有个细节：一个后端在某出口下失败后，自动换备用出口再试一次（Google 除外——直连必然超时，没必要试）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="n">args&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">no_fallback_proxy&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">target&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="s2">&amp;#34;google&amp;#34;&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">r&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">verdict&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;ERROR&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;GATED&amp;#34;&lt;/span>&lt;span class="p">}:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">alt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">fallback_proxy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">target&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">alt&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">proxy&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">time&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mf">1.2&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">r2&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">safe_run&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">fn&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">target&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">url&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">alt&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">backend&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># 换出口重打一次&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这样每行结果自带出口标签（&lt;code>proxy&lt;/code> / &lt;code>direct&lt;/code>），对照矩阵一张表读完。&lt;code>safe_run&lt;/code> 把异常也变成一条 ERROR 记录而不是炸掉整个跑批——九个后端有一个装不上环境太正常了。&lt;/p>
+&lt;h2 id="判定器看内容不看状态码">判定器：看内容，不看状态码
+&lt;/h2>&lt;hr>
+&lt;p>这是整个测试方案最容易做错的地方。三态判定：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>OK&lt;/strong>：拿到了目标内容本体（有机结果 / 题干正文）&lt;/li>
+&lt;li>&lt;strong>BLOCKED&lt;/strong>：命中验证码 / JS 挑战 / 盾页签名&lt;/li>
+&lt;li>&lt;strong>GATED&lt;/strong>：HTTP 200 但拿到的不是目标内容（站点壳、登录墙、空壳 JS）&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>GATED 这个中间态是被迫发明的。思否问答页在 nodriver 下返回 200 + 8KB 的站点壳——有站点导航没有题干。按&amp;quot;HTTP 200 即成功&amp;quot;的朴素标准这就是过了，实际 agent 拿到的是废物。200 和&amp;quot;拿到内容&amp;quot;之间隔着一整个 JS 渲染的世界。&lt;/p>
+&lt;/blockquote>
+&lt;p>BLOCKED 靠签名库，全是实测中收集的真实特征：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="s2">&amp;#34;wappass.baidu.com&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">final_low&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="n">title&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s2">&amp;#34;百度安全验证&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;baidu_wappass_captcha&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="s2">&amp;#34;/sorry&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">final_low&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="s2">&amp;#34;unusual traffic&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;google_sorry_captcha&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">title&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">strip&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;just a moment...&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;just a moment&amp;#34;&lt;/span>&lt;span class="p">}&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="s2">&amp;#34;cf-browser-verification&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;cloudflare_js_challenge&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="s2">&amp;#34;captcha-delivery.com&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;datadome_captcha&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="n">status&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">429&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;kpsdk&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="s2">&amp;#34;unwanted automated&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;kasada_429&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">if&lt;/span> &lt;span class="s2">&amp;#34;zse-ck&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">low&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">status&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="mi">400&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;BLOCKED&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;zhihu_zse_ck&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>顺序有讲究：&lt;code>challenge-platform&lt;/code> 这类词会出现在正常文章正文里（比如一篇讲 Cloudflare 的技术文章），所以签名判定必须放前面、且带范围条件。思否的目标 originally 标错成 Cloudflare，实测发现是 Tengine + Next.js SSR——这就是为什么判定不能只靠关键词猜。&lt;/p>
+&lt;/blockquote>
+&lt;p>OK 的判定最严，必须看到&lt;strong>目标内容本身&lt;/strong>。百度 SERP 的标准：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">baidu_organic_ok&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">body&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="nb">tuple&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nb">bool&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nb">str&lt;/span>&lt;span class="p">]:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">n_op&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">body&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lower&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;result-op&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># 有机结果容器计数&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">titles&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">h3_texts&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">body&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">8&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="c1"># 抽出 h3 标题&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">blob&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34; &amp;#34;&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">titles&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lower&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">has_query&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;golang&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">body&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lower&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="s2">&amp;#34;go 语言&amp;#34;&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">body&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">has_real&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">any&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">k&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">blob&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="n">k&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">body&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">lower&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="n">k&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;github&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;baike&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;programming language&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">...&lt;/span>&lt;span class="p">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="n">n_op&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="mi">3&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">has_query&lt;/span> &lt;span class="ow">and&lt;/span> &lt;span class="n">has_real&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">True&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;serp_results=&lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">n_op&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">; &amp;#34;&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="s2">&amp;#34; | &amp;#34;&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">titles&lt;/span>&lt;span class="p">[:&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">])&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">False&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="sa">f&lt;/span>&lt;span class="s2">&amp;#34;thin_or_warning op=&lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">n_op&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2"> titles=&lt;/span>&lt;span class="si">{&lt;/span>&lt;span class="n">titles&lt;/span>&lt;span class="p">[:&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="s2">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>三个条件缺一不可：只有 &lt;code>result-op&lt;/code> 计数会被假结果页骗到；只有查询词会出现&amp;quot;正文里提到 golang&amp;quot;的假阳性；只有标题匹配会撞到推荐位。三个同时成立才敢判 OK，且把抽到的标题写进 &lt;code>evidence&lt;/code> 字段——每条 OK 结论都带人眼可查的证据。&lt;/p>
+&lt;h2 id="换目标不换框架">换目标不换框架
+&lt;/h2>&lt;hr>
+&lt;p>挑战页矩阵（&lt;code>run_challenges.py&lt;/code>）要打九个不同的盾，但没有另起炉灶——直接 monkey-patch 掉 bench 框架的判定和目标：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">import&lt;/span> &lt;span class="nn">run_bench&lt;/span> &lt;span class="k">as&lt;/span> &lt;span class="nn">rb&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">def&lt;/span> &lt;span class="nf">judge_challenge&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">target&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">status&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">final&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">body&lt;/span>&lt;span class="p">):&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span> &lt;span class="c1"># 每种盾自己的签名&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rb&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">judge&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">judge_challenge&lt;/span> &lt;span class="c1"># 替换判定&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rb&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">preferred_proxy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">preferred_proxy&lt;/span> &lt;span class="c1"># 海外目标走 HK 代理&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">rb&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">TARGETS&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="n">k&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="n">CHALLENGES&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">k&lt;/span>&lt;span class="p">][&lt;/span>&lt;span class="s2">&amp;#34;url&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">k&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">CHALLENGES&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>每个挑战站声明四件事：URL、走不走代理、盾类型、过盾判据（needle 词）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">CHALLENGES&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;leboncoin_dd&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;url&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;https://www.leboncoin.fr/&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;proxy&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">True&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;kind&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;datadome&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;ok&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;leboncoin&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;annonces&amp;#34;&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;sf_safeline&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;url&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;https://segmentfault.com/q/1010000048290204&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;proxy&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">False&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;kind&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;safeline&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;ok&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;问答&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;回答&amp;#34;&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;sannysoft_fp&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="s2">&amp;#34;url&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;https://bot.sannysoft.com/&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;proxy&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">True&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;kind&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;fingerprint&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;ok&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;antibot&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;sannysoft&amp;#34;&lt;/span>&lt;span class="p">)},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>九个挑战覆盖九种防线：Cloudflare JS 挑战（GitLab 登录、nowsecure）、DataDome 验证码（G2）和内容页（leboncoin）、Kasada（Hyatt）、知乎 zse-ck、雷池（思否问答）、指纹表（sannysoft）、Turnstile。kind 字段驱动判定分支——指纹表和 Turnstile 没有&amp;quot;过&amp;quot;可言，永远只给 GATED（&lt;code>fingerprint_fails≈28&lt;/code> / &lt;code>turnstile_widget_unsolved&lt;/code>），只是拿数据对比各后端的指纹质量。&lt;/p>
+&lt;p>实测矩阵（2026-09-12，HK 代理）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>挑战&lt;/th>
+&lt;th>curl_cffi&lt;/th>
+&lt;th>nodriver/zendriver headed&lt;/th>
+&lt;th>Camoufox&lt;/th>
+&lt;th>CloakBrowser&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>leboncoin（DataDome 内容页）&lt;/td>
+&lt;td>403&lt;/td>
+&lt;td>&lt;strong>OK ~477KB&lt;/strong>&lt;/td>
+&lt;td>OK&lt;/td>
+&lt;td>OK&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Hyatt（Kasada）&lt;/td>
+&lt;td>429&lt;/td>
+&lt;td>200 空壳 ~0.8KB&lt;/td>
+&lt;td>429&lt;/td>
+&lt;td>429&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>知乎专栏（zse-ck）&lt;/td>
+&lt;td>403&lt;/td>
+&lt;td>200，但是 404「荒原」&lt;/td>
+&lt;td>403&lt;/td>
+&lt;td>403&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>思否问答（雷池）&lt;/td>
+&lt;td>468&lt;/td>
+&lt;td>468 壳&lt;/td>
+&lt;td>468&lt;/td>
+&lt;td>468&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>nowsecure（Cloudflare）&lt;/td>
+&lt;td>页脚挂 challenge-platform&lt;/td>
+&lt;td>同左&lt;/td>
+&lt;td>同左&lt;/td>
+&lt;td>同左&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Turnstile&lt;/td>
+&lt;td>未解&lt;/td>
+&lt;td>未解&lt;/td>
+&lt;td>未解&lt;/td>
+&lt;td>未解&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>这张表是整套测试最有价值的产出：浏览器方案的真实增量只有&amp;quot;部分 DataDome 内容页&amp;quot;。Cloudflare managed、Kasada 有效内容、雷池、Turnstile 一个都没过。而像&amp;quot;知乎从 403 变成 200&amp;quot;这种看起来像进步的结果，判定器一查正文是 404 荒原页——GATED，不是 OK。没有判定器，这张表会乐观得多。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="百度探测二分爬速与观察者效应">百度探测：二分爬速与观察者效应
+&lt;/h2>&lt;hr>
+&lt;p>前两个脚本回答&amp;quot;能不能过&amp;quot;，&lt;code>probe_baidu_binsearch.py&lt;/code> 回答另一个问题：&lt;strong>家宽 IP 被打热进 wappass 后，多久能恢复？恢复后能容忍多快的请求速率？&lt;/strong>&lt;/p>
+&lt;p>思路是把限流阈值当成未知量做二分搜索：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;span class="lnt">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">COOLDOWN_S&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">6&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="mi">60&lt;/span> &lt;span class="c1"># 每个新阈值前等 6 分钟&amp;#34;恢复&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">START_INTERVAL_S&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">60&lt;/span> &lt;span class="c1"># 从保守的 1 req/min 起步&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">LADDER_S&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">60&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">30&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">20&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">15&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">10&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">8&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">5&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="c1"># 逐级爬快&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">STOP_GAP_S&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="c1"># fail-ok 间隔 ≤2s 就停&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 1. 恢复：每 6 分钟一个请求，直到出现真实 SERP&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 2. 爬速：从 60s 间隔逐级加速&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 3. 触发 wappass：在 last-good 和 last-fail 之间二分&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 4. 状态持久化到 JSON，可断点续跑&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>每个请求随机换查询词（十个编程语言话题轮着来），避免同一查询词本身触发风控。状态写 &lt;code>baidu-binsearch-state.json&lt;/code>，中断了接着跑——毕竟每个观察点要等 6 分钟。&lt;/p>
+&lt;p>结果是否定的，而且否定的方式很有意思：&lt;strong>探测本身消灭了被探测的现象&lt;/strong>。6 分钟间隔回探 6 次（约 36 分钟）全部 wappass——每一次回探都在向百度确认&amp;quot;这个 IP 还在自动化访问&amp;quot;，把 IP 继续钉在验证码里。找不到可运营的恢复窗口，实验就此停手，脚本头部留了句话：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">Do not loosen production clamps from a single lucky window.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>这是整套实测里最反直觉的一课：对风控系统做测量，测量行为本身就是被测变量的一部分。物理实验里有观察者效应，反爬风控这里更直接——你的探针就是风控的输入。想清楚这一点，就不难理解为什么仓库里百度网页引擎的限流钳制（1/s · 6/min + 2s 最小间隔）是硬编码钳制、不提供放宽配置：宽松值钳到上限，更严的配置才生效。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="方法论教训">方法论教训
+&lt;/h2>&lt;hr>
+&lt;p>最后把方案层面踩过的坑归拢一下，再测这类东西直接对照：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>判定看有机结果，不看体积和状态码&lt;/strong>。nowsecure 返回过 200 + 大体积页面，页脚仍挂着 &lt;code>challenge-platform&lt;/code>；思否文章正文里全是 &amp;ldquo;checking your browser&amp;rdquo; 字样——体积、状态码、关键词三者都会骗人，OK 判定必须锚定目标内容本身的结构特征&lt;/li>
+&lt;li>&lt;strong>冷启动和热 IP 必须分开记录&lt;/strong>。家宽冷启动裸 HTTP 就能拿百度 SERP，连打十余次后连直连都进 wappass。同一位后端在两种状态下的&amp;quot;成绩&amp;quot;可以完全不同，混在一起测等于没测&lt;/li>
+&lt;li>&lt;strong>出口比指纹重要&lt;/strong>。走脏代理（HK 机房 IP）时，裸 HTTP 和隐身浏览器的表现差距远小于预期——百度、Google、Cloudflare、DataDome 的 captcha 都强绑出口 IP 信誉，TLS 指纹和浏览器伪装补不了这个&lt;/li>
+&lt;li>&lt;strong>每轮之间要 sleep，且把间隔写进脚本&lt;/strong>。1.0~1.2s 的请求间隔不是礼貌，是防止实验自己把 IP 打热、污染后面所有轮次&lt;/li>
+&lt;li>&lt;strong>全量落盘 + 证据字段&lt;/strong>。所有 OK/BLOCKED 结论都能从 &lt;code>artifacts/&lt;/code> 里的原始 HTML 和 &lt;code>evidence&lt;/code> 字段人工复核。反爬站点的判定太容易自欺，可复判是底线&lt;/li>
+&lt;li>&lt;strong>结果绑定日期和出口&lt;/strong>。挑战站策略按周变，这篇的数字只在 2026-09-12 的家宽 + HK 代理出口下成立。脚本能重跑，结论不能抄&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>一句话版本：这套脚本真正测出来的不是&amp;quot;哪个隐身浏览器最强&amp;quot;，而是&lt;strong>在真实出口环境下，浏览器方案对搜索热路径的增量接近于零&lt;/strong>。至于哪一层手段过哪类盾的完整边界，那是另一个话题了。&lt;/p>
+&lt;/blockquote></description></item><item><title>统计大模型流式响应的token usage</title><link>https://daidaij.github.io/p/sse-usage/</link><pubDate>Wed, 15 Apr 2026 15:33:03 +0800</pubDate><guid>https://daidaij.github.io/p/sse-usage/</guid><description>&lt;img src="https://picsum.photos/seed/fd9c5bb3/800/600" alt="Featured image of post 统计大模型流式响应的token usage" />&lt;h1 id="llm-流式响应的-usage-怎么统计">LLM 流式响应的 usage 怎么统计？
 &lt;/h1>&lt;blockquote>
 &lt;p>以Openai api 为例&lt;/p>
 &lt;/blockquote>
