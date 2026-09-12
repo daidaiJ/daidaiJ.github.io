@@ -2,8 +2,8 @@
 title: "过机器人检测对照实测：脚本与测试方案"
 slug: websearch-antibot-bench
 description: ""
-date: 2026-09-12T15:40:00+08:00
-lastmod: 2026-09-12T15:40:00+08:00
+date: 2026-09-12T11:02:00+08:00
+lastmod: 2026-09-12T11:02:00+08:00
 draft: false
 toc: true
 hidden: false
