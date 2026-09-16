@@ -1,4 +1,267 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 12 Sep 2026 11:02:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>过机器人检测对照实测：脚本与测试方案</title><link>https://daidaij.github.io/p/websearch-antibot-bench/</link><pubDate>Sat, 12 Sep 2026 11:02:00 +0800</pubDate><guid>https://daidaij.github.io/p/websearch-antibot-bench/</guid><description>&lt;img src="https://picsum.photos/seed/e92866f1/800/600" alt="Featured image of post 过机器人检测对照实测：脚本与测试方案" />&lt;h1 id="过机器人检测对照实测脚本与测试方案">过机器人检测对照实测：脚本与测试方案
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Recent content in Posts on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Wed, 16 Sep 2026 22:53:36 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>记一次 Rust CI 缓存排查</title><link>https://daidaij.github.io/p/rust-ci-cache/</link><pubDate>Wed, 16 Sep 2026 22:53:36 +0800</pubDate><guid>https://daidaij.github.io/p/rust-ci-cache/</guid><description>&lt;img src="https://picsum.photos/seed/79c63ec4/800/600" alt="Featured image of post 记一次 Rust CI 缓存排查" />&lt;h1 id="记一次-rust-ci-缓存排查">记一次 Rust CI 缓存排查
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>fork 的 grok-build-proxy 打 v1.0.27 tag，Windows release 跑了 57 分钟，Linux 同一次只要 9 分钟。日志里 rust-cache 显示命中，中途换上的 sccache 也&amp;quot;正常工作&amp;quot;，最后扫出来 5229 条缓存碎片把 10 GB 配额挤爆了。这篇把整条排查链路记下来：两次误判、实测数字、最后的方案。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="背景">背景
+&lt;/h2>&lt;hr>
+&lt;p>上游 grok-build 的 CI 跑在内部 runner 上，带 DotSlash 工具链和内部 secrets，fork 用不了，所以自己加了两份工作流：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>build.yml&lt;/code>：push main / PR 触发。Linux 跑 fork 动过的 crate 的测试，Windows 只 check + 可移植测试&lt;/li>
+&lt;li>&lt;code>release.yml&lt;/code>：推 &lt;code>v*&lt;/code> tag 触发。构建 grok CLI 二进制，出 linux-amd64 / windows-amd64 两个包，附 sha256&lt;/li>
+&lt;/ul>
+&lt;p>工作区大约 100 个 crate，Windows 冷编 release 依赖树实测约 50 分钟，Linux 同一次 9 分钟。瓶颈一直在 Windows。另外 &lt;code>bin/protoc&lt;/code> 是 DotSlash 占位脚本，CI 上得自己装 protoc 31.1——Chocolatey 源给过一次 504 却退出码 0，后面才报 &lt;code>protoc not found&lt;/code>，于是改成 GitHub release 直下。&lt;/p>
+&lt;h2 id="时间线">时间线
+&lt;/h2>&lt;hr>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>提交&lt;/th>
+&lt;th>做了什么&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>f5ad7a5&lt;/code>&lt;/td>
+&lt;td>搭 build / release。两边 job 都叫 &lt;code>linux&lt;/code> / &lt;code>windows&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>7a6d298&lt;/code>&lt;/td>
+&lt;td>发现 release 命中了 build 的 debug &lt;code>target/&lt;/code>，改接 sccache + GHA 后端&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>fd81836&lt;/code>&lt;/td>
+&lt;td>踩坑：cargo 的 profile 环境变量只认 &lt;code>&amp;quot;true&amp;quot;&lt;/code>/&lt;code>&amp;quot;false&amp;quot;&lt;/code>，写 &lt;code>0&lt;/code>/&lt;code>1&lt;/code> 不生效&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>7988433&lt;/code>&lt;/td>
+&lt;td>把 sccache 服务端错误打到日志&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>bc2c8ea&lt;/code>&lt;/td>
+&lt;td>Windows protoc 从 choco 换成 pinned zip&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>abc2766&lt;/code>&lt;/td>
+&lt;td>关 Defender、最终链接换 &lt;code>rust-lld&lt;/code>、钉死 1.94.0、加 sccache 命中率断言&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>8c99e92&lt;/code>&lt;/td>
+&lt;td>tag 构建注入 &lt;code>GROK_VERSION&lt;/code>，否则二进制版本号回落到过期的 Cargo.toml&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>db865e4&lt;/code>&lt;/td>
+&lt;td>拆掉 sccache GHA 后端，rust-cache 用 &lt;code>shared-key&lt;/code> 隔开 build / release&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>abc2766&lt;/code> 里的 Defender / rust-lld / 1.94.0 / &lt;code>GROK_VERSION&lt;/code> 都留着，最后只是把 sccache 那一层拿掉。&lt;/p>
+&lt;h2 id="第一次误判job-名撞车">第一次误判：job 名撞车
+&lt;/h2>&lt;hr>
+&lt;p>&lt;a class="link" href="https://github.com/Swatinem/rust-cache/blob/master/README.md" target="_blank" rel="noopener"
+>Swatinem/rust-cache&lt;/a> 的 key 默认拼上 job 名（实现在 &lt;a class="link" href="https://github.com/Swatinem/rust-cache/blob/master/src/config.ts" target="_blank" rel="noopener"
+>src/config.ts&lt;/a>：没有 &lt;code>shared-key&lt;/code> 时取 &lt;code>GITHUB_JOB&lt;/code>，再加 &lt;code>os.type()&lt;/code> / &lt;code>os.arch()&lt;/code>）。我两个工作流的 job 都叫 &lt;code>linux&lt;/code> 和 &lt;code>windows&lt;/code>，lockfile 和 toolchain 又一样，于是 release 把 build 刚存的 debug &lt;code>target/&lt;/code> 整包还原了回来。&lt;/p>
+&lt;p>cargo 看 fingerprint，debug 产物对 &lt;code>--release&lt;/code> 一点忙帮不上。Windows 每次打 tag 都把依赖树重编一遍，日志上 rust-cache 显示 hit，实际零收益。&lt;/p>
+&lt;p>当时的对策写在 &lt;code>7a6d298&lt;/code>：sccache 按编译单元内容寻址，debug/release 不该互相污染；rust-cache 只留 &lt;code>~/.cargo&lt;/code> 注册表（&lt;code>cache-targets: false&lt;/code>），省点配额；再加 &lt;code>workflow_dispatch&lt;/code> 在打 tag 前预热。&lt;/p>
+&lt;p>这个诊断（job 名撞车）是对的，选的药不对。&lt;/p>
+&lt;h2 id="第二次误判sccache-的-gha-后端">第二次误判：sccache 的 GHA 后端
+&lt;/h2>&lt;hr>
+&lt;p>mozilla/sccache 接 GitHub Actions cache 时，&lt;strong>每个编译单元单独写一条 cache&lt;/strong>，不是 &lt;code>@actions/cache&lt;/code> 那种一个 key 一个 tar。原文在 &lt;a class="link" href="https://github.com/mozilla/sccache/pull/1528" target="_blank" rel="noopener"
+>PR #1528&lt;/a> 写进过文档：&lt;/p>
+&lt;blockquote>
+&lt;p>In contrast to the &lt;code>@actions/cache&lt;/code> action, which saves a single large archive per cache key, &lt;code>sccache&lt;/code> with GHA cache storage saves each cache entry separately.&lt;/p>
+&lt;/blockquote>
+&lt;p>维护者后来把这段从 &lt;code>GHA.md&lt;/code> 里挪走了，行为没变：&lt;a class="link" href="https://github.com/mozilla/sccache/issues/1762" target="_blank" rel="noopener"
+>issue #1762&lt;/a>（2023 年开到现在）写的就是这事。2026-09-16 中午我在本仓库扫了一下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">gh api --paginate /repos/daidaiJ/grok-build-proxy/actions/caches
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>条数&lt;/th>
+&lt;th>体积&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>sccache/&amp;lt;hash&amp;gt;&lt;/code> 碎片&lt;/td>
+&lt;td>5229&lt;/td>
+&lt;td>6090.6 MiB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>rust-cache（linux/windows 混着 debug 残留）&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>约 4.5 GiB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>合计&lt;/td>
+&lt;td>5234&lt;/td>
+&lt;td>10.6 GiB&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;a class="link" href="https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#usage-limits-and-eviction-policy" target="_blank" rel="noopener"
+>GitHub 文档&lt;/a>说每个仓库缓存默认 10 GB，7 天未访问删除；超限后新条目照存，按&lt;strong>上次访问时间从旧到新&lt;/strong>逐出。debug 构建天天跑、碎片天天写，release 那批对象访问得少，最先被挤掉。这就成了个死循环：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[debug build 天天跑] --> B[每天写几千条 sccache 碎片]
+B --> C[10 GB 配额打满]
+C --> D[release 的缓存被逐出]
+D --> E[release 冷编 57 分钟]
+E -- 往满缓存里继续写 --> B&lt;/pre>&lt;p>再补一刀：sccache 的 Rust hash 吃 rustc 可执行文件路径、host triple、sysroot、&lt;strong>解析后的 rustc 参数&lt;/strong>（见 &lt;a class="link" href="https://github.com/mozilla/sccache/blob/main/docs/Caching.md" target="_blank" rel="noopener"
+>docs/Caching.md&lt;/a>）。&lt;code>--release&lt;/code> 和 dev 的 opt-level、codegen-units、debuginfo 全不同，debug 跑出来的缓存对 release 命中率就是 0。两个工作流在抢同一份 10 GB，彼此帮不上。&lt;/p>
+&lt;p>顺带一个 cargo 的坑（&lt;code>fd81836&lt;/code>）：&lt;code>CARGO_PROFILE_&amp;lt;name&amp;gt;_INCREMENTAL&lt;/code> 这类 profile 环境变量是 boolean，只认 &lt;code>&amp;quot;true&amp;quot;&lt;/code>/&lt;code>&amp;quot;false&amp;quot;&lt;/code>，写成 &lt;code>0&lt;/code>/&lt;code>1&lt;/code> 静默不生效。&lt;/p>
+&lt;h2 id="实测数字">实测数字
+&lt;/h2>&lt;hr>
+&lt;p>&lt;strong>release &lt;code>35078943587&lt;/code>（tag v1.0.27）&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Linux：约 9 分钟&lt;/li>
+&lt;li>Windows：约 57 分钟&lt;/li>
+&lt;li>Windows sccache：1264 次请求，executed 1079，&lt;strong>hits 0，misses 1074，命中率 0.00%&lt;/strong>，平均 cache write 0.437 s&lt;/li>
+&lt;/ul>
+&lt;p>0.437 s × 1074 ≈ 8 分钟，纯浪费在往已经满了的 GHA 缓存里写碎片。&lt;/p>
+&lt;p>&lt;strong>build &lt;code>35076697980&lt;/code>（main，同一天早些）&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Linux：约 14 分钟，sccache 399 hit / 4 miss，&lt;strong>99.01%&lt;/strong>&lt;/li>
+&lt;li>Windows：约 6 分钟（只 check + 三个可移植 crate 的 test）&lt;/li>
+&lt;/ul>
+&lt;p>Linux debug 的 99% 是真的：同一 profile、频繁跑、碎片还在。但正是这个 99% 掩盖了 release 完全 miss 这件事。&lt;/p>
+&lt;p>更早一次 Windows tag 构建更离谱：cargo 编了 991 个 crate，sccache 服务端只看到 4 次请求，内存里的 stats 还报 &amp;ldquo;100% - 3 hits&amp;rdquo;——服务在构建中途重置过。所以 &lt;code>abc2766&lt;/code> 加了个断言：sccache 请求数低于 cargo &lt;code>Compiling&lt;/code> 行数的 90% 就 fail。这是在 sccache 已经不可信之后打的补丁，治标。&lt;/p>
+&lt;h2 id="大项目都怎么做">大项目都怎么做
+&lt;/h2>&lt;hr>
+&lt;p>查了一圈活跃 Rust 项目的 CI（2026-09-16）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>项目&lt;/th>
+&lt;th>做法&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/helix-editor/helix/blob/master/.github/actions/rust-setup/action.yml" target="_blank" rel="noopener"
+>Helix&lt;/a>&lt;/td>
+&lt;td>复合 action：rust-toolchain + rust-cache，&lt;code>shared-key&lt;/code> 隔离；release dist job 不缓存 &lt;code>target/&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/clap-rs/clap/blob/master/.github/workflows/ci.yml" target="_blank" rel="noopener"
+>clap&lt;/a>&lt;/td>
+&lt;td>rust-cache + &lt;code>CARGO_INCREMENTAL=0&lt;/code>，无 sccache&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/starship/starship/blob/master/.github/workflows/workflow.yml" target="_blank" rel="noopener"
+>starship&lt;/a>&lt;/td>
+&lt;td>rust-cache + &lt;code>CARGO_INCREMENTAL=0&lt;/code>、&lt;code>CARGO_NET_RETRY=10&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/tauri-apps/tauri/blob/dev/.github/workflows/lint-rust.yml" target="_blank" rel="noopener"
+>Tauri&lt;/a>&lt;/td>
+&lt;td>rust-cache，key 带 target triple&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/pola-rs/polars/blob/main/.github/workflows/test-python.yml" target="_blank" rel="noopener"
+>Polars&lt;/a>&lt;/td>
+&lt;td>rust-cache，&lt;code>save-if&lt;/code> 只在 push 上写，PR 只读&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;a class="link" href="https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/ci.yaml" target="_blank" rel="noopener"
+>rust-analyzer&lt;/a>&lt;/td>
+&lt;td>&lt;code>CARGO_INCREMENTAL=0&lt;/code>，rust-cache 整段注释掉了&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>结论很一致：没有人在 CI 上用 sccache 的 GHA 后端。&lt;a class="link" href="https://www.depot.dev/blog/sccache-in-github-actions" target="_blank" rel="noopener"
+>Depot 的评测&lt;/a>和 &lt;a class="link" href="https://github.com/linera-io/linera-protocol/issues/5475" target="_blank" rel="noopener"
+>Linera 的事故单&lt;/a>是同一句话——把 GHA 当 CAS 用，还是那 10 GB 和分支隔离，每个 rustc 调用还要打一次 cache API；真要跨 job 共享编译单元得上 S3/R2。&lt;/p>
+&lt;blockquote>
+&lt;p>对我这个 fork：没有 S3，工作区大，release 不频繁。正确做法就是每 OS、每 profile 一块 rust-cache，总量压进 10 GB。&lt;/p>
+&lt;/blockquote>
+&lt;p>顺带查了 Defender：GitHub 官方 Windows runner 的&lt;a class="link" href="https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Configure-WindowsDefender.ps1" target="_blank" rel="noopener"
+>镜像构建脚本&lt;/a>本身就写了 &lt;code>DisableRealtimeMonitoring = $true&lt;/code>。但镜像里关过不代表 job 运行时还关着（Tamper Protection 会让部分 &lt;code>Set-MpPreference&lt;/code> 静默失败），所以 release job 仍显式调一次。这个规模的构建，ci-setup 的注释里记的量级是 1.3–2x 的 rustc spawn / 对象文件写入开销。&lt;/p>
+&lt;h2 id="最终方案">最终方案
+&lt;/h2>&lt;hr>
+&lt;p>&lt;code>db865e4&lt;/code> 把工具链和缓存收进一个 composite action &lt;code>.github/actions/ci-setup&lt;/code>，rust-cache 部分：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">- &lt;span class="nt">uses&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">Swatinem/rust-cache@v2&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">with&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">prefix-key&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">v1-rust &lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 丢掉旧的 v0-rust 混装包&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">shared-key&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">${{ inputs.cache-scope }} &lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># build / release，不再用撞车的 job 名&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">cache-targets&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">true&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># release 重新存 target/release&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">cache-on-failure&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">true&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 测试挂了编译结果还在&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">save-if&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">${{ github.ref == &amp;#39;refs/heads/main&amp;#39; || startsWith(github.ref, &amp;#39;refs/tags/&amp;#39;) }}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两个工作流统一：&lt;code>CARGO_INCREMENTAL=0&lt;/code>、&lt;code>CARGO_NET_RETRY=10&lt;/code>、concurrency 取消同 ref 旧 run。Windows release 仍用 &lt;code>rust-lld&lt;/code>（&lt;code>link.exe&lt;/code> 单最终链接就花了约 12 分钟），tag 构建仍注入 &lt;code>GROK_VERSION&lt;/code>。&lt;/p>
+&lt;p>sccache 碎片清掉之后的配额估算：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>blob&lt;/th>
+&lt;th>大约&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>linux-build &lt;code>target/&lt;/code>&lt;/td>
+&lt;td>2.8 GB（已测）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>windows-build&lt;/td>
+&lt;td>0.8 GB（已测）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>linux-release&lt;/td>
+&lt;td>1.5–2 GB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>windows-release&lt;/td>
+&lt;td>1.5–2 GB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>合计&lt;/td>
+&lt;td>约 7–8 GB，进得去 10 GB&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>打 tag 前用 &lt;code>workflow_dispatch&lt;/code> 预热，它走同一套 &lt;code>--release&lt;/code> 构建但不上传 Release：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">gh workflow run release.yml --ref main
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">gh run watch
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第一次跑会冷，存盘之后同 lockfile 的下一次 tag 只重编改过的 crate。&lt;/p>
+&lt;h2 id="没修完的">没修完的
+&lt;/h2>&lt;hr>
+&lt;ul>
+&lt;li>&lt;code>session::workflow::manager::tests::cancel_drops_queued_spawns_before_coordinator&lt;/code> 在 Linux CI 上死锁过一次，把 job 空转了 37 分钟被 60 分钟 timeout 收掉。现在只靠 20 分钟 step timeout 止损，测试本身没改。&lt;/li>
+&lt;li>&lt;code>gh cache delete --all&lt;/code> 清 5000+ 条 &lt;code>sccache/&lt;/code> 碎片还在后台跑，配额要等删完才真正腾出来。&lt;/li>
+&lt;li>workspace crate 默认不在 rust-cache 里（&lt;a class="link" href="https://github.com/Swatinem/rust-cache/blob/master/README.md" target="_blank" rel="noopener"
+>README&lt;/a> 写 &amp;ldquo;generally not effective&amp;rdquo;：checkout 会把源码 mtime 刷成 now，cargo 当它变了就重编）。贵的是 crates.io 依赖，那些留下来了。Helix 那种 &lt;code>git-restore-mtime&lt;/code> 的做法没上。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>这轮排查最花时间的不是改配置，是不信日志：rust-cache 显示 hit、sccache 显示 99%，都是真的，只是命中的对象不是你要的那个。得把 key 怎么组成、还原回来的是什么、往配额里写了什么拆开看，数字才对得上。&lt;/p>
+&lt;/blockquote></description></item><item><title>过机器人检测对照实测：脚本与测试方案</title><link>https://daidaij.github.io/p/websearch-antibot-bench/</link><pubDate>Sat, 12 Sep 2026 11:02:00 +0800</pubDate><guid>https://daidaij.github.io/p/websearch-antibot-bench/</guid><description>&lt;img src="https://picsum.photos/seed/e92866f1/800/600" alt="Featured image of post 过机器人检测对照实测：脚本与测试方案" />&lt;h1 id="过机器人检测对照实测脚本与测试方案">过机器人检测对照实测：脚本与测试方案
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>agent 的搜索和抓取路径迟早撞盾：Cloudflare、雷池、DataDome、百度 wappass。网上一搜全是&amp;quot;某隐身浏览器无敌&amp;quot;的传说，但没人给得出可复现的对照数据。这篇记录我在 websearch-mcpserver 里搭的一套实测：脚本怎么组织、判定怎么下、哪些坑会让你得出错误结论。实测日期 2026-09-12，结论绑定当天的出口（家宽直连 + HK 代理），挑战站策略会变，方法比数字保值。&lt;/p>
