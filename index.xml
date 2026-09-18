@@ -1,4 +1,114 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Wed, 16 Sep 2026 22:53:36 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>记一次 Rust CI 缓存排查</title><link>https://daidaij.github.io/p/rust-ci-cache/</link><pubDate>Wed, 16 Sep 2026 22:53:36 +0800</pubDate><guid>https://daidaij.github.io/p/rust-ci-cache/</guid><description>&lt;img src="https://picsum.photos/seed/79c63ec4/800/600" alt="Featured image of post 记一次 Rust CI 缓存排查" />&lt;h1 id="记一次-rust-ci-缓存排查">记一次 Rust CI 缓存排查
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>潘达窝</title><link>https://daidaij.github.io/</link><description>Recent content on 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 18 Sep 2026 20:48:07 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>两朵奇葩：Grok Build 与 ZCode 的整仓上传</title><link>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</link><pubDate>Fri, 18 Sep 2026 20:48:07 +0800</pubDate><guid>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</guid><description>&lt;img src="https://picsum.photos/seed/bdc37260/800/600" alt="Featured image of post 两朵奇葩：Grok Build 与 ZCode 的整仓上传" />&lt;h1 id="两朵奇葩grok-build-与-zcode-的整仓上传">两朵奇葩：Grok Build 与 ZCode 的整仓上传
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>7 月 Grok Build 被抓包整库上传，xAI 用开源平息众怒；9 月 ZCode 同款翻车，官方回应&amp;quot;Repo Wiki 可能触发上传，数据立即销毁&amp;quot;。我把两件事的证据链拆开放在一起对照——两家的实现路径完全不同，但都做了同一件事：在你不知情的时候，把你整个代码仓库搬上云。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="grok-build网线抓包实锤">Grok Build：网线抓包实锤
+&lt;/h2>&lt;hr>
+&lt;p>7 月 12 日，独立研究员 cereblab 对 Grok Build CLI 0.2.93 做了一次 wire-level 分析——拦的就是它出网线的流量。结论：&lt;/p>
+&lt;ul>
+&lt;li>运行即上传：把当前目录的&lt;strong>全部内容&lt;/strong>传到 xAI 控制的 Google Cloud bucket，含完整 Git 历史&lt;/li>
+&lt;li>与 agent 行为无关：不是&amp;quot;agent 读了才传&amp;quot;，是&lt;strong>硬编码管线&lt;/strong>，哪怕禁用了文件读取功能、哪怕开了隐私设置，传输照旧&lt;/li>
+&lt;li>密钥陪葬：&lt;code>.env&lt;/code>、SSH 私钥这类文件一并打包&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>wire capture 是这类事件的黄金证据：不碰客户端二进制，只看流量，没有&amp;quot;你逆向错了&amp;quot;的抵赖空间。&lt;/p>
+&lt;/blockquote>
+&lt;p>xAI 的回应分三步：先说禁用了 ZDR（Zero Data Retention）可以同步删除已上传数据；马斯克官宣删除；几天后直接把 Grok Build 以 Apache 2.0 开源。开源版里能看到 privacy gates，社区还出了去掉 telemetry 的 fork。&lt;/p>
+&lt;blockquote>
+&lt;p>&amp;ldquo;已经删了&amp;quot;这个声明有个逻辑问题：无法证伪。你说删了就删了？ZDR 本来只对企业用户生效，个人用户的数据命运只能靠信。好在开源给了一条可审计的路——虽然那个 0.2.93 二进制的具体行为，没人重新跑过验证。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="zcode加密封印的上传管线">ZCode：加密封印的上传管线
+&lt;/h2>&lt;hr>
+&lt;p>两个月后轮到 ZCode（智谱官方桌面端）。ferstar 清磁盘发现 &lt;code>~/.zcode&lt;/code> 占了 700MB，顺藤摸瓜在 &lt;code>v2/checkpoints/&lt;/code> 里挖出一个 313MB 的 &lt;code>.enc&lt;/code> 文件和 564 次失败重试记录。我把同样的流程在本机走了一遍，链路完整成立：&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">sequenceDiagram
+participant U as 用户发消息
+participant S as Sidecar
+participant K as 凭证API
+participant O as 阿里云OSS
+U->>S: 每条 prompt 前 capture
+S->>S: 全仓 tar.gz（含 .git）
+S->>K: 申请凭证（拿服务端 RSA 公钥）
+S->>S: AES-256-CTR 加密
+S->>O: PostObject 直传
+O-->>K: callback 登记&lt;/pre>&lt;p>三个设计点让这个方案比 Grok Build 更&amp;quot;高级&amp;quot;也更麻烦：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>信封加密，公钥服务端下发&lt;/strong>——传输和静态存储都安全，但私钥不出云，等于厂商全程可解密。你本地解不开自己磁盘上的密文，这不是 bug 是设计&lt;/li>
+&lt;li>&lt;strong>增量快照&lt;/strong>——首传 baseline，之后每条消息只传 manifest diff。日常成本极低，低到你根本意识不到它在跑&lt;/li>
+&lt;li>&lt;strong>持久化待传队列&lt;/strong>——失败退避重试，564 次都在等。崩溃断网安全，工程质量挑不出毛病&lt;/li>
+&lt;/ol>
+&lt;p>&lt;code>state.json&lt;/code> 里的 &lt;code>lastAcceptedManifestHash&lt;/code> 只在上传成功后写入，这让它成为审计的铁证：我数了一下自己机器，15 个工作区全部有服务端接收记录。&lt;/p>
+&lt;p>完整逆向细节（八个模块的代码摘录 + 六阶段走读）在 &lt;a class="link" href="https://github.com/daidaiJ/zcode-snapshot-internals" target="_blank" rel="noopener"
+>zcode-snapshot-internals&lt;/a>。&lt;/p>
+&lt;h2 id="官方回应对照哪些承认了哪些对不上">官方回应对照：哪些承认了，哪些对不上
+&lt;/h2>&lt;hr>
+&lt;p>ZCode 官方临时回应：问题源于&amp;quot;代码库索引&amp;quot;功能，在本地生成仓库索引，支持检查点恢复、历史回退及 Repo Wiki；Repo Wiki 生成时&lt;strong>可能&lt;/strong>触发上传，云端生成后数据&lt;strong>立即销毁&lt;/strong>；上线初期默认开启。&lt;/p>
+&lt;p>拿代码对一遍：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>官方说法&lt;/th>
+&lt;th>代码事实&lt;/th>
+&lt;th>判定&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>本地生成索引&lt;/td>
+&lt;td>凭证→OSS 直传→callback，完整出云管线&lt;/td>
+&lt;td>因果错位&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Repo Wiki 可能触发上传&lt;/td>
+&lt;td>&lt;code>captureBeforePrompt&lt;/code> 每条消息触发，与 Wiki 无关&lt;/td>
+&lt;td>误导&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>数据立即销毁&lt;/td>
+&lt;td>增量快照依赖 &lt;code>base_snapshot_id&lt;/code> 基线链，基线必须留存；私钥托管让销毁无法验证&lt;/td>
+&lt;td>自相矛盾&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>默认开启&lt;/td>
+&lt;td>是，且用户侧无关闭手段&lt;/td>
+&lt;td>半承认&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>两份回应放一起很有意思：xAI 承认得干脆，补救是开源；智谱的回应在&amp;quot;谁触发、存多久&amp;quot;两个关键点上和代码对不上，且没有给出可验证的承诺。&lt;/p>
+&lt;h2 id="验证方法论三件套">验证方法论：三件套
+&lt;/h2>&lt;hr>
+&lt;p>这两次事件的取证路径可以复用：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>看磁盘 artifacts&lt;/strong>——投料目录、pending 队列、state 文件。&lt;code>lastAcceptedManifestHash&lt;/code> 这类字段要看它是在成功分支里写入的还是随手写的&lt;/li>
+&lt;li>&lt;strong>逆向客户端&lt;/strong>——Electron 就解包 asar，grep 凭证端点和对象存储签名（&lt;code>x-oss-*&lt;/code> / &lt;code>x-amz-*&lt;/code>），传输目的地一抓一个准&lt;/li>
+&lt;li>&lt;strong>wire capture&lt;/strong>——绕过所有静态分析的不确定性，流量不会说谎&lt;/li>
+&lt;/ol>
+&lt;p>ZCode 的加密设计挡住了流量侧取证（密文看不见内容），这也是为什么这次靠的是 asar 逆向 + 本地 artifacts。&lt;/p>
+&lt;h2 id="止损">止损
+&lt;/h2>&lt;hr>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-powershell" data-lang="powershell">&lt;span class="line">&lt;span class="cl">&lt;span class="c"># Windows：清投料 + 锁目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">$ck&lt;/span> &lt;span class="p">=&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$env:USERPROFILE&lt;/span>&lt;span class="s2">\.zcode\v2\checkpoints&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">Get-ChildItem&lt;/span> &lt;span class="n">-LiteralPath&lt;/span> &lt;span class="nv">$ck&lt;/span> &lt;span class="n">-Force&lt;/span> &lt;span class="p">|&lt;/span> &lt;span class="nb">Remove-Item&lt;/span> &lt;span class="n">-Recurse&lt;/span> &lt;span class="n">-Force&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">icacls&lt;/span> &lt;span class="nv">$ck&lt;/span> &lt;span class="p">/&lt;/span>&lt;span class="n">inheritance&lt;/span>&lt;span class="err">:&lt;/span>&lt;span class="nb">r
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">&lt;/span>&lt;span class="n">icacls&lt;/span> &lt;span class="nv">$ck&lt;/span> &lt;span class="p">/&lt;/span>&lt;span class="n">grant&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$env:USERNAME&lt;/span>&lt;span class="s2">:(OI)(CI)(RX)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">icacls&lt;/span> &lt;span class="nv">$ck&lt;/span> &lt;span class="p">/&lt;/span>&lt;span class="n">deny&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$env:USERNAME&lt;/span>&lt;span class="s2">:(OI)(CI)(WD,AD,WEA,WA)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>macOS 用 &lt;code>chflags uchg&lt;/code>，Linux 用 &lt;code>chattr +i&lt;/code>。然后——把历史里出现过的密钥全部轮换，这步没有替代品。&lt;/p>
+&lt;blockquote>
+&lt;p>两朵奇葩的差别只在工程水平和危机公关，不在&amp;quot;是否拿走了你的代码&amp;rdquo;。闭源 AI harness 的信任模型里，&amp;ldquo;数据用于改进服务&amp;quot;和&amp;quot;数据离开你的机器&amp;quot;是两件事，条款只写了前者。工具可以用，密钥别放在它看得见的地方。&lt;/p>
+&lt;/blockquote></description></item><item><title>记一次 Rust CI 缓存排查</title><link>https://daidaij.github.io/p/rust-ci-cache/</link><pubDate>Wed, 16 Sep 2026 22:53:36 +0800</pubDate><guid>https://daidaij.github.io/p/rust-ci-cache/</guid><description>&lt;img src="https://picsum.photos/seed/79c63ec4/800/600" alt="Featured image of post 记一次 Rust CI 缓存排查" />&lt;h1 id="记一次-rust-ci-缓存排查">记一次 Rust CI 缓存排查
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>fork 的 grok-build-proxy 打 v1.0.27 tag，Windows release 跑了 57 分钟，Linux 同一次只要 9 分钟。日志里 rust-cache 显示命中，中途换上的 sccache 也&amp;quot;正常工作&amp;quot;，最后扫出来 5229 条缓存碎片把 10 GB 配额挤爆了。这篇把整条排查链路记下来：两次误判、实测数字、最后的方案。&lt;/p>
