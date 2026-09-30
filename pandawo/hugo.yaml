@@ -43,6 +43,8 @@ permalinks:
 params:
     mainSections:
         - post
+    # 站点级 meta description（首页及无内容摘要页面的兜底，SEO：描述不宜过短）
+    description: 潘达张的个人博客：记录 Go、Rust、Kubernetes、AI/LLM 等方向的技术笔记、源码走读与踩坑实践经验。
     featuredImageField: image
     rssFullContent: true
     favicon: /favicon.ico # e.g.: favicon placed in `static/favicon.ico` of your site folder, then set this field to `/favicon.ico` (`/` is necessary)

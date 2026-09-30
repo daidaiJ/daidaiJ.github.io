@@ -1,0 +1,59 @@
+{{/* 站点级覆盖（SEO）：统一标题格式，修复「标题过短」
+     - 非首页一律带「 - 站点名」后缀；首页带副标题
+     - 分页页追加「 - 第 N 页」，避免分页标题重复
+     - 分类/标签前缀本地化（Category: → 分类：）
+     - .Paginate 的集合与 index.html / list.html 完全一致，避免 repaginate 冲突 */}}
+{{- $siteTitle := .Site.Title -}}
+{{- $title := .Title -}}
+
+{{- if .IsHome -}}
+    {{- $pages := where .Site.RegularPages "Section" "in" .Site.Params.mainSections -}}
+    {{- $notHidden := where .Site.RegularPages "Params.hidden" "!=" true -}}
+    {{- $pag := .Paginate ($pages | intersect $notHidden) -}}
+    {{- if gt $pag.PageNumber 1 -}}
+        {{- $title = printf "%s - 第 %d 页" $siteTitle $pag.PageNumber -}}
+    {{- else -}}
+        {{- $subtitle := .Site.Params.sidebar.subtitle -}}
+        {{- if $subtitle -}}
+            {{- $title = printf "%s - %s" $siteTitle $subtitle -}}
+        {{- end -}}
+    {{- end -}}
+{{- else if or (eq .Kind "term") (eq .Kind "taxonomy") (eq .Kind "section") -}}
+    {{- $pages := .Pages | complement .Sections -}}
+    {{- if eq (len $pages) 0 -}}{{- $pages = .Sections -}}{{- end -}}
+    {{- $pag := .Paginate $pages -}}
+    {{- $pager := "" -}}
+    {{- if gt $pag.PageNumber 1 -}}
+        {{- $pager = printf " - 第 %d 页" $pag.PageNumber -}}
+    {{- end -}}
+    {{- if eq .Kind "term" -}}
+        {{- $kind := "" -}}
+        {{- if eq .Data.Plural "categories" -}}
+            {{- $kind = "分类" -}}
+        {{- else if eq .Data.Plural "tags" -}}
+            {{- $kind = "标签" -}}
+        {{- else -}}
+            {{- $kind = title .Data.Singular -}}
+        {{- end -}}
+        {{- $title = printf "「%s」%s下的全部文章%s - %s" .Title $kind $pager $siteTitle -}}
+    {{- else if eq .Kind "taxonomy" -}}
+        {{- $kind := "" -}}
+        {{- if eq .Data.Plural "categories" -}}
+            {{- $kind = "分类" -}}
+        {{- else if eq .Data.Plural "tags" -}}
+            {{- $kind = "标签" -}}
+        {{- else -}}
+            {{- $kind = title .Data.Plural -}}
+        {{- end -}}
+        {{- $title = printf "博客全部%s（共 %d 个）%s - %s" $kind (len .Pages) $pager $siteTitle -}}
+    {{- else -}}
+        {{/* section（/post/ 等） */}}
+        {{- $title = printf "%s%s - %s" .Title $pager $siteTitle -}}
+    {{- end -}}
+{{- else -}}
+    {{- if .Title -}}
+        {{- $title = printf "%s - %s" .Title $siteTitle -}}
+    {{- end -}}
+{{- end -}}
+
+{{- return $title -}}

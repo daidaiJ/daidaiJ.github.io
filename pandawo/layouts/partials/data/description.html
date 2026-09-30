@@ -1,19 +1,67 @@
-<!-- Use site subtitle by default -->
-{{ $description := .Site.Params.sidebar.subtitle }}
+{{/* 站点级覆盖（SEO/GEO）：修复「meta description 过短/缺失」
+     - 文章页：description 过短（<60 字符）且正文自动摘要更长时，回退用摘要
+     - 归档/搜索/分类/标签/栏目/首页：按页面类型生成有信息量的描述
+     - 全站兜底：params.description（hugo.yaml），最后是侧栏副标题
+     - 分页页追加「（第 N 页）」避免分页描述重复 */}}
+{{- $siteDescription := .Site.Params.description | default .Site.Params.sidebar.subtitle -}}
+{{- $description := "" -}}
 
-<!-- Seprate description exists -->
-{{ if .Site.Params.description }}
-    {{ $description = .Site.Params.description }}
-{{ end }}
+{{- if .IsPage -}}
+    {{- if eq .Layout "archives" -}}
+        {{- $description = printf "博客全部文章归档，按发布时间倒序排列，共收录 %d 篇文章，涵盖 Go、Rust、Kubernetes、AI 等主题的源码走读与实践笔记。" (len .Site.RegularPages) -}}
+    {{- else if eq .Layout "search" -}}
+        {{- $description = "站内搜索：输入关键词即可检索本博客的全部技术文章，覆盖标题、标签与摘要内容。" -}}
+    {{- else -}}
+        {{- $description = .Summary -}}
+        {{- if .Description -}}
+            {{- $description = .Description -}}
+        {{- end -}}
+        {{/* 手写 description 过短（<60 字符）而正文自动摘要更长时，优先用摘要 */}}
+        {{- if and .Summary (lt (len $description) 60) (gt (len .Summary) (len $description)) -}}
+            {{- $description = .Summary -}}
+        {{- end -}}
+    {{- end -}}
+{{- else if .IsHome -}}
+    {{- $description = $siteDescription -}}
+{{- else if eq .Kind "term" -}}
+    {{- $kind := "" -}}
+    {{- if eq .Data.Plural "categories" -}}
+        {{- $kind = "分类" -}}
+    {{- else if eq .Data.Plural "tags" -}}
+        {{- $kind = "标签" -}}
+    {{- else -}}
+        {{- $kind = title .Data.Singular -}}
+    {{- end -}}
+    {{- $latest := "" -}}
+    {{- range first 3 .Pages -}}
+        {{- $latest = printf "%s《%s》" $latest .Title -}}
+    {{- end -}}
+    {{- $description = printf "博客%s「%s」下共收录 %d 篇文章，包括%s等，持续更新中，欢迎阅读。" $kind .Title (len .Pages) $latest -}}
+{{- else if eq .Kind "taxonomy" -}}
+    {{- $kind := "" -}}
+    {{- if eq .Data.Plural "categories" -}}
+        {{- $kind = "分类" -}}
+    {{- else if eq .Data.Plural "tags" -}}
+        {{- $kind = "标签" -}}
+    {{- else -}}
+        {{- $kind = title .Data.Plural -}}
+    {{- end -}}
+    {{- $description = printf "博客全部%s汇总页，共 %d 个%s，点击任意%s可浏览该主题下的全部文章。" $kind (len .Pages) $kind $kind -}}
+{{- else if eq .Kind "section" -}}
+    {{- $description = printf "博客文章列表，共收录 %d 篇技术文章，按发布时间倒序排列，涵盖 Go、Rust、Kubernetes、AI 等方向。" (len .Pages) -}}
+{{- end -}}
 
-{{ if .Description }}
-    <!-- Page description exists -->
-    {{ $description = .Description }}
-{{ else if .IsPage }}
-    <!-- Use page summary -->
-    {{ $description = .Summary }}
-{{ end }}
+{{- if not $description -}}
+    {{- $description = $siteDescription -}}
+{{- end -}}
 
-{{/* frontmatter 里可能带字面 \r \n 转义序列，先剥掉再折叠空白；htmlUnescape 还原 &quot; 等实体 */}}
+{{/* 分页页追加页码标注（从 URL 判断，避免在此初始化 Paginator） */}}
+{{- if findRE `/page/\d+` .RelPermalink -}}
+    {{- $pn := replaceRE `^.*/page/(\d+)/?.*` "$1" .RelPermalink -}}
+    {{- $description = printf "%s（第 %s 页）" $description $pn -}}
+{{- end -}}
+
+{{/* frontmatter 里可能带字面 \r \n 转义序列，先剥掉再折叠空白；htmlUnescape 还原 &quot; 等实体；超长截断 */}}
 {{ $description = replaceRE "\\\\r|\\\\n" " " $description }}
-{{ return (replaceRE "\\s+" " " ($description | plainify | htmlUnescape)) }}
+{{ $description = replaceRE "\\s+" " " ($description | plainify | htmlUnescape) }}
+{{ return ($description | truncate 160) }}
