@@ -219,6 +219,12 @@ menu:
           params:
               icon: brand-github
 
+        - identifier: rss
+          name: RSS
+          url: /index.xml
+          params:
+              icon: rss
+
 
 related:
     includeNewer: true

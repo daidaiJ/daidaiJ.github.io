@@ -11,6 +11,12 @@
 <link rel="dns-prefetch" href="https://picsum.photos">
 <link rel="preconnect" href="https://fastly.picsum.photos" crossorigin>
 <link rel="dns-prefetch" href="https://fastly.picsum.photos">
+{{/* RSS 自动发现：主题只在首页/列表页输出 AlternativeOutputFormats，单页从这里补全站 feed 链接 */}}
+{{- if not (.AlternativeOutputFormats.Get "RSS") -}}
+{{- with .Site.Home.OutputFormats.Get "RSS" -}}
+<link rel="alternate" type="{{ .MediaType.Type }}" title="{{ $.Site.Title }}" href="{{ .Permalink }}">
+{{- end -}}
+{{- end -}}
 {{- partial "head/cover-source.html" . -}}
 {{/* 字体 CSS 异步加载：不 preload 整套字族（首屏关键路径留给封面），失败时回退系统字体栈 */}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css" media="print" onload="this.media='all'">
