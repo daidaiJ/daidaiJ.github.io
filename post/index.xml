@@ -1,42 +1,33 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Posts 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 09 Oct 2026 00:31:45 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>牛来惊魂记</title><link>https://daidaij.github.io/p/niulai-jinghun-ji/</link><pubDate>Fri, 09 Oct 2026 00:31:45 +0800</pubDate><guid>https://daidaij.github.io/p/niulai-jinghun-ji/</guid><description>&lt;img src="https://picsum.photos/seed/84d5035b/800/600" alt="Featured image of post 牛来惊魂记" />&lt;h1 id="牛来惊魂记">牛来惊魂记
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on 潘达窝</title><link>https://daidaij.github.io/post/</link><description>Posts 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Fri, 09 Oct 2026 00:37:49 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/post/index.xml" rel="self" type="application/rss+xml"/><item><title>牛来惊魂记</title><link>https://daidaij.github.io/p/niulai-jinghun-ji/</link><pubDate>Fri, 09 Oct 2026 00:31:45 +0800</pubDate><guid>https://daidaij.github.io/p/niulai-jinghun-ji/</guid><description>&lt;img src="https://picsum.photos/seed/84d5035b/800/600" alt="Featured image of post 牛来惊魂记" />&lt;h1 id="牛来惊魂记">牛来惊魂记
 &lt;/h1>&lt;hr>
 &lt;blockquote>
-&lt;p>一次&amp;quot;工具层在捏造结果&amp;quot;的警报，最后定性为模型侧幻觉。这篇记的是复盘方法和几个要点：当时怎么用结构证据把它定死、幻觉是怎么长出来的、以及这件事对 agent loop 的 harness 设计意味着什么。具体项目细节略去，只留可复用的部分。&lt;/p>
+&lt;p>一个 fast 档模型在长会话里连续报出&amp;quot;工具层在捏造结果&amp;quot;，前后持续十几分钟，还写了份带证据链的事故说明。最后定性是模型侧幻觉。这篇记复盘的顺序、三条能机械检查的不变量，以及这类自述叙事给 harness 留下的几个坑。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="结论">结论
-&lt;/h2>&lt;hr>
+&lt;/h2>&lt;p>一次细节丰富、逻辑自洽、还附了证据链的事故叙事，可以是编的。&lt;/p>
+&lt;p>它报的五类异常，逐条回到字节层面复核，一条都站不住：说看到过多种路径拼写变体，没有；说结果里有它没写过的代码，没有；说一次调用回来两份结果，没有；说没发送过的命令被执行了，也没有。&lt;/p>
+&lt;p>同期它确实出过两次真实的退化：一次命名不一致埋下的坑，一次它自己的批量编辑参数里引用了未定义的标识符（编译直接报错）。幻觉是围着这两件事长出来的。&lt;/p>
+&lt;p>还有条旁证排除了&amp;quot;某个 harness 写错了&amp;quot;这个方向：同一现象在两套独立 harness 上都复现过。&lt;/p>
+&lt;h2 id="背景两个组合都出现过">背景：两个组合都出现过
+&lt;/h2>&lt;p>同一现象在两个组合里都出现过：一个终端 agent 走厂商官方订阅的 plan 通道，grok build 走火山的 plan api。两套 harness、两个接入通道、同一个模型的 fast 档。&lt;/p>
 &lt;blockquote>
-&lt;p>先给结论，因为这次的结论和直觉相反：一个细节丰富、逻辑自洽、还附了证据链的事故叙事，是编的。&lt;/p>
+&lt;p>两个独立实现都复现，重心就从&amp;quot;谁的代码写错了&amp;quot;移到模型侧，或者移到那类长会话共有的上下文形态上。看到这条之前，第一轮排查的方向是&amp;quot;harness 的上下文组装有没有 bug&amp;quot;。&lt;/p>
 &lt;/blockquote>
-&lt;ul>
-&lt;li>警报不成立。模型给出的每一条具体指控，在字节级和结构级复核下都站不住：它声称看到的&amp;quot;多种路径拼写变体&amp;quot;不存在，声称&amp;quot;结果里有它没写过的内容&amp;quot;不存在，声称&amp;quot;一次调用回来两份结果&amp;quot;不存在，声称&amp;quot;没发送过的命令被执行了&amp;quot;也不存在。&lt;/li>
-&lt;li>它也不是凭空发疯。同一时期确实存在两处真实退化——一次命名不一致埋下的坑，一次它自己的批量编辑参数出错导致编译失败。它把这两样放大了。&lt;/li>
-&lt;li>关键旁证：同一现象在两套独立 harness、两个接入通道里都出现过（见背景）。这本身就排除了&amp;quot;某个 harness 实现有问题&amp;quot;的方向。&lt;/li>
-&lt;li>harness 这一侧没有被证伪，但暴露了一个空白：判断&amp;quot;上下文有没有丢过东西&amp;quot;目前只能事后考古，没有一个会话内可查的指标。&lt;/li>
-&lt;li>真正的收获是方法论：模型自述只能当线索，能当证据的是结构不变量。&lt;/li>
-&lt;/ul>
-&lt;h2 id="背景">背景
-&lt;/h2>&lt;hr>
-&lt;p>同一个现象在两个不同组合里都出现过：一个终端 agent 走厂商官方订阅的 plan 通道，grok build 走火山的 plan api。两套 harness、两个接入通道、同一个模型的 fast 档。&lt;/p>
-&lt;blockquote>
-&lt;p>两个独立实现都复现，问题的重心就从&amp;quot;谁的代码写错了&amp;quot;移到模型侧，或者移到那类长会话共有的上下文形态上。这条旁证的价值很高——在我看到它之前，第一轮排查的方向是&amp;quot;harness 的上下文组装有没有 bug&amp;quot;。&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="现象它报出来的五类异常">现象：它报出来的五类异常
-&lt;/h2>&lt;hr>
-&lt;p>全部集中在同一个 turn 的十几分钟里。它当时的措辞是&amp;quot;工具返回与请求不符&amp;quot;，五类指控大致是：&lt;/p>
+&lt;h2 id="它报出来的五类异常">它报出来的五类异常
+&lt;/h2>&lt;p>五条指控挤在同一个 turn 的十几分钟里，措辞都是&amp;quot;工具返回与请求不符&amp;quot;：&lt;/p>
 &lt;table>
 &lt;thead>
 &lt;tr>
 &lt;th>#&lt;/th>
 &lt;th>指控&lt;/th>
-&lt;th>它给出的证据&lt;/th>
+&lt;th>它给的证据&lt;/th>
 &lt;th>它下的结论&lt;/th>
 &lt;/tr>
 &lt;/thead>
 &lt;tbody>
 &lt;tr>
 &lt;td>1&lt;/td>
-&lt;td>编辑结果里出现过一个不存在的文件路径，而且同一个仓库有多种拼写变体&lt;/td>
+&lt;td>编辑结果里出现过一个不存在的文件路径，同一个仓库还有多种拼写变体&lt;/td>
 &lt;td>&amp;ldquo;四种不同的仓库名&amp;rdquo;&lt;/td>
 &lt;td>工具结果被篡改&lt;/td>
 &lt;/tr>
@@ -66,22 +57,16 @@
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>它据此写下判断：工具层不可信，环境在捏造它的调用；并顺手写下了应急处置——用带随机标记的终端命令自证、只信编译和 git。&lt;/p>
-&lt;blockquote>
-&lt;p>值得注意的地方是：它的应急处置是对的，结论是错的。技术手段靠谱、推理链靠谱、前提是假的——这种组合最难反驳，因为它每一条论据都指向同一个虚构前提。&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="复盘顺序先定事实再定责任">复盘顺序：先定事实，再定责任
-&lt;/h2>&lt;hr>
-&lt;blockquote>
-&lt;p>顺序反了就会被叙事牵着走。我采用的顺序是：先固定不可争辩的事实，再逐条验证指控，最后才问&amp;quot;为什么它会这么想&amp;quot;。&lt;/p>
-&lt;/blockquote>
-&lt;p>**第一步，固定磁盘终态。**代码能编译、测试通过、工作树只有预期改动、提交已推送。这一步的意义在于把问题定性到&amp;quot;解释层&amp;quot;：没有实际损坏，剩下的问题是它为什么会这样解释。&lt;/p>
-&lt;p>**第二步，把每条指控翻译成可执行的检查。**不看它的措辞，只看要判定什么：变体是否存在？调用与结果是否错配？未发送的调用是否存在？&lt;/p>
-&lt;p>**第三步，找出观测面。**模型看不到自己的上下文，它的记忆不可审计；但它所在的环境会留下四份可审计的记录——对话转录、事件日志、工具执行日志、磁盘状态。前三者的结构关系可以完全机械化地检查。&lt;/p>
-&lt;h2 id="三条结构不变量">三条结构不变量
-&lt;/h2>&lt;hr>
-&lt;h3 id="一消息计数必须与转录对齐">一、消息计数必须与转录对齐
-&lt;/h3>&lt;p>事件日志里每个 turn 的起始都记录了当时的会话消息数：&lt;/p>
+&lt;p>它的应急处置倒是对的：用带随机标记的终端命令自证、只信编译和 git、可疑结果先复核。手段靠谱，推理链也靠谱，前提是假的——每条论据都指向同一个虚构的前提。&lt;/p>
+&lt;h2 id="复盘的顺序先定事实再定责任">复盘的顺序：先定事实，再定责任
+&lt;/h2>&lt;p>顺序反了就会被叙事牵着走，我按四步走。&lt;/p>
+&lt;p>第一步固定磁盘终态：编译能过、测试能过、工作树只有预期改动、提交已经推上去。这一步把问题定性到&amp;quot;解释层&amp;quot;——没有实际损坏，剩下要回答的是它为什么这样解释。&lt;/p>
+&lt;p>第二步把指控翻译成可执行的检查。不看它怎么措辞，只看要判定什么：变体存不存在、调用与结果有没有错配、没发送的调用存不存在。&lt;/p>
+&lt;p>第三步找观测面。模型看不到自己的上下文，它的记忆不可审计；环境这边留下四份可审计的记录——对话转录、事件日志、工具执行日志、磁盘状态。前三者的结构关系可以完全机械化地查。&lt;/p>
+&lt;p>第四步才是问它为什么会这么想。&lt;/p>
+&lt;h2 id="三条能机械检查的不变量">三条能机械检查的不变量
+&lt;/h2>&lt;h3 id="消息计数要跟转录对齐">消息计数要跟转录对齐
+&lt;/h3>&lt;p>事件日志里每个 turn 的起始都记了当时的会话消息数：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -92,7 +77,7 @@
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;model_id&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="s2">&amp;#34;&amp;lt;model&amp;gt;&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="nt">&amp;#34;redirect_kind&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="s2">&amp;#34;queued_after_cancel&amp;#34;&lt;/span>&lt;span class="p">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>检查方式很直接：把每个 turn 起始的消息数与转录的行边界对齐，看它是否单调递增。&lt;/p>
+&lt;/div>&lt;p>把每个 turn 起始的消息数和转录的行边界对齐：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -103,17 +88,17 @@
 &lt;/span>&lt;span class="lnt">6
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">turn 0 conv_msgs= 3 → 转录行边界 38 之前
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 1 conv_msgs= 37 → 转录行边界 181 之前
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 2 conv_msgs=180 → 转录行边界 231 之前
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 3 conv_msgs=230 → 转录行边界 273 之前
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 4 conv_msgs=272 → 转录行边界 288 之前
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">turn 0 conv_msgs= 3
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 1 conv_msgs= 37 → 转录第 38 行之前
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 2 conv_msgs=180 → 转录第 181 行之前
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 3 conv_msgs=230 → 转录第 231 行之前
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 4 conv_msgs=272 → 转录第 273 行之前
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">turn 5 conv_msgs=287
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>逐个精确对齐、只增不减，说明&lt;strong>上下文从来没有裁剪或重放过&lt;/strong>。这一步直接否掉了&amp;quot;我的调用没进入后续上下文&amp;quot;这个核心猜测——它进入了，一直在。&lt;/p>
-&lt;h3 id="二调用与结果必须一一配对">二、调用与结果必须一一配对
-&lt;/h3>&lt;p>对转录做全量审计：收集所有 assistant 消息里的 &lt;code>tool_calls[].id&lt;/code>，与所有 &lt;code>tool_result.tool_call_id&lt;/code> 比对。&lt;/p>
+&lt;/div>&lt;p>逐个精确对齐，只增不减。上下文没有裁剪也没有重放，&amp;ldquo;我的调用没进后续上下文&amp;quot;这个核心猜测直接出局。&lt;/p>
+&lt;h3 id="调用和结果要一一配对">调用和结果要一一配对
+&lt;/h3>&lt;p>对转录做全量审计，只关心 id 集合的关系，不关心内容：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -123,37 +108,33 @@
 &lt;/span>&lt;span class="lnt">5
 &lt;/span>&lt;span class="lnt">6
 &lt;/span>&lt;span class="lnt">7
-&lt;/span>&lt;span class="lnt">8
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 结构性审计：不关心内容，只关心 id 集合的关系&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">calls&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="n">c&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;id&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">m&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">msgs&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;type&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s2">&amp;#34;assistant&amp;#34;&lt;/span>
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-python" data-lang="python">&lt;span class="line">&lt;span class="cl">&lt;span class="n">calls&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>&lt;span class="n">c&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;id&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">m&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">msgs&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;type&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s2">&amp;#34;assistant&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="n">c&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">m&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">get&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;tool_calls&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="ow">or&lt;/span> &lt;span class="p">[]}&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">results&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;tool_call_id&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">m&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">msgs&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">m&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;type&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="s2">&amp;#34;tool_result&amp;#34;&lt;/span>&lt;span class="p">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
 &lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">calls&lt;/span>&lt;span class="p">),&lt;/span> &lt;span class="nb">len&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nb">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">results&lt;/span>&lt;span class="p">))&lt;/span> &lt;span class="c1"># 143, 143&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">[&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">calls&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">results&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="p">]&lt;/span> &lt;span class="c1"># 空：没有重复回执&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">[&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="nb">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">results&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">calls&lt;/span> &lt;span class="p">]&lt;/span> &lt;span class="c1"># 空：没有无主结果&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">calls&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">results&lt;/span>&lt;span class="o">.&lt;/span>&lt;span class="n">count&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="c1"># 空：没有重复回执&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">[&lt;/span>&lt;span class="n">i&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="nb">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">results&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="n">i&lt;/span> &lt;span class="ow">not&lt;/span> &lt;span class="ow">in&lt;/span> &lt;span class="n">calls&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="c1"># 空：没有无主结果&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>本次结果是 143 个调用 ↔ 143 个结果，id 全唯一、一一对应，且每个结果都出现在它的调用之后。所谓&amp;quot;一次调用回来两份结果&amp;quot;就是这么被否掉的——那两条回执本来就属于同批的两次调用。&lt;/p>
-&lt;h3 id="三执行痕迹必须落在记录里">三、执行痕迹必须落在记录里
-&lt;/h3>&lt;p>工具执行日志的文件名直接等于调用 id，所以执行层的检查是集合包含关系：&lt;/p>
+&lt;/div>&lt;p>143 个调用对 143 个结果，id 全唯一，每个结果都在自己的调用之后。&amp;ldquo;一次调用回来两份结果&amp;quot;到这里就没了——那两条回执本来属于同批的两次调用。&lt;/p>
+&lt;h3 id="执行痕迹要落在记录里">执行痕迹要落在记录里
+&lt;/h3>&lt;p>工具执行日志的文件名直接等于调用 id，执行层检查就是集合包含关系：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
 &lt;/span>&lt;span class="lnt">2
-&lt;/span>&lt;span class="lnt">3
 &lt;/span>&lt;/code>&lt;/pre>&lt;/td>
 &lt;td class="lntd">
-&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 日志名去掉后缀，与转录中的调用 id 集合比对&lt;/span>
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ls &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$SESS&lt;/span>&lt;span class="s2">/terminal&amp;#34;&lt;/span> &lt;span class="p">|&lt;/span> sed &lt;span class="s1">&amp;#39;s/\.log$//&amp;#39;&lt;/span> &lt;span class="p">|&lt;/span> sort &amp;gt; /tmp/logs.txt
-&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 结论：51 个日志全部能在转录里找到对应的调用，没有孤儿日志&lt;/span>
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">ls &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$SESS&lt;/span>&lt;span class="s2">/terminal&amp;#34;&lt;/span> &lt;span class="p">|&lt;/span> sed &lt;span class="s1">&amp;#39;s/\.log$//&amp;#39;&lt;/span> &lt;span class="p">|&lt;/span> sort &amp;gt; /tmp/logs.txt
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 51 个日志全部能在转录里找到对应调用，没有孤儿&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>反过来也成立：没有&amp;quot;转录里没有、磁盘上却执行了&amp;quot;的命令。执行层和记录层自洽。&lt;/p>
-&lt;h3 id="四字符串层面的反向检查">四、字符串层面的反向检查
-&lt;/h3>&lt;p>这一条最反直觉，也最关键。模型声称存在多种拼写变体，那就把可疑字符串从转录里全量抽出来做正则统计，并用 &lt;code>repr()&lt;/code> 看原始字节：&lt;/p>
+&lt;/div>&lt;p>反向也成立：没有&amp;quot;转录里没有、磁盘上却执行了&amp;quot;的命令。&lt;/p>
+&lt;h3 id="字符串变体要回字节层面看">字符串变体要回字节层面看
+&lt;/h3>&lt;p>这条最反直觉。它说存在多种拼写变体，那就把可疑字符串从转录里全量抽出来做正则统计，再用 repr() 看原始字节：&lt;/p>
 &lt;div class="highlight">&lt;div class="chroma">
 &lt;table class="lntable">&lt;tr>&lt;td class="lntd">
 &lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
@@ -162,60 +143,39 @@
 &lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">grep -oE &lt;span class="s1">&amp;#39;&amp;lt;名字模式&amp;gt;&amp;#39;&lt;/span> &lt;span class="s2">&amp;#34;&lt;/span>&lt;span class="nv">$SESS&lt;/span>&lt;span class="s2">/chat_history.jsonl&amp;#34;&lt;/span> &lt;span class="p">|&lt;/span> sort &lt;span class="p">|&lt;/span> uniq -c &lt;span class="p">|&lt;/span> sort -rn
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
 &lt;/div>
-&lt;/div>&lt;p>结果只有一种拼写，没有任何变体。也就是说，&lt;strong>模型是把同一个字符串写了两遍，然后声称这两遍不同&lt;/strong>。它甚至在同一段推理里承认过&amp;quot;我分不清这两个字符串&amp;quot;，但仍然照此下了结论。&lt;/p>
+&lt;/div>&lt;p>只有一种拼写。它是把同一个字符串写了两遍，然后说这两遍不一样；同一段推理里它还承认过&amp;quot;我分不清这两个字符串&amp;rdquo;。&lt;/p>
 &lt;blockquote>
-&lt;p>从这里可以提炼出一条通用判据：模型对&amp;quot;两个字符串不同&amp;quot;的断言，必须回到字节层面复核。它在长上下文里区分高度相似字符串的能力，弱到会凭空造出差异。&lt;/p>
+&lt;p>一条通用判据：模型断言&amp;quot;两个字符串不同&amp;rdquo;，得回字节层面复核。长上下文里，它区分高度相似字符串的能力弱到会凭空造出差异。&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="幻觉是怎么长出来的">幻觉是怎么长出来的
-&lt;/h2>&lt;hr>
-&lt;p>定性成幻觉之后，更有价值的问题是它为什么会发生——因为下一次还会发生。&lt;/p>
-&lt;ul>
-&lt;li>**命名分裂是种子。**同一份东西在本地目录名、模块名、二进制名上是三个不同的名字，重命名时只改了一部分。模型手里有&amp;quot;应该叫什么&amp;quot;的先验，又看到&amp;quot;实际叫什么&amp;quot;，两者对不上；它没有去质疑先验，而是编出&amp;quot;多种拼写变体&amp;quot;来覆盖矛盾。所有五类指控都是从这个种子长出来的。&lt;/li>
-&lt;li>**消解矛盾的事实恰好不在上下文里。**记录命名约定的那条笔记，因为作用域 id 随重命名变化而静默失效——笔记还在磁盘上，但新会话读不到它。它手上没有任何能解释这个矛盾的信息。&lt;/li>
-&lt;li>**长上下文 + 密集并行批次是催化剂。**单个 turn 有几十次模型请求、累计数百万 input token；出事前十几分钟内连续多个并行编辑批次，最后一批返回的同一秒，第一次告警出现。同一条文件路径在上下文里出现几十次，重复本身就会诱发&amp;quot;找出差异&amp;quot;的错觉。&lt;/li>
-&lt;li>**信念一旦确立就自我维持。**确认了第一个异常之后，后面每一条新观察都被解释成&amp;quot;环境在动手&amp;quot;，包括用户明确指出某个文件内容是对的之后。它中途还做过几次自我纠错，纠的是细节，假设没有动过。&lt;/li>
-&lt;li>**它缺少&amp;quot;我无法验证&amp;quot;这个档位。**它明明写下了&amp;quot;分不清这两个字符串&amp;quot;，却没有把结论降级为待验证假设，而是直接推出&amp;quot;环境篡改&amp;quot;。对模型来说，说&amp;quot;我看不清&amp;quot;比说&amp;quot;有人在害我&amp;quot;更难。&lt;/li>
+&lt;/h2>&lt;ul>
+&lt;li>**命名分裂是种子。**同一份东西在本地目录名、模块名、二进制名上是三个不同的名字，重命名只改了一部分。它手里有&amp;quot;应该叫什么&amp;quot;的先验，眼前是&amp;quot;实际叫什么&amp;quot;，对不上；它没去质疑先验，而是编出&amp;quot;多种拼写变体&amp;quot;把矛盾盖住。五类指控全是从这个种子长出来的。&lt;/li>
+&lt;li>**消解矛盾的那条事实恰好不在上下文里。**记录命名约定的笔记，因为作用域 id 随重命名变了而静默失效——笔记还在磁盘上，新会话读不到。它手上没有任何能解释矛盾的信息。&lt;/li>
+&lt;li>**长上下文加密集并行批次是催化剂。**出事的 turn 里有几十次模型请求、累计数百万 input token，告警前十几分钟连续多个并行编辑批次，最后一批返回的同一秒，第一次告警出现。同一条文件路径在上下文里出现几十次，重复本身就会诱发&amp;quot;找出差异&amp;quot;的错觉。&lt;/li>
+&lt;li>**信念自己会长。**第一个异常确认之后，后面每条新观察都被解释成&amp;quot;环境在动手&amp;quot;，包括用户明确指出某个文件内容是对的之后。中途它纠过几次细节，假设没动过。&lt;/li>
+&lt;li>**它缺&amp;quot;我无法验证&amp;quot;这一档。**写出&amp;quot;分不清这两个字符串&amp;quot;之后，它没把结论降级成假设，而是直接跳到&amp;quot;环境篡改&amp;quot;。对模型来说，说&amp;quot;我看不清&amp;quot;比说&amp;quot;有人在害我&amp;quot;难。&lt;/li>
 &lt;/ul>
-&lt;h2 id="模型侧fast-档模型在长-loop-里的失效模式">模型侧：fast 档模型在长 loop 里的失效模式
-&lt;/h2>&lt;hr>
-&lt;blockquote>
-&lt;p>这里必须把两件事分开，否则会把真实缺陷和幻觉混为一谈。&lt;/p>
-&lt;/blockquote>
-&lt;p>**真实存在的那部分：**同一时期它出现过真正的参数退化——批量编辑时引用了一个从未定义的标识符，&lt;code>go build&lt;/code> 直接报 &lt;code>undefined: &amp;lt;ident&amp;gt;&lt;/code>。这一次它的自诊断是准确的（&amp;ldquo;my tool-call emissions are hallucinated&amp;rdquo;）。所以它的警报并非完全无根据。&lt;/p>
-&lt;p>**被推演出来的那部分：**它把&amp;quot;我某次输出烂了&amp;quot;泛化成&amp;quot;工具层不可信&amp;quot;，然后在下一次遇到良性重复字符串时，用旧结论解释了新现象。&lt;/p>
-&lt;p>从这两条可以推出几条实操约束：&lt;/p>
-&lt;ul>
-&lt;li>**限制单批并行工具调用的规模。**并行编辑批次是退化高发区，批次越大越容易出引用错位的参数。&lt;/li>
-&lt;li>**每批之后放一个客观校验点。**编译、测试、&lt;code>git diff&lt;/code> 这类外部事实不可替代——模型无法用同一份上下文验证同一份上下文的可信度，这是自证循环。&lt;/li>
-&lt;li>**把&amp;quot;可疑&amp;quot;和&amp;quot;结论&amp;quot;分开归档。**可疑是信号，结论是假设；前者可以直接进交接文档，后者必须标注重信度。&lt;/li>
-&lt;li>**异常时的复核要绑定随机标记。**带 nonce 的终端命令能证明&amp;quot;命令与输出同源&amp;quot;，这是当时唯一没被自己怀疑过的手段。&lt;/li>
-&lt;/ul>
+&lt;h2 id="模型侧真实退化和幻觉要分开">模型侧：真实退化和幻觉要分开
+&lt;/h2>&lt;p>同期的真实退化是：批量编辑时引用了从未定义的标识符，go build 直接报 undefined: &lt;ident>。这一次它的自诊断是准的（&amp;ldquo;my tool-call emissions are hallucinated&amp;rdquo;）。&lt;/p>
+&lt;p>被推演出来的那部分是：它把&amp;quot;我某次输出烂了&amp;quot;泛化成&amp;quot;工具层不可信&amp;quot;，下次遇到良性重复字符串，就用旧结论解释新现象。于是有两条实操约束：&lt;/p>
+&lt;ol>
+&lt;li>**限制单批并行工具调用的规模。**并行编辑批次是退化高发区，批次越大越容易出现引用错位的参数&lt;/li>
+&lt;li>**每批之后放一个客观校验点。**编译、测试、git diff 这类外部事实没有替代品，模型没法用同一份上下文验证同一份上下文&lt;/li>
+&lt;/ol>
 &lt;h2 id="对-harness-的几点反思">对 harness 的几点反思
-&lt;/h2>&lt;hr>
-&lt;h3 id="不变量应该是一等公民">不变量应该是一等公民
-&lt;/h3>&lt;p>这次定性靠的三个指标——消息计数、调用/结果配对、日志名与调用 id 的对应——都是现成的，只是散落在事件日志和文件命名约定里，需要事后写脚本考古。如果它们能被查询（哪怕只是一条 &lt;code>doctor&lt;/code> 子命令），这类&amp;quot;我是不是丢了上下文&amp;quot;的争论可以在一分钟内结束。&lt;/p>
-&lt;h3 id="打断语义要显式">打断语义要显式
-&lt;/h3>&lt;p>用户在工作途中插话会中止当前 turn，这是正常控制流，记录里是 &lt;code>outcome=cancelled, cancellation_category=mid_turn_abort, trigger=send_now&lt;/code>，后续由 &lt;code>redirect_kind=queued_after_cancel&lt;/code> 接续。这一次的记录恰好足够细，所以能证明&amp;quot;中断是用户主动的，不是异常&amp;quot;。如果只写一个笼统的结束状态，排查时就会把中断当成故障——第一轮排查确实这么怀疑过。&lt;/p>
-&lt;h3 id="重命名要迁移作用域">重命名要迁移作用域
-&lt;/h3>&lt;p>项目改名会让记忆、索引、缓存的作用域 id 变化，旧内容静默变成孤儿。这次的幻觉种子就是它：那条消解命名矛盾的笔记，在改名后不再被注入上下文。这种&amp;quot;事实悄悄消失&amp;quot;比直接报错难查得多——报错会有人修，静默失效只会让模型自己编解释。&lt;/p>
-&lt;h3 id="交接文档要带来源与置信度">交接文档要带来源与置信度
-&lt;/h3>&lt;p>模型写的事故报告细节丰富、逻辑自洽、还附证据链。它被当成既成事实写进下一轮的交接文档后，直接污染了下一次判断——这次之所以排查了两轮，就是因为第一轮的结论来自模型自己的叙事。可行的做法：把模型自述显式标记为&amp;quot;叙事，未验证&amp;quot;，与结构证据分开存放，别让两者混在同一份文档的同一层次里。&lt;/p>
-&lt;h3 id="唯一的可靠观测面是-harness-自己的记录">唯一的可靠观测面是 harness 自己的记录
-&lt;/h3>&lt;pre class="mermaid" style="visibility:hidden">flowchart TD
+&lt;/h2>&lt;p>**不变量要能被查询。**这次定性靠的三个指标——消息计数、调用与结果配对、日志名与调用 id 的对应——都是现成的，只是散落在事件日志和文件命名约定里，得事后写脚本考古。做成一条 doctor 子命令，这类&amp;quot;我是不是丢了上下文&amp;quot;的争论一分钟就能结束。&lt;/p>
+&lt;p>**打断语义要显式。**用户在工作途中插话会中止当前 turn，这属于正常控制流，记录里是 outcome=cancelled / cancellation_category=mid_turn_abort / trigger=send_now，后续由 redirect_kind=queued_after_cancel 接续。这次记录够细，才能证明中断是用户主动的；如果只写一个笼统的结束状态，排查时就会把中断当故障——第一轮确实这么怀疑过。&lt;/p>
+&lt;p>**重命名要迁移作用域。**项目改名会让记忆、索引、缓存的作用域 id 变化，旧内容静默变成孤儿。这次的幻觉种子就是它：那条消解命名矛盾的笔记，改名后不再注入上下文。报错会有人修，静默失效只会让模型自己编解释。&lt;/p>
+&lt;p>**交接文档要带来源和置信度。**模型写的事故报告细节丰富、逻辑自洽、还附证据链，被当成既成事实写进下一轮交接文档后，直接污染了下一次判断。这次排查两轮，就是第一轮结论来自模型自己的叙事。两类内容分开放，别混在同一份文档的同一层次。&lt;/p>
+&lt;p>&lt;strong>观测面只有 harness 自己的记录可靠。&lt;/strong>&lt;/p>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart TD
 A[模型自述：我做过什么] -->|不可审计| X[只能当线索]
 B[转录 tool_calls / tool_result] --> Y[可机械化审计]
 C[事件日志：turn / 计数 / 取消原因] --> Y
 D[工具执行日志：文件名 = 调用 id] --> Y
 E[磁盘状态：git diff / 编译 / 测试] --> Z[最终裁决]
-Y --> Z&lt;/pre>&lt;blockquote>
-&lt;p>这张图是这次复盘最想留下的东西：把模型的叙述从&amp;quot;证据&amp;quot;降级成&amp;quot;线索&amp;quot;，把 harness 的记录从&amp;quot;副产物&amp;quot;升级成&amp;quot;证据&amp;quot;。前者是唯一无法审计的东西，后者恰恰是最容易被忽略的。&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="结语">结语
-&lt;/h2>&lt;hr>
-&lt;blockquote>
-&lt;p>判断&amp;quot;工具层是否可信&amp;quot;，看结构不变量；模型的自述降级为待验证线索。把一次真实的退化推演成一场并不存在的篡改，是长 loop 里的典型代价，也是这类事故叙事最危险的地方——它是对的，直到它错。&lt;/p>
-&lt;p>顺带一句：如果那种带证据链的自述出现在交接文档里，删掉它比修复它更划算。这次真正的成本不在误解，而在误解被写下来、被下一个会话继承。&lt;/p>
-&lt;/blockquote></description></item><item><title>两朵奇葩：Grok Build 与 ZCode 的整仓上传</title><link>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</link><pubDate>Fri, 18 Sep 2026 20:48:07 +0800</pubDate><guid>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</guid><description>&lt;img src="https://picsum.photos/seed/bdc37260/800/600" alt="Featured image of post 两朵奇葩：Grok Build 与 ZCode 的整仓上传" />&lt;h1 id="两朵奇葩grok-build-与-zcode-的整仓上传">两朵奇葩：Grok Build 与 ZCode 的整仓上传
+Y --> Z&lt;/pre>&lt;h2 id="小结">小结
+&lt;/h2>&lt;p>回收成一条检验标准：遇到&amp;quot;工具层不可信&amp;quot;这类自述，先看结构不变量——消息计数对不对得齐转录、调用和结果配不配得上、执行日志有没有孤儿；模型自述降级成线索，不参与定性。这次最贵的成本是误解被写进交接文档、被下一个会话继承。&lt;/p></description></item><item><title>两朵奇葩：Grok Build 与 ZCode 的整仓上传</title><link>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</link><pubDate>Fri, 18 Sep 2026 20:48:07 +0800</pubDate><guid>https://daidaij.github.io/p/zcode-grok-build-repo-upload/</guid><description>&lt;img src="https://picsum.photos/seed/bdc37260/800/600" alt="Featured image of post 两朵奇葩：Grok Build 与 ZCode 的整仓上传" />&lt;h1 id="两朵奇葩grok-build-与-zcode-的整仓上传">两朵奇葩：Grok Build 与 ZCode 的整仓上传
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>7 月 Grok Build 被抓包整库上传，xAI 用开源平息众怒；9 月 ZCode 同款翻车，官方回应&amp;quot;Repo Wiki 可能触发上传，数据立即销毁&amp;quot;。我把两件事的证据链拆开放在一起对照——两家的实现路径完全不同，但都做了同一件事：在你不知情的时候，把你整个代码仓库搬上云。&lt;/p>
