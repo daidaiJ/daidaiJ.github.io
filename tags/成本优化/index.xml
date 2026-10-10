@@ -1,4 +1,483 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>成本优化 on 潘达窝</title><link>https://daidaij.github.io/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96/</link><description>成本优化 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Tue, 26 May 2026 15:00:00 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>AI编程工具TokenPlan横评</title><link>https://daidaij.github.io/p/cost_plan/</link><pubDate>Tue, 26 May 2026 15:00:00 +0800</pubDate><guid>https://daidaij.github.io/p/cost_plan/</guid><description>&lt;img src="https://picsum.photos/seed/tokenplan/800/600" alt="Featured image of post AI编程工具TokenPlan横评" />&lt;h1 id="ai-编程工具-token-计划横评">AI 编程工具 Token 计划横评
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>成本优化 on 潘达窝</title><link>https://daidaij.github.io/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96/</link><description>成本优化 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sat, 10 Oct 2026 18:33:29 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>从调用次数到 token 账单：会话成本实测与长程任务的跨会话接力</title><link>https://daidaij.github.io/p/session-token-cost-and-handoff/</link><pubDate>Sat, 10 Oct 2026 18:33:29 +0800</pubDate><guid>https://daidaij.github.io/p/session-token-cost-and-handoff/</guid><description>&lt;img src="https://picsum.photos/seed/1574c666/800/600" alt="Featured image of post 从调用次数到 token 账单：会话成本实测与长程任务的跨会话接力" />&lt;h1 id="从调用次数到-token-账单会话成本实测与长程任务的跨会话接力">从调用次数到 token 账单：会话成本实测与长程任务的跨会话接力
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>这篇是对我自己 agent 会话账本的一次完整测算：133 个会话目录、65 个主会话落账本、合计 9,623 次模型调用、175.0M 计费等价 token。前半段是成本结构——单次调用多少钱、为什么累计成本对调用次数是平方的、压缩把曲线压到哪、换会话要交多少入场费；后半段是我为长程任务写的 handoff skill，以及接力链在同一个口径下的实测数字。所有数字都能从本机 &lt;code>~/.grok&lt;/code> 下的账本复现，全文不带价目表、不用金额。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="账本在哪怎么算">账本在哪，怎么算
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>先把计量口径钉死，后面所有结论都建立在这几个等式上。&lt;/p>
+&lt;/blockquote>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>文件&lt;/th>
+&lt;th>粒度&lt;/th>
+&lt;th>用途&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>~/.grok/sessions/&amp;lt;cwd&amp;gt;/&amp;lt;session-id&amp;gt;/usage.json&lt;/code>&lt;/td>
+&lt;td>每会话 + 每轮&lt;/td>
+&lt;td>权威口径：&lt;code>inputTokens&lt;/code> / &lt;code>cachedReadTokens&lt;/code> / &lt;code>cacheCreationTokens&lt;/code> / &lt;code>outputTokens&lt;/code> / &lt;code>modelCalls&lt;/code> / &lt;code>turnCount&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>~/.grok/cache/model-usage.jsonl&lt;/code>&lt;/td>
+&lt;td>每次 API 调用一条&lt;/td>
+&lt;td>&lt;code>promptTokens&lt;/code> / &lt;code>cachedPromptTokens&lt;/code> / &lt;code>completionTokens&lt;/code> + 时间戳（&lt;strong>无 sessionId&lt;/strong>，跨会话归属只能靠时间窗近似）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>&amp;lt;session&amp;gt;/prompt_context.json&lt;/code>、&lt;code>tool_definitions.json&lt;/code>、&lt;code>system_prompt.txt&lt;/code>&lt;/td>
+&lt;td>每会话&lt;/td>
+&lt;td>前缀载荷：这次注入了哪份 AGENTS.md、工具定义多大、系统提示多长&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>一个先说的坑：&lt;code>updates.jsonl&lt;/code> 里每条流事件的 &lt;code>_meta.totalTokens&lt;/code> 是&lt;strong>当前上下文规模的实时指针&lt;/strong>，压缩后会回落，拿它累加会得出荒谬的结论。&lt;/p>
+&lt;p>计费等价口径（同一模型费率，缓存读按 0.1×）：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">billed = (input − cachedRead) × 1 + cachedRead × 0.1 + output × 1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>0.1× 这个系数不是从价目表抄的。在 42 个调用数 ≥100 的主会话上做 &lt;code>billed/call&lt;/code> 对 &lt;code>ctx/call&lt;/code> 的回归，得到 &lt;code>billed/call = 2,869 + 0.1005 × ctx/call&lt;/code>，R² = 0.911——斜率落在缓存读的费率上，而不是 1。另一个佐证是缓存读占 raw input 的 98.5%：如果缓存读按全价计费，这个回归的斜率不可能停在 0.1。&lt;/p>
+&lt;/blockquote>
+&lt;p>本机全量（65 个主会话、9,623 次调用、175.0M billed）的成本构成：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>项&lt;/th>
+&lt;th>量&lt;/th>
+&lt;th>占比&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>缓存读（&lt;code>cachedRead × 0.1&lt;/code>）&lt;/td>
+&lt;td>145.7M&lt;/td>
+&lt;td>83%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>未命中输入&lt;/td>
+&lt;td>21.9M&lt;/td>
+&lt;td>13%&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>输出&lt;/td>
+&lt;td>7.4M&lt;/td>
+&lt;td>4%&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="单次调用多少钱只看当前上下文有多大">单次调用多少钱：只看当前上下文有多大
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>42 个调用数 ≥100 的主会话，按 ctx/call 排开。这两个量几乎是同一条直线。&lt;/p>
+&lt;/blockquote>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>会话&lt;/th>
+&lt;th>调用次数&lt;/th>
+&lt;th>ctx/call&lt;/th>
+&lt;th>billed/call&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>01a105d8&lt;/td>
+&lt;td>331&lt;/td>
+&lt;td>58.8k&lt;/td>
+&lt;td>8,377&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a105aa&lt;/td>
+&lt;td>334&lt;/td>
+&lt;td>81.4k&lt;/td>
+&lt;td>10,685&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a124f3&lt;/td>
+&lt;td>310&lt;/td>
+&lt;td>112.2k&lt;/td>
+&lt;td>14,210&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a11024&lt;/td>
+&lt;td>218&lt;/td>
+&lt;td>131.8k&lt;/td>
+&lt;td>15,278&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a116ce&lt;/td>
+&lt;td>226&lt;/td>
+&lt;td>142.2k&lt;/td>
+&lt;td>15,750&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a1106e&lt;/td>
+&lt;td>257&lt;/td>
+&lt;td>173.1k&lt;/td>
+&lt;td>19,011&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a124b7&lt;/td>
+&lt;td>285&lt;/td>
+&lt;td>184.7k&lt;/td>
+&lt;td>19,996&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a0ed2c&lt;/td>
+&lt;td>838&lt;/td>
+&lt;td>185.1k&lt;/td>
+&lt;td>21,759&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a1239c&lt;/td>
+&lt;td>320&lt;/td>
+&lt;td>199.1k&lt;/td>
+&lt;td>21,557&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a12058&lt;/td>
+&lt;td>248&lt;/td>
+&lt;td>207.9k&lt;/td>
+&lt;td>23,970&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>01a1232d&lt;/td>
+&lt;td>353&lt;/td>
+&lt;td>235.8k&lt;/td>
+&lt;td>26,106&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>换成一眼能用的口诀：&lt;strong>每 10k 常驻上下文，每次调用多 ~1.0k 计费 token&lt;/strong>。注意第一行和最后一行——调用次数差 2.5 倍，而单次成本差 2.6 倍，可见决定单次价格的是 ctx/call，跟调用次数没关系。&lt;strong>调用次数本身不产生成本，&amp;ldquo;上下文规模 × 调用次数&amp;quot;才产生成本。&lt;/strong> 缓存让第二次之后的重发便宜十倍，但重发这个动作没有消失。&lt;/p>
+&lt;h2 id="增长律累计成本对调用次数是平方的">增长律：累计成本对调用次数是平方的
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>会话里的上下文自己会长：工具输出、文件读、模型思考都往里加。实测 30 个未压缩主会话的逐轮上下文，线性拟合的斜率中位数：&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">ctx(k) ≈ 28,000 + 1,062 × (k − 1) raw token
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> g 中位 1,062（p25 937，p75 1,366）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> c0 取实测冷启动第一调用的中值档（19k–34k，见下节）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>代进计费式，得到两个可以直接用的公式：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">第 k 次调用 billed(k) ≈ 3,915 + 123 × (k − 1)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">累计 n 次 cum(n) ≈ 3,850·n + 61.3·n²
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>k&lt;/th>
+&lt;th>单次边际&lt;/th>
+&lt;th>累计到 n&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>3.9k&lt;/td>
+&lt;td>—&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>100&lt;/td>
+&lt;td>16.1k&lt;/td>
+&lt;td>1.0M&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>300&lt;/td>
+&lt;td>40.6k&lt;/td>
+&lt;td>6.7M&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>800&lt;/td>
+&lt;td>101.9k&lt;/td>
+&lt;td>42.3M&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>margin 里 86% 是缓存重读项。也就是说：哪怕每一次调用都便宜十倍，只要上下文一直涨，&amp;ldquo;重发一个越来越大的前缀&amp;quot;这件事本身就把账单推成平方。&lt;/p>
+&lt;blockquote>
+&lt;p>累计那一列是这篇最该记住的数字：调用次数翻倍，累计成本涨到接近四倍。一个&amp;quot;能干&amp;quot;的长会话不是线性地贵，是平方地贵——这跟我直觉里&amp;quot;多跑几轮没多少钱&amp;quot;完全相反。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="谁在重置上下文压缩">谁在重置上下文：压缩
+&lt;/h2>&lt;hr>
+&lt;p>本机实测到的压缩事件：7 个会话、12 次压缩请求，&lt;strong>全部 &lt;code>trigger: manual&lt;/code>&lt;/strong>。&lt;code>config.toml&lt;/code> 里 &lt;code>context_window = 1,048,576&lt;/code>，85% 自动阈值 ≈ 890k，而实测触发水位是 213k / 235k / 255k / 262k / 312k / 388k / 394k——自动压缩一次都没被踩到。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>项&lt;/th>
+&lt;th>实测&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>手动压缩触发水位&lt;/td>
+&lt;td>21 万–39 万 token&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>自动阈值（85% × 1M）&lt;/td>
+&lt;td>~890k，从未触发&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>12 次请求中失败&lt;/td>
+&lt;td>3 次（1 次 API 400，2 次网络错误重试 3 次仍失败）&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>第三行值得单独记一笔：压缩不是无条件可用的重置手段，它自己会失败。失败之后会话还停在原地、上下文还在涨，你得重试或者换手段。&lt;/p>
+&lt;/blockquote>
+&lt;p>拿链内实测的工作量（后面那 3,253 次调用）做同口径对照，把同一批活放进一个会话，只改重置水位：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>重置策略&lt;/th>
+&lt;th>billed&lt;/th>
+&lt;th>相对 handoff 接力链&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>不重置&lt;/td>
+&lt;td>661.5M&lt;/td>
+&lt;td>9.9×&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>890k（85% 自动压缩）&lt;/td>
+&lt;td>166.5M&lt;/td>
+&lt;td>&lt;strong>2.50×&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>400k&lt;/td>
+&lt;td>78.8M&lt;/td>
+&lt;td>1.18×&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>300k（观测到的手动水位）&lt;/td>
+&lt;td>62.4M&lt;/td>
+&lt;td>&lt;strong>0.94×&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>200k&lt;/td>
+&lt;td>43.7M&lt;/td>
+&lt;td>0.66×&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>这张表只能看量级和方向，不能看小数点。单会话离散非常大：我用同一套参数去预测 20 个真实未压缩长会话，模型与实测的比值从 0.57 到 2.88 都有。原因是起手上下文、每轮增量、未命中占比逐会话不同，&lt;code>g&lt;/code> 的 p25–p75 本身就有 1.4 倍差距。&lt;/p>
+&lt;/blockquote>
+&lt;p>一个不用任何模型的实测锚点：&lt;code>01a0ed2c&lt;/code> 是单会话 838 次调用、2 次手动 &lt;code>/compact&lt;/code>，实测 18.23M billed、21.8k billed/call、ctx/call 185k。接力链是 20.5k billed/call、ctx/call 179k。&lt;strong>在同样把上下文水位按住的前提下，换会话和手动压缩的 token 成本是打平的。&lt;/strong>&lt;/p>
+&lt;h2 id="换会话不是免费的重启税">换会话不是免费的：重启税
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>每个新会话的第一次调用是一笔固定入场费：系统提示 + 工具定义 + 注入的项目文档 + 首条用户消息，全部未命中。&lt;/p>
+&lt;/blockquote>
+&lt;p>pgo-fork 项目的冷启动第一调用实测（&lt;code>cachedPromptTokens = 0&lt;/code>）：23,243 / 23,434 / 24,370 token。拆开 23.2k：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>载荷&lt;/th>
+&lt;th>token（估算）&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>工具定义 27 个&lt;/td>
+&lt;td>61,485 B&lt;/td>
+&lt;td>≈15.4k&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>系统提示&lt;/td>
+&lt;td>11,913 B&lt;/td>
+&lt;td>≈3.0k&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>AGENTS.md 注入&lt;/td>
+&lt;td>7,676 B&lt;/td>
+&lt;td>≈1.9k&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>首条用户消息 + 脚手架&lt;/td>
+&lt;td>—&lt;/td>
+&lt;td>≈2.9k&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>大头是工具定义，比项目文档高一个数量级，而且它每轮都在上下文里、每次调用都重发（按缓存价 0.1×）。这一项基本由&amp;quot;工具面上挂了多少工具&amp;quot;直接决定——这也是我一直在给 MCP 工具面做减法的原因。&lt;/p>
+&lt;/blockquote>
+&lt;p>AGENTS.md 是唯一我能在几分钟里改掉的那一项。17 个会话的冷启动第一调用对注入载荷，是一条很干净的线：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>会话启动&lt;/th>
+&lt;th>注入的 AGENTS.md&lt;/th>
+&lt;th>冷启动第一调用&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>10-04 14:46&lt;/td>
+&lt;td>1,858 B&lt;/td>
+&lt;td>19,127&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10-07 21:27&lt;/td>
+&lt;td>6,612 B&lt;/td>
+&lt;td>22,464&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10-09 19:07&lt;/td>
+&lt;td>20,924 B&lt;/td>
+&lt;td>29,420&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10-10 13:37&lt;/td>
+&lt;td>37,655 B&lt;/td>
+&lt;td>33,249&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10-10 14:14&lt;/td>
+&lt;td>41,195 B&lt;/td>
+&lt;td>34,408&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10-10 15:29（瘦身后）&lt;/td>
+&lt;td>6,351 B&lt;/td>
+&lt;td>&lt;strong>23,243&lt;/strong>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>六天里这份文件从 1.8 KB 涨到 41.2 KB，冷启动第一调用跟着从 19.1k 涨到 34.4k；砍回 6.4 KB 后掉回 23.2k。按 ≥12 KB 和 &amp;lt;12 KB 分两组，中位数分别是 31,159 和 22,464 token。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">注入载荷每多 1 KB ≈ 每次冷启动多 ~390 token
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;blockquote>
+&lt;p>600 行的 AGENTS.md 不是理论风险。它在我的账本上把&amp;quot;进入工作空间&amp;quot;这件事的成本抬高了 80%，而且它每次调用都跟着重发一遍。我后来给 handoff skill 加了防膨胀条款（下面细说），起因就是这组数。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="handoff把重置的时机和内容拿回自己手里">handoff：把&amp;quot;重置&amp;quot;的时机和内容拿回自己手里
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>压缩和换会话是同一个机制（丢掉上下文、留下摘要）的两种实现。区别是压缩的触发权在水位线，换会话的触发权在任务边界。handoff 是我为此写的 skill。&lt;/p>
+&lt;/blockquote>
+&lt;p>它只做一件事：把当前会话的工作进度固化成下一个会话能自动接续的记录，再通过 &lt;code>AGENTS.md&lt;/code> 的入口摘要块建立关联。结构是两层：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">AGENTS.md 摘要块（≤10 行/块，入口层——恢复场景读到这里通常就够）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> └─ .handoff/&amp;lt;任务名&amp;gt;.md（热层详情，覆盖写；完成 → archive/ 冷层）
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> └─ 卡内指针 → 专题文档（规格分册 / 取证附录 / pitfalls）
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>几条我认为是设计上的关键：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>卡核心只有两块&lt;/strong>：①上一批完成记录（commit、测试证据路径、权威规格各一行，接手者能审计&amp;quot;上批真落地了吗&amp;rdquo;）②交接任务单（做什么 / 计划在哪 / 怎么验收 / 约束）。其余一律摘要 + 指针。&lt;/li>
+&lt;li>&lt;strong>入口层是状态快照，不是增量日志&lt;/strong>：单块 ≤10 行、原地整块覆盖写、禁止&amp;quot;上一批/上一阶段&amp;quot;式的历史叙事。这条被自己的项目验证过反面案例：AGENTS.md 每轮追加一张批次卡，涨到 500+ 行，冷启动 +80%，最后只能下令砍回摘要。&lt;/li>
+&lt;li>&lt;strong>冷热分离&lt;/strong>：已完成的小节、已验证的检查项、失效的开口项随每次更新移出热层，历史整段进 &lt;code>.handoff/archive/&lt;/code>（只追加、不改写）。&lt;/li>
+&lt;li>&lt;strong>不重复存储&lt;/strong>：外部文档已有的内容只放指针，卡里整段复述 = 腐化，当场砍。这条直接决定卡的尺寸。&lt;/li>
+&lt;li>&lt;strong>渐进式披露&lt;/strong>：&lt;code>SKILL.md&lt;/code> 只留路由和原则（4.9 KB / 51 行），写交接和恢复交接的细节分别在 &lt;code>references/writing.md&lt;/code> 和 &lt;code>references/recovery.md&lt;/code>，按场景加载，不整篇吞。&lt;/li>
+&lt;li>&lt;strong>交接链自足&lt;/strong>：凭入口摘要块 + 卡内指针就能定位全部详情文档并交付任务，脱离会话记忆。指针靠仓库自身的文件，不靠记忆。&lt;/li>
+&lt;/ul>
+&lt;h3 id="git-同步开关">git 同步开关
+&lt;/h3>&lt;hr>
+&lt;p>&lt;code>.handoff/&lt;/code> 默认写进 &lt;code>.gitignore&lt;/code>。理由是交接记录是本地现场，带着噪音和可能的隐私（密钥、私有配置），不该进仓库历史。用户明确要求跨设备同步时，才摘掉 ignore，让交接记录跟着仓库走。&lt;/p>
+&lt;blockquote>
+&lt;p>顺带实测一个 gitignore 的坑：&lt;strong>父目录被整体排除后，目录内文件的 &lt;code>!&lt;/code> 反选一律不生效&lt;/strong>。&lt;code>/.handoff/&lt;/code> 还在 &lt;code>.gitignore&lt;/code> 里时，写 &lt;code>!.handoff/handoff.md&lt;/code> 是个静默的 no-op——&lt;code>git status&lt;/code> 里什么都不会出现，你甚至不会收到任何警告。要么删掉整行，要么改写成 &lt;code>/.handoff/*&lt;/code> + &lt;code>!/.handoff/handoff.md&lt;/code>。这两种写法我在一个临时仓库里各验证过一遍。&lt;/p>
+&lt;/blockquote>
+&lt;p>跨设备还有第二个前提：卡里的指针得跟着走。我的 pgo-fork 项目里卡有两份——&lt;code>.handoff/handoff.md&lt;/code>，以及知识库中央库里的 &lt;code>wiki/port/handoff.md&lt;/code>。后者跟着知识库自己同步，因为项目里的 &lt;code>wiki/&lt;/code> 是符号链接、不在 git 里；只同步 &lt;code>.handoff/&lt;/code> 的话，卡里那些 &lt;code>wiki/port/...&lt;/code> 指针换台机器就悬空了。&lt;/p>
+&lt;h2 id="接力链的实测">接力链的实测
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>口径：pgo-fork 项目 10-07 到 10-10，凡是读写过 &lt;code>.handoff/&lt;/code> 的主会话都算链内会话。识别方法是 &lt;code>updates.jsonl&lt;/code> 里工具调用的 &lt;code>rawInput&lt;/code> 路径含 &lt;code>.handoff&lt;/code>。&lt;/p>
+&lt;/blockquote>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>指标&lt;/th>
+&lt;th>实测&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>会话 / 轮次&lt;/td>
+&lt;td>16（15 个已落账本）/ 49&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>模型调用&lt;/td>
+&lt;td>3,253&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>raw input&lt;/td>
+&lt;td>582.1M（98.9% 是缓存读）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>billed（0.1× 口径）&lt;/td>
+&lt;td>66.62M&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>billed/call&lt;/td>
+&lt;td>20,480&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>ctx/call&lt;/td>
+&lt;td>178,935&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>.handoff&lt;/code> 相关工具调用&lt;/td>
+&lt;td>138（占模型调用 4.2%）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>每次接力的重启税&lt;/td>
+&lt;td>23.2k × 15 ≈ 0.35M（链内 input 的 0.06%）&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>三条结论：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>token 上打平。&lt;/strong> 对照已经用手动压缩控制水位的单会话（&lt;code>01a0ed2c&lt;/code>），接力链是 0.94–1.0×——不省，也不亏。差距出现在对照&amp;quot;放任到自动阈值&amp;quot;那一档，那里是 2.5×。&lt;/li>
+&lt;li>&lt;strong>胶水很便宜。&lt;/strong> &lt;code>.handoff&lt;/code> 读写调用占模型调用 4.2%，重启税占链内 input 的 0.06%。handoff 的机制开销可以忽略，也就意味着它的收益上限不在这里——&lt;strong>它不是靠省操作费取胜的&lt;/strong>。&lt;/li>
+&lt;li>&lt;strong>省 token 的大头在&amp;quot;卡有多小&amp;rdquo;。&lt;/strong> 把 27.3 KB 的卡（393 行）瘦到 2.96 KB（52 行），每个接力会话在读完卡之后的每一次调用都少 7k token 的缓存重发。按链内平均会话长度 217 次调用算，单会话省约 15.8 万计费 token，整链约 2.4M，占链内计费 3.6%。&lt;/li>
+&lt;/ol>
+&lt;h2 id="我的结论">我的结论
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>handoff 不是省 token 的工具。它的价值是把&amp;quot;上下文重置&amp;quot;的&lt;strong>时机&lt;/strong>和&lt;strong>内容&lt;/strong>从系统手里拿回来：什么时候重置由任务边界决定，而不是由水位线决定；重置后保留什么是可核查的完成记录 + 任务单，而不是模型生成的一段摘要。&lt;/p>
+&lt;/blockquote>
+&lt;p>压缩之后你还敢不敢接着干，取决于摘要里有没有留下&amp;quot;上批真落地了吗&amp;quot;的证据。这一点上压缩和 handoff 不是一回事——压缩换来的上下文空间，代价是你无法审计它丢了什么。&lt;/p>
+&lt;p>而省下来的 token 是副产品，省在哪还挺反直觉：不是省调用次数（胶水调用才 4%），不是省重启税（0.06%），而是省&amp;quot;每次调用都要重发一遍的那点东西&amp;quot;。这条规律对项目文档和工具面同样成立：AGENTS.md 膨胀到 41 KB 那次，代价是每次冷启动 +15k token；而只要会话还在继续，这多出来的 15k 每轮都要按缓存价再交一遍。手上真正能立刻改小的东西不多，这两个是其中最大的两个。&lt;/p></description></item><item><title>AI编程工具TokenPlan横评</title><link>https://daidaij.github.io/p/cost_plan/</link><pubDate>Tue, 26 May 2026 15:00:00 +0800</pubDate><guid>https://daidaij.github.io/p/cost_plan/</guid><description>&lt;img src="https://picsum.photos/seed/tokenplan/800/600" alt="Featured image of post AI编程工具TokenPlan横评" />&lt;h1 id="ai-编程工具-token-计划横评">AI 编程工具 Token 计划横评
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>用同一份月度用量，算算 DeepSeek V4 Pro API 直调、opencode Go、Mimo Token Plan 这三种方案到底差多少钱。&lt;/p>
