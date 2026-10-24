@@ -1,37 +1,23 @@
 {{- if .Store.Get "hasMermaid" -}}
 <script type="module">
-    import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
-        .then(({ default: mermaid }) => {
+    // Pele：同步渲染 SVG，颜色走 --pele-* CSS 变量，明暗切换无需重渲染
+    import('https://cdn.jsdelivr.net/npm/pele@1.9.0/dist/pele.min.js')
+        .then(({ mount, PeleError }) => {
             const elements = Array.from(document.querySelectorAll('.mermaid'));
             if (!elements.length) return;
-            const sources = elements.map(el => el.innerHTML);
-            let currentScheme = null;
-
-            const render = () => {
-                const scheme = document.documentElement.dataset.scheme;
-                if (scheme === currentScheme) return;
-                currentScheme = scheme;
-
-                const dark = scheme === 'dark';
-                mermaid.initialize({
-                    startOnLoad: false,
-                    theme: dark ? 'dark' : 'neutral',
-                    securityLevel: 'strict'
-                });
-                elements.forEach((el, i) => {
-                    el.removeAttribute('data-processed');
-                    el.innerHTML = sources[i];
-                });
-                return mermaid.run({ nodes: elements }).then(() => {
-                    elements.forEach(el => { el.style.visibility = ''; });
-                });
-            };
-
-            render();
-            window.addEventListener('onColorSchemeChange', render);
+            elements.forEach(el => {
+                try {
+                    mount(el, el.textContent);
+                } catch (error) {
+                    if (!(error instanceof PeleError)) throw error;
+                    console.warn('Pele 渲染失败，图表将显示为代码块:', error.message);
+                }
+                el.style.visibility = '';
+            });
         })
         .catch((error) => {
-            console.warn('Mermaid 加载失败，图表将显示为代码块:', error);
+            console.warn('Pele 加载失败，图表将显示为代码块:', error);
+            document.querySelectorAll('.mermaid').forEach(el => { el.style.visibility = ''; });
         });
 </script>
 {{- end -}}

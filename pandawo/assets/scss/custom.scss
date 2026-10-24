@@ -672,10 +672,43 @@ kbd {
     text-align: center;
     overflow-x: auto;
 
+    // Pele 主题变量：颜色引用主题变量，明暗切换自动生效
+    --pele-bg: transparent;
+    --pele-fg: var(--card-text-color-main);
+    --pele-line: var(--card-text-color-main);
+    --pele-muted: var(--card-text-color-secondary);
+    --pele-surface: var(--body-background);
+    --pele-surface-alt: var(--card-background-selected);
+    --pele-border: var(--card-separator-color);
+    --pele-font: var(--article-font-family);
+    --pele-font-mono: var(--code-font-family);
+    --pele-radius: 8px;
+
     svg {
       max-width: 100%;
       height: auto;
       background: transparent;
+    }
+  }
+
+  [data-scheme="dark"] .article-content .mermaid {
+    // 暗色卡片上的节点描边需要比分隔线更实
+    --pele-border: rgba(255, 255, 255, 0.3);
+  }
+
+  //---------------------------------------------------
+  // 明暗切换按钮文案随当前方案变化（显示将要切换到的模式）
+  .scheme-label-to-light {
+    display: none;
+  }
+
+  [data-scheme="dark"] {
+    .scheme-label-to-dark {
+      display: none;
+    }
+
+    .scheme-label-to-light {
+      display: inline;
     }
   }
 
