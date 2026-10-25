@@ -1,0 +1,274 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content='轻量服务器加固实践：五层防线与零新增组件 一台 2C2G 的腾讯云 Debian 13，公网开着 22 端口，定位是"只部署不构建"。两轮加固做下来，新增软件包数量是零，全部改动落在配置层和系统能力上。这篇记录完整的加固清单、几个选型判断，以及两处翻车。 '><title>轻量服务器加固实践：五层防线与零新增组件 - 潘达窝</title>
+<link rel=canonical href=https://daidaij.github.io/p/lightweight-server-hardening/><link rel=stylesheet href=/scss/style.min.2c7a02ba4a7e2a94c6f1170479e3f01d7929518e1ca478ad6155c90d3315a0e1.css><meta property='og:title' content="轻量服务器加固实践：五层防线与零新增组件 - 潘达窝"><meta property='og:description' content='轻量服务器加固实践：五层防线与零新增组件 一台 2C2G 的腾讯云 Debian 13，公网开着 22 端口，定位是"只部署不构建"。两轮加固做下来，新增软件包数量是零，全部改动落在配置层和系统能力上。这篇记录完整的加固清单、几个选型判断，以及两处翻车。 '><meta property='og:url' content='https://daidaij.github.io/p/lightweight-server-hardening/'><meta property='og:site_name' content='潘达窝'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='linux'><meta property='article:tag' content='ssh'><meta property='article:tag' content='安全'><meta property='article:tag' content='性能优化'><meta property='article:published_time' content='2026-10-25T11:33:10+08:00'><meta property='article:modified_time' content='2026-10-25T11:33:10+08:00'><meta property='og:image' content='https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60'><meta name=twitter:title content="轻量服务器加固实践：五层防线与零新增组件 - 潘达窝"><meta name=twitter:description content='轻量服务器加固实践：五层防线与零新增组件 一台 2C2G 的腾讯云 Debian 13，公网开着 22 端口，定位是"只部署不构建"。两轮加固做下来，新增软件包数量是零，全部改动落在配置层和系统能力上。这篇记录完整的加固清单、几个选型判断，以及两处翻车。 '><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://picsum.photos/seed/02bb8459/800/600'><link rel="shortcut icon" href=/favicon.ico><link rel=preconnect href=https://cdn.jsdelivr.net crossorigin><link rel=dns-prefetch href=https://cdn.jsdelivr.net><link rel=preconnect href=https://images.metmuseum.org crossorigin><link rel=dns-prefetch href=https://images.metmuseum.org><link rel=preconnect href=https://images.unsplash.com crossorigin><link rel=dns-prefetch href=https://images.unsplash.com><link rel=preconnect href=https://wsrv.nl crossorigin><link rel=dns-prefetch href=https://wsrv.nl><link rel=preconnect href=https://picsum.photos><link rel=dns-prefetch href=https://picsum.photos><link rel=preconnect href=https://fastly.picsum.photos crossorigin><link rel=dns-prefetch href=https://fastly.picsum.photos><link rel=alternate type=application/rss+xml title=潘达窝 href=https://daidaij.github.io/index.xml><script>(function(){var t,n,r,i="pw-cover-v2",f=864e5,e=["met","unsplash","picsum"],s={met:"https://images.metmuseum.org/CRDImages/ep/web-large/DT1502_cropped2.jpg",unsplash:"https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=32&h=32&fit=crop&q=10",picsum:"https://picsum.photos/id/237/32/32.webp",wsrv:"https://wsrv.nl/?url=wsrv.nl/lichtenstein.jpg&w=32&h=32"};function o(){try{var e=JSON.parse(localStorage.getItem(i)||"");if(e&&e.order&&e.order.length&&Date.now()-e.ts<f)return e.order}catch{}return null}function l(e){try{localStorage.setItem(i,JSON.stringify({order:e,ts:Date.now()}))}catch{}}t=o()||["wsrv","weserv","met","unsplash","picsum"];function d(n){for(var i,r=n.getAttribute("data-primary")||"met",s=[r,"wsrv","weserv"],a=t.concat(e),o=0;o<a.length;o++)i=a[o],s.indexOf(i)===-1&&s.push(i);return s}function u(e){for(var n,s,i=d(e),t=[],o=0;o<i.length;o++)n=e.getAttribute("data-"+i[o]),n&&t.indexOf(n)===-1&&t.push(n);return s=e.getAttribute("src"),s&&t.indexOf(s)===-1&&t.unshift(s),t}function a(e){if(e.getAttribute("data-pw-bound"))return;e.setAttribute("data-pw-bound","1");var t,n=u(e);if(!n.length)return;t=n.indexOf(e.getAttribute("src")||""),t<0&&(t=0),e.addEventListener("error",function(){t+=1,t<n.length&&(e.src=n[t])})}function h(e){if(!e||e.nodeType!==1)return;if(e.matches&&e.matches("img[data-cover-fallback]")&&a(e),e.querySelectorAll)for(var n=e.querySelectorAll("img[data-cover-fallback]"),t=0;t<n.length;t++)a(n[t])}r=new MutationObserver(function(e){for(var t,s,n=0;n<e.length;n++)for(s=e[n].addedNodes,t=0;t<s.length;t++)h(s[t])}),r.observe(document.documentElement,{childList:!0,subtree:!0});function m(e){return new Promise(function(t,n){var s=new Image,i=performance.now(),o=setTimeout(function(){s.src="",n(new Error("timeout"))},2500);s.onload=function(){clearTimeout(o),t(performance.now()-i)},s.onerror=function(){clearTimeout(o),n(new Error("error"))},s.src=e})}function c(){if(o())return;var n=Object.keys(s);Promise.all(n.map(function(e){return m(s[e]).then(function(t){return{k:e,ms:t}}).catch(function(){return{k:e,ms:1e9}})})).then(function(n){n.sort(function(e,t){return e.ms-t.ms});for(var i,s=["wsrv","weserv"],o=0;o<n.length;o++)n[o].ms<1e9&&s.indexOf(n[o].k)===-1&&s.push(n[o].k);for(i=0;i<e.length;i++)s.indexOf(e[i])===-1&&s.push(e[i]);l(s),t=s})}n=function(){window.requestIdleCallback?requestIdleCallback(c,{timeout:4e3}):setTimeout(c,2e3)},document.readyState==="complete"?n():window.addEventListener("load",n)})()</script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css media=print onload='this.media="all"'><noscript><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-web@1.7.0/style.css></noscript><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"pandazhangs","url":"https://github.com/daidaiJ"},"dateModified":"2026-10-25T11:33:10+08:00","datePublished":"2026-10-25T11:33:10+08:00","description":"轻量服务器加固实践：五层防线与零新增组件 一台 2C2G 的腾讯云 Debian 13，公网开着 22 端口，定位是\u0026#34;只部署不构建\u0026#34;。两轮加固做下来，新增软件包数量是零，全部改动落在配置层和系统能力上。这篇记录完整的加固清单、几个选型判断，以及两处翻车。 ","headline":"轻量服务器加固实践：五层防线与零新增组件","image":"https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800\u0026h=600\u0026fit=crop\u0026auto=format\u0026q=60","inLanguage":"zh-CN","keywords":"linux, ssh, 安全, 性能优化","mainEntityOfPage":{"@id":"https://daidaij.github.io/p/lightweight-server-hardening/","@type":"WebPage"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"https://daidaij.github.io/favicon.ico"},"name":"潘达窝"}}</script></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky" id=left-sidebar><button class=sidebar-collapse-btn type=button id=collapse-left aria-label=折叠侧边栏 title=折叠侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+<button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/panda_hu120629243187970115.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🥤</span></figure><div class=site-meta><div class=site-name><a href=/>潘达窝</a></div><h2 class=site-description>潘达张的个人博客</h2></div></header><div class=sidebar-collapsed-panel><button class=collapsed-btn type=button data-collapse-action=expand title=展开侧边栏>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+<span>展开</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=menu title=打开菜单>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+<span>菜单</span>
+</button>
+<button class=collapsed-btn type=button data-collapse-action=dark title=切换明暗模式>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132.0.263.0.393.0a7.5 7.5.0 007.92 12.369A9 9 0 1112 3z"/></svg>
+<span><span class=scheme-label-to-dark>暗色</span>
+<span class=scheme-label-to-light>亮色</span></span></button></div><ol class=menu-social><li><a href=https://github.com/daidaiJ target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href=/index.xml target=_blank title=RSS rel=me><svg class="icon icon-tabler icon-tabler-rss" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="5" cy="19" r="1"/><path d="M4 4a16 16 0 0116 16"/><path d="M4 11a9 9 0 019 9"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle title=切换明暗模式><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span><span class=scheme-label-to-dark>暗色模式</span>
+<span class=scheme-label-to-light>亮色模式</span></span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky" id=right-sidebar><button class=sidebar-collapse-btn type=button id=collapse-right aria-label=折叠侧边栏 title=折叠侧边栏><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#先审计再动手>先审计，再动手</a></li><li><a href=#入口层nftables-默认-drop>入口层：nftables 默认 DROP</a></li><li><a href=#认证层sshd-只认密钥>认证层：sshd 只认密钥</a></li><li><a href=#防爆破sshd-100-已经内置了一套>防爆破：sshd 10.0 已经内置了一套</a></li><li><a href=#内核层把提权原语直接砍掉>内核层：把提权原语直接砍掉</a></li><li><a href=#资源优化加固顺手做的>资源优化：加固顺手做的</a></li><li><a href=#面向-agent-和脚本为什么打不进来>面向 agent 和脚本：为什么打不进来</a></li><li><a href=#踩坑记录>踩坑记录</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/lightweight-server-hardening/><img src="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=eager decoding=async fetchpriority=high alt="Featured image of post 轻量服务器加固实践：五层防线与零新增组件" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DP-17408-001.jpg data-unsplash="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/02bb8459/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></a></div><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/>技术笔记</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/lightweight-server-hardening/>轻量服务器加固实践：五层防线与零新增组件</a></h2></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>2026-10-25</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div><div><time class=article-words>2958 字</time></div></footer></div></header><section class=article-content><div class=music-lazy data-music-id=5264842><button type=button>♪ 点击加载音乐播放器</button></div><script>(function(){var n="https://api.injahow.cn/meting/?server=netease&type=song&id=",s="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css",o="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js",i=5e3,a=8e3,e={name:"渡口",artist:"蔡琴",url:"/music/dukou.aac",cover:"/music/dukou-cover.png",lrc:"/music/dukou.lrc"};function r(e){return new Promise(function(t,n){var s=document.createElement("script");s.src=e,s.onload=t,s.onerror=n,document.head.appendChild(s)})}function c(e){return new Promise(function(t,n){var s=document.createElement("link");s.rel="stylesheet",s.href=e,s.onload=t,s.onerror=n,document.head.appendChild(s)})}function l(e,t){var n=new AbortController,s=setTimeout(function(){n.abort()},t);return fetch(e,{signal:n.signal}).finally(function(){clearTimeout(s)})}function t(n,s,o){n.classList.add("music-loaded"),n.replaceChildren();var i,c=new APlayer({container:n,mini:!1,autoplay:!1,lrcType:3,audio:s});function r(){o&&s[0].url!==e.url&&t(n,[e],!1)}i=setInterval(function(){var e=c.audio||n.querySelector("audio");if(!e)return;clearInterval(i),e.addEventListener("error",r),e.addEventListener("play",function(){if(!o)return;var n=Date.now()+a,t=setInterval(function(){if(e.paused||e.currentTime>.2||e.readyState>=3){clearInterval(t);return}Date.now()>n&&(clearInterval(t),r())},500)})},300),setTimeout(function(){clearInterval(i)},3e4)}document.querySelectorAll(".music-lazy").forEach(function(a){var d=a.querySelector("button");if(!d)return;d.addEventListener("click",function(){var u=a.getAttribute("data-music-id");d.textContent="加载中…",Promise.all([c(s),r(o)]).then(function(){return l(n+u,i).then(function(e){return e.json()})}).then(function(e){if(!Array.isArray(e)||!e.length||!e[0].url)throw new Error("bad list");t(a,[{name:e[0].name||e[0].title,artist:e[0].artist||e[0].author,url:e[0].url,cover:e[0].pic,lrc:e[0].lrc}],!0)}).catch(function(){t(a,[e],!1)})},{once:!0})})})()</script><h1 id=轻量服务器加固实践五层防线与零新增组件>轻量服务器加固实践：五层防线与零新增组件</h1><hr><blockquote><p>一台 2C2G 的腾讯云 Debian 13，公网开着 22 端口，定位是"只部署不构建"。两轮加固做下来，新增软件包数量是零，全部改动落在配置层和系统能力上。这篇记录完整的加固清单、几个选型判断，以及两处翻车。</p></blockquote><p><img src=/images/hardening-practice/hero-layers.png loading=lazy alt=轻量服务器的五层防线></p><h2 id=先审计再动手>先审计，再动手</h2><hr><blockquote><p>加固前先搞清楚机器暴露了什么、跑了什么，不然就是在别人的清单上抄作业。</p></blockquote><p>审计就这几条命令，十分钟出结果：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ss -tlnp                                           <span class=c1># 谁在监听</span>
+</span></span><span class=line><span class=cl>systemctl list-units --type<span class=o>=</span>service --state<span class=o>=</span>running
+</span></span><span class=line><span class=cl>sshd -T <span class=p>|</span> grep -E <span class=s1>&#39;permitroot|password|maxauth&#39;</span>    <span class=c1># sshd 实际生效配置</span>
+</span></span><span class=line><span class=cl>nft list ruleset                                   <span class=c1># 防火墙现状</span>
+</span></span><span class=line><span class=cl>last -n <span class=m>10</span> -F                                      <span class=c1># 谁登录过</span>
+</span></span><span class=line><span class=cl>apt list --upgradable                              <span class=c1># 有没有欠账的补丁</span>
+</span></span></code></pre></td></tr></table></div></div><p>这台机器当时的状态：全机只有 sshd 的 22 在监听，fail2ban、chrony、unattended-upgrades 都在跑，OpenSSH 是 10.0p2，无待升级包。之前做过一轮 CIS 风格加固（sysctl、nftables、sshd drop-in），所以这次做的是增量，不是从零开始。</p><blockquote><p>小机器的好消息是攻击面天然小：没有 web 应用、没有数据库、没有容器运行时，自动化扫描脚本最爱的 RCE 入口一个都没有。</p></blockquote><h2 id=入口层nftables-默认-drop>入口层：nftables 默认 DROP</h2><hr><p><code>/etc/nftables.conf</code> 的 input 链，策略默认拒绝，逐条放行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>table inet filter {
+</span></span><span class=line><span class=cl>    chain input {
+</span></span><span class=line><span class=cl>        type filter hook input priority filter; policy drop;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        iif lo accept
+</span></span><span class=line><span class=cl>        ct state established,related accept
+</span></span><span class=line><span class=cl>        ct state invalid drop
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        # DHCP / DHCPv6 client: lease replies must be able to come back
+</span></span><span class=line><span class=cl>        udp dport 68 accept
+</span></span><span class=line><span class=cl>        udp dport 546 accept
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        # ICMP / ICMPv6: path-MTU discovery, neighbour discovery, diagnostics
+</span></span><span class=line><span class=cl>        ip protocol icmp accept
+</span></span><span class=line><span class=cl>        ip6 nexthdr icmpv6 accept
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        # SSH
+</span></span><span class=line><span class=cl>        tcp dport 22 accept
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        # LLM API distribution service (Go)
+</span></span><span class=line><span class=cl>        tcp dport 8338 accept
+</span></span><span class=line><span class=cl>    }
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><p>几个细节：</p><ul><li><code>ct state established,related accept</code> 放最前面，回包不走后面整条规则链</li><li>DHCP 的 68/546 必须放行，云主机靠它续租 IP</li><li>ICMP 放行是为了 PMTU discovery 和邻居发现，全禁 ICMP 是老直觉，不是好实践</li><li>8338 是留给后续 API 服务的口，端口先放行，服务没上线前外面也摸不到东西</li><li>fail2ban 的 f2b-table 是单独一张表，这份配置不碰它，reload 互不影响</li></ul><p>云厂商的安全组是另一道免费防线——把 22 收紧到常用 IP 段，扫描脚本连握手的机会都没有，零主机成本。这道做在控制台上，不在机器里。</p><h2 id=认证层sshd-只认密钥>认证层：sshd 只认密钥</h2><hr><p>Debian 13 的 sshd 支持 drop-in，全部加固集中在 <code>/etc/ssh/sshd_config.d/99-hardening.conf</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>PermitRootLogin prohibit-password
+</span></span><span class=line><span class=cl>PubkeyAuthentication yes
+</span></span><span class=line><span class=cl>PasswordAuthentication no
+</span></span><span class=line><span class=cl>KbdInteractiveAuthentication no
+</span></span><span class=line><span class=cl>AuthenticationMethods publickey
+</span></span><span class=line><span class=cl>PermitEmptyPasswords no
+</span></span><span class=line><span class=cl>AllowUsers root
+</span></span><span class=line><span class=cl>MaxAuthTries 3
+</span></span><span class=line><span class=cl>MaxSessions 4
+</span></span><span class=line><span class=cl>MaxStartups 3:50:10
+</span></span><span class=line><span class=cl>LoginGraceTime 30
+</span></span><span class=line><span class=cl>X11Forwarding no
+</span></span><span class=line><span class=cl>AllowAgentForwarding no
+</span></span><span class=line><span class=cl>AllowTcpForwarding no
+</span></span><span class=line><span class=cl>PermitTunnel no
+</span></span><span class=line><span class=cl>AllowStreamLocalForwarding no
+</span></span><span class=line><span class=cl>PermitUserEnvironment no
+</span></span><span class=line><span class=cl>LogLevel VERBOSE
+</span></span><span class=line><span class=cl>ClientAliveInterval 300
+</span></span><span class=line><span class=cl>ClientAliveCountMax 3
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># --- algorithm restriction: ssh-audit Debian 13 Server hardening guide ---
+</span></span><span class=line><span class=cl>KexAlgorithms mlkem768x25519-sha256,sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org
+</span></span><span class=line><span class=cl>Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-gcm@openssh.com,aes128-ctr
+</span></span><span class=line><span class=cl>MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
+</span></span><span class=line><span class=cl>HostKeyAlgorithms sk-ssh-ed25519-cert-v01@openssh.com,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,ssh-ed25519,rsa-sha2-512,rsa-sha2-256
+</span></span><span class=line><span class=cl>PubkeyAcceptedAlgorithms sk-ssh-ed25519-cert-v01@openssh.com,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,ssh-ed25519,rsa-sha2-512,rsa-sha2-256
+</span></span><span class=line><span class=cl>RequiredRSASize 3072
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># --- audit: log sftp file access (Mozilla OpenSSH guidelines) ---
+</span></span><span class=line><span class=cl>Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
+</span></span></code></pre></td></tr></table></div></div><p>几个关键选择：</p><ul><li><code>AllowUsers root</code> 显式白名单，以后新增的账户默认进不来，要进再加</li><li><code>AuthenticationMethods publickey</code> 加 <code>PasswordAuthentication no</code>：撞库字典直接作废</li><li>算法白名单照 ssh-audit 的 Debian 13 指南抄，KEX 首选 mlkem768x25519（后量子混合）</li><li>转发类五连关：X11 / Agent / TCP / Tunnel / StreamLocal——机器只当部署目标，没有转发需求</li><li><code>MaxStartups 3:50:10</code> 很激进：3 个未认证连接就开始 50% 概率丢弃，10 个全丢。单管理员机器够用</li></ul><h2 id=防爆破sshd-100-已经内置了一套>防爆破：sshd 10.0 已经内置了一套</h2><hr><p>这次调研最大的意外：OpenSSH 9.8 起 PerSourcePenalties <strong>默认开启</strong>，官方定位就是"内置的 fail2ban 替代"。也就是说大多数跑着新 OpenSSH 的机器上，其实同时跑着两套防爆破，管理员自己不知道。</p><p>内置惩罚的默认值（<code>man 5 sshd_config</code>）：</p><div class=table-wrapper><table><thead><tr><th>触发条件</th><th>惩罚</th></tr></thead><tbody><tr><td>认证失败后断开</td><td>5 秒</td></tr><tr><td>LoginGraceTime 内没完成认证</td><td>10 秒</td></tr><tr><td>把 sshd 弄崩</td><td>90 秒</td></tr><tr><td>单源累计上限</td><td>10 分钟</td></tr><tr><td>起罚门槛（累计到才生效）</td><td>15 秒</td></tr></tbody></table></div><p>按 <code>PerSourceNetBlockSize 32:128</code> 逐 IP 追踪，不连坐 NAT 邻居；10.0 又加了 PerSourceMaxStartups 限制单源未认证并发。</p><p>fail2ban 留着做双轨：它封在 nftables 层，TCP 握手前就掐掉；sshd 内置惩罚在进程内生效，不依赖任何外部进程。配置薄到只有几行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># /etc/fail2ban/jail.d/defaults-debian.conf
+</span></span><span class=line><span class=cl>[DEFAULT]
+</span></span><span class=line><span class=cl>banaction = nftables
+</span></span><span class=line><span class=cl>banaction_allports = nftables[type=allports]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>[sshd]
+</span></span><span class=line><span class=cl>backend = systemd
+</span></span><span class=line><span class=cl>journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd
+</span></span><span class=line><span class=cl>enabled = true
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># /etc/fail2ban/jail.d/99-tune.conf
+</span></span><span class=line><span class=cl>[sshd]
+</span></span><span class=line><span class=cl>bantime = 1h
+</span></span><span class=line><span class=cl>findtime = 30m
+</span></span></code></pre></td></tr></table></div></div><p>选型对比（2G 内存视角）：</p><div class=table-wrapper><table><thead><tr><th>方案</th><th>常驻内存</th><th>防线位置</th><th>结论</th></tr></thead><tbody><tr><td>OpenSSH 内置惩罚</td><td>0</td><td>sshd 进程内</td><td>已默认开启</td></tr><tr><td>fail2ban</td><td>实测 31 MB</td><td>nftables 封禁集合</td><td>保留，纵深冗余</td></tr><tr><td>sshguard</td><td>约 2 MB（社区数据）</td><td>nftables</td><td>够轻，但没有换的必要</td></tr><tr><td>CrowdSec</td><td>约 77 MB（官方论坛实测）</td><td>社区情报联动</td><td>2G 机器不装</td></tr></tbody></table></div><blockquote><p>31 MB 买一道握手前的拦截，值；为省这 31 MB 去折腾组件替换，不值。</p></blockquote><h2 id=内核层把提权原语直接砍掉>内核层：把提权原语直接砍掉</h2><hr><p>sysctl 集中在 <code>/etc/sysctl.d/</code>，加固一份、性能一份：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=c1># /etc/sysctl.d/99-hardening.conf</span>
+</span></span><span class=line><span class=cl><span class=n>kernel</span><span class=o>.</span><span class=n>kptr_restrict</span> <span class=o>=</span> <span class=mi>2</span>
+</span></span><span class=line><span class=cl><span class=n>kernel</span><span class=o>.</span><span class=n>yama</span><span class=o>.</span><span class=n>ptrace_scope</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>kernel</span><span class=o>.</span><span class=n>dmesg_restrict</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>fs</span><span class=o>.</span><span class=n>suid_dumpable</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>fs</span><span class=o>.</span><span class=n>protected_hardlinks</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>fs</span><span class=o>.</span><span class=n>protected_symlinks</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>fs</span><span class=o>.</span><span class=n>protected_fifos</span> <span class=o>=</span> <span class=mi>2</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>tcp_syncookies</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>tcp_rfc1337</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>rp_filter</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>rp_filter</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>accept_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>accept_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>secure_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>secure_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>accept_source_route</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>accept_source_route</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv6</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>accept_source_route</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>log_martians</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>log_martians</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>all</span><span class=o>.</span><span class=n>send_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>conf</span><span class=o>.</span><span class=n>default</span><span class=o>.</span><span class=n>send_redirects</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>icmp_echo_ignore_broadcasts</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>net</span><span class=o>.</span><span class=n>ipv4</span><span class=o>.</span><span class=n>icmp_ignore_bogus_error_responses</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>kernel</span><span class=o>.</span><span class=n>kexec_load_disabled</span> <span class=o>=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl><span class=n>kernel</span><span class=o>.</span><span class=n>unprivileged_bpf_disabled</span> <span class=o>=</span> <span class=mi>2</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># /etc/sysctl.d/98-network-perf.conf
+</span></span><span class=line><span class=cl>net.core.default_qdisc = fq
+</span></span><span class=line><span class=cl>net.ipv4.tcp_congestion_control = bbr
+</span></span><span class=line><span class=cl>net.ipv4.tcp_max_syn_backlog = 4096
+</span></span><span class=line><span class=cl>net.ipv4.tcp_slow_start_after_idle = 0
+</span></span></code></pre></td></tr></table></div></div><p>为什么是这几个：</p><ul><li><code>unprivileged_bpf_disabled = 2</code>：BPF 利用链是内核提权常客，直接砍掉非特权 BPF</li><li><code>kexec_load_disabled = 1</code>：防运行时替换内核的攻击路径</li><li><code>kptr_restrict = 2</code> 加 <code>dmesg_restrict = 1</code>：砍掉内核地址泄露的观察面，提权 exploit 的第一步没了</li><li><code>protected_fifos/symlinks/hardlinks</code>：/tmp 里经典竞态的三件套</li><li><code>tcp_rfc1337 = 1</code>：TIME_WAIT assassination 防护</li><li>BBR + fq：5M 小水管上服务 overseas 客户端，丢包环境下比 cubic 稳得多</li></ul><p><code>tcp_max_syn_backlog</code> 默认只有 128，和 somaxconn=4096 严重不匹配，对齐到 4096——服务没上线时是免费修正，上线后再踩就晚了。</p><h2 id=资源优化加固顺手做的>资源优化：加固顺手做的</h2><hr><ul><li>journald 封顶 <code>SystemMaxUse=500M</code>（默认是文件系统的 10%，49G 盘上就是 4.9G）</li><li>rsyslog 停用：journald 已经持久化，双写纯重复，省 5 MB 内存和一份磁盘写入，查日志统一 <code>journalctl</code></li><li>NOFILE：<code>/etc/security/limits.d/99-nofile.conf</code> 524288，systemd <code>DefaultLimitNOFILE=1048576</code>，部署上去的服务不用再调</li><li>unattended-upgrades 补自动重启窗口：</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>// /etc/apt/apt.conf.d/52auto-reboot
+</span></span><span class=line><span class=cl>Unattended-Upgrade::Automatic-Reboot &#34;true&#34;;
+</span></span><span class=line><span class=cl>Unattended-Upgrade::Automatic-Reboot-Time &#34;04:30&#34;;
+</span></span></code></pre></td></tr></table></div></div><p>部署型机器上没有常驻业务，内核更新即重启，不给旧内核留暴露窗口。以后有服务了记得把这个窗口纳入发布计划。</p><h2 id=面向-agent-和脚本为什么打不进来>面向 agent 和脚本：为什么打不进来</h2><hr><p>&ldquo;用 AI agent 加脚本打服务器"现在听着新鲜，拆开还是自动化的传统链路：扫描、撞库、已知漏洞利用、提权、持久化。每一层撞到的都是墙：</p><p><img src=/images/hardening-practice/attack-chain.png loading=lazy alt="自动化攻击链 vs 每层防线"></p><p>其中最硬的一道墙是"机器上没有编译器&rdquo;。定位是只部署不构建，gcc、go、cargo、pip 一概没有——公开提权 exploit 大多是 C 源码或要装依赖的 Python 脚本，编译不了也装不了。一个为省资源做的决定，顺手成了防提权的护甲。</p><blockquote><p>防线里最值得花钱的其实是"少装东西"。每个安全组件自己也是攻击面，也要吃内存。</p></blockquote><p>未来 8338 的服务上线时，unit 里预埋 systemd 沙箱，服务就算被打穿也提不了权、出不了网，零额外进程：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-ini data-lang=ini><span class=line><span class=cl><span class=k>[Service]</span>
+</span></span><span class=line><span class=cl><span class=na>DynamicUser</span><span class=o>=</span><span class=s>yes</span>
+</span></span><span class=line><span class=cl><span class=na>NoNewPrivileges</span><span class=o>=</span><span class=s>true</span>
+</span></span><span class=line><span class=cl><span class=na>ProtectSystem</span><span class=o>=</span><span class=s>strict</span>
+</span></span><span class=line><span class=cl><span class=na>PrivateTmp</span><span class=o>=</span><span class=s>yes</span>
+</span></span><span class=line><span class=cl><span class=na>CapabilityBoundingSet</span><span class=o>=</span>
+</span></span><span class=line><span class=cl><span class=na>SystemCallFilter</span><span class=o>=</span><span class=s>@system-service</span>
+</span></span><span class=line><span class=cl><span class=na>IPAddressAllow</span><span class=o>=</span><span class=s>10.0.0.0/8</span>
+</span></span><span class=line><span class=cl><span class=na>MemoryMax</span><span class=o>=</span><span class=s>512M</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=踩坑记录>踩坑记录</h2><hr><p><strong>坑一：agent 改不了 sshd 配置。</strong> 这轮加固是 AI agent 通过 SSH MCP 做的，连接策略的 blacklist 拦了两类命令：passwd 类操作、往 sshd 配置写内容的重定向。拦得对——这正是"agent 失控或被提示注入后最危险的动作"两类。最后 <code>AllowStreamLocalForwarding no</code> 那一行留成手工命令，格式是改完先校验、通过才 reload：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>grep -q <span class=s1>&#39;^AllowStreamLocalForwarding&#39;</span> /etc/ssh/sshd_config.d/99-hardening.conf <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  <span class=o>||</span> <span class=nb>echo</span> <span class=s1>&#39;AllowStreamLocalForwarding no&#39;</span> &gt;&gt; /etc/ssh/sshd_config.d/99-hardening.conf
+</span></span><span class=line><span class=cl>sshd -t <span class=o>&amp;&amp;</span> systemctl reload ssh <span class=o>&amp;&amp;</span> <span class=nb>echo</span> OK
+</span></span></code></pre></td></tr></table></div></div><p><strong>坑二：sysctl 键名写错。</strong> 把 <code>tcp_rfc1337</code> 写成了 <code>tcp_rfc1337_1</code>，内核 6.12 上不存在后者，<code>sysctl --system</code> 每次开机都要报一行错。更逗的是排错时 <code>grep -Ei 'error'</code> 被 <code>icmp_ignore_bogus_error_responses</code> 这个键名晃了一下——先看 stderr，再看 grep 命中。</p><p><strong>坑三：fq 要重启才挂上。</strong> <code>default_qdisc</code> 只对新建的 qdisc 生效，eth0 上还挂着 fq_codel。但内核 4.13+ 的 BBR 自带内部 pacing，不依赖 fq，性能现在就是对的，下次重启自然切过去，不值得为这个动网卡。</p><blockquote><p>加固做完的机器应该是什么样：常驻内存 383 Mi / 1.9 Gi，swap 一页没用过，监听端口还是只有 22。什么都没变慢，什么都没变重，只是外面的脚本进不来了。</p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/linux/>Linux</a>
+<a href=/tags/ssh/>Ssh</a>
+<a href=/tags/%E5%AE%89%E5%85%A8/>安全</a>
+<a href=/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/>性能优化</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/zcode-grok-build-repo-upload/><div class=article-image><img src="https://images.unsplash.com/photo-1578301978693-85ee9c4f4805?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=lazy decoding=async alt="Featured image of post 两朵奇葩：Grok Build 与 ZCode 的整仓上传" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DP-25445-001.jpg data-unsplash="https://images.unsplash.com/photo-1578301978693-85ee9c4f4805?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/bdc37260/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1578301978693-85ee9c4f4805%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1578301978693-85ee9c4f4805%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></div><div class=article-details><h2 class=article-title>两朵奇葩：Grok Build 与 ZCode 的整仓上传</h2></div></a></article><article class=has-image><a href=/p/2native-ssh-mcp-evolution/><div class=article-image><img src="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=lazy decoding=async alt="Featured image of post 2native-ssh-mcp 复盘：一条边界和几个模块设计" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DP-14286-011.jpg data-unsplash="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/fdb7c181/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></div><div class=article-details><h2 class=article-title>2native-ssh-mcp 复盘：一条边界和几个模块设计</h2></div></a></article><article class=has-image><a href=/p/session-token-cost-and-handoff/><div class=article-image><img src="https://images.unsplash.com/photo-1571115764595-232c5b4baabb?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=lazy decoding=async alt="Featured image of post 从调用次数到 token 账单：会话成本实测与长程任务的跨会话接力" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DT1933.jpg data-unsplash="https://images.unsplash.com/photo-1571115764595-232c5b4baabb?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/1574c666/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1571115764595-232c5b4baabb%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1571115764595-232c5b4baabb%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></div><div class=article-details><h2 class=article-title>从调用次数到 token 账单：会话成本实测与长程任务的跨会话接力</h2></div></a></article><article class=has-image><a href=/p/niulai-jinghun-ji/><div class=article-image><img src="https://images.unsplash.com/photo-1561214115-f2f134cc491c?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=lazy decoding=async alt="Featured image of post 牛来惊魂记" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DP356136.jpg data-unsplash="https://images.unsplash.com/photo-1561214115-f2f134cc491c?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/84d5035b/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1561214115-f2f134cc491c%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1561214115-f2f134cc491c%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></div><div class=article-details><h2 class=article-title>牛来惊魂记</h2></div></a></article><article class=has-image><a href=/p/rust-ci-cache/><div class=article-image><img src="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" width=800 height=600 loading=lazy decoding=async alt="Featured image of post 记一次 Rust CI 缓存排查" data-cover-fallback data-primary=unsplash data-met=https://images.metmuseum.org/CRDImages/ep/web-large/DP-14347-001.jpg data-unsplash="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&amp;h=600&amp;fit=crop&amp;auto=format&amp;q=60" data-picsum=https://picsum.photos/seed/79c63ec4/800/600.webp data-wsrv="https://wsrv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp" data-weserv="https://images.weserv.nl/?url=images.unsplash.com/photo-1550684376-efcbd6e3f031%3Fw=800%26h=600%26fit=crop%26auto=format%26q=60&amp;w=800&amp;h=600&amp;fit=cover&amp;output=webp"></div><div class=article-details><h2 class=article-title>记一次 Rust CI 缓存排查</h2></div></a></article></div></div></aside><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2026 pandazhangs</section><section class=powerby>往日已经不在，未来尚未开始<br>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.29.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer></main></div><script type=text/javascript src=/ts/main.9f4fc2e14de1facc2d1d47e91f10fd568521dcfc8a70546ebfe284b68aa81778.js defer></script><script type=text/javascript src=/ts/custom.b2556d054373950e768e6eca15cc5714389251e5adb2a08c3e84ff0cf1f5ba73.js defer></script></body></html>
