@@ -1,4 +1,565 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Gateway on 潘达窝</title><link>https://daidaij.github.io/tags/gateway/</link><description>Gateway 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 06 Sep 2026 20:03:25 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/gateway/index.xml" rel="self" type="application/rss+xml"/><item><title>Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</link><pubDate>Sun, 06 Sep 2026 20:03:25 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</guid><description>&lt;img src="https://picsum.photos/seed/43e49826/800/600" alt="Featured image of post Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策" />&lt;h1 id="higress-端点级断路器二全拉黑放行最反直觉的设计决策">Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Gateway on 潘达窝</title><link>https://daidaij.github.io/tags/gateway/</link><description>Gateway 的订阅 — 潘达窝</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><copyright>pandazhangs</copyright><lastBuildDate>Sun, 01 Nov 2026 13:11:15 +0800</lastBuildDate><atom:link href="https://daidaij.github.io/tags/gateway/index.xml" rel="self" type="application/rss+xml"/><item><title>自用 LLM 网关的加固与观测：从威胁模型到日报</title><link>https://daidaij.github.io/p/llm-gateway-hardening-observability/</link><pubDate>Sun, 01 Nov 2026 13:11:15 +0800</pubDate><guid>https://daidaij.github.io/p/llm-gateway-hardening-observability/</guid><description>&lt;img src="https://picsum.photos/seed/024e1802/800/600" alt="Featured image of post 自用 LLM 网关的加固与观测：从威胁模型到日报" />&lt;h1 id="自用-llm-网关的加固与观测从威胁模型到日报">自用 LLM 网关的加固与观测：从威胁模型到日报
+&lt;/h1>&lt;hr>
+&lt;blockquote>
+&lt;p>一台 2C2G 的小机器，把几个上游模型聚合成一个端点分发给朋友，一人一把 key。加固和观测做完，最值钱的不是某个开关，而是几条判断：暴露面按「身份」收敛，观测的第一条纪律是别把被观测的数据弄坏，验证尽量在零成本的路径上做。这篇只讲策略与取舍，不写具体地址、凭据、上游和产品细节。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="先画威胁模型再谈清单">先画威胁模型，再谈清单
+&lt;/h2>&lt;hr>
+&lt;blockquote>
+&lt;p>抄别人的加固清单之前，先搞清楚谁在打你、想要什么。&lt;/p>
+&lt;/blockquote>
+&lt;p>一天 245 条被拦请求，画像很清楚：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>观测结果&lt;/th>
+&lt;th>策略含义&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>目标路径&lt;/td>
+&lt;td>四分之三打 &lt;code>/v1/models&lt;/code>&lt;/td>
+&lt;td>意图是找无鉴权的 OpenAI 兼容端点白嫖 token&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>次要路径&lt;/td>
+&lt;td>&lt;code>/&lt;/code>、&lt;code>/version&lt;/code>、&lt;code>/connect&lt;/code>、管理面板路径&lt;/td>
+&lt;td>通用指纹探测，找的是「这是个什么服务」&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>User-Agent&lt;/td>
+&lt;td>全部为空&lt;/td>
+&lt;td>低成本脚本，连伪装都省&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>节奏&lt;/td>
+&lt;td>6 小时内 52 个 IP 各打 1 发&lt;/td>
+&lt;td>分布式单发，纯速率限制抓不住&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>收益&lt;/td>
+&lt;td>全部被无 key 404 拦掉，零上游成本&lt;/td>
+&lt;td>对方唯一的收获是知道了你是什么&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>三条推论决定了后面所有取舍：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>扫描器的收益全在识别上。&lt;/strong> 认出你是什么，它就已经完成要做的事。所以防线的目标是「不被标记」，而不只是「打不进来」。&lt;/li>
+&lt;li>&lt;strong>分布式单发把防线从「速率」推向「计数」。&lt;/strong> 单 IP 一分钟一发永远撞不到限流阈值，但六小时六发是稳定的行为特征，按行为计数才拦得住。&lt;/li>
+&lt;li>&lt;strong>指纹比漏洞值得先花力气。&lt;/strong> 路径、响应头、错误文案，这三样比任何 CVE 都更容易暴露软件性质。&lt;/li>
+&lt;/ul>
+&lt;p>同期还有 SSH 爆破（字典用户名、几分钟一发）。关掉密码认证、只留密钥之后它就是背景噪音，不值得为它再装组件。&lt;/p>
+&lt;h2 id="分层内核--网关--应用">分层：内核 / 网关 / 应用
+&lt;/h2>&lt;hr>
+&lt;pre class="mermaid" style="visibility:hidden">flowchart LR
+A[公网] --> B[内核层&lt;br/>地域白名单 + 行为拉黑]
+B --> C[网关层&lt;br/>身份伪装 + 限流 + 闸门]
+C --> D[应用层&lt;br/>采样 + 日报]
+D --> E[上游 LLM]&lt;/pre>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>层&lt;/th>
+&lt;th>拦什么&lt;/th>
+&lt;th>为什么放这一层&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>内核&lt;/td>
+&lt;td>地域白名单、行为拉黑&lt;/td>
+&lt;td>在 TCP 握手层就消失，不产生应用层日志、不消耗应用层资源&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>网关&lt;/td>
+&lt;td>身份伪装、限流、体积/并发/超时&lt;/td>
+&lt;td>懂协议，能做语义判断&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>应用&lt;/td>
+&lt;td>采样、拉黑决策、日报&lt;/td>
+&lt;td>唯一给人看的出口&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>分工的判据就一句：能在握手层挡掉的，别留到应用层；需要看懂请求语义的，内核层做不了。&lt;/p>
+&lt;h2 id="身份隐藏404-要与路径不存在逐字节一致">身份隐藏：404 要与「路径不存在」逐字节一致
+&lt;/h2>&lt;hr>
+&lt;p>未认证的请求应该看起来像「这个路径不存在」：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>情形&lt;/th>
+&lt;th>响应&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>无 key / 错 key&lt;/td>
+&lt;td>404，body 与路径不存在完全一致&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>不打算支持的协议入口（比如别家的 messages 接口）&lt;/td>
+&lt;td>专门加一条更具体的路由把它 404 掉&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>/v1/models&lt;/code> 带不带尾斜杠&lt;/td>
+&lt;td>都是 404&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>真正难缠的是响应头。限流器出于好意给所有响应打 &lt;code>x-ratelimit-*&lt;/code>，等于在匿名 404 上写明「这里是带按 IP 限流的 API 网关」，还附送精确阈值——那是一个攻击节奏预言机。&lt;/p>
+&lt;ul>
+&lt;li>404 和 200 上的这几个头能剥干净（响应策略与生成 404 的那条策略同链，走响应回程）。&lt;/li>
+&lt;li>&lt;strong>429 剥不掉。&lt;/strong> 限流器产生的 429 走错误响应路径，根本不进响应策略链。实测把它插进各个策略层级都不生效，某些层级还会被 schema 直接拒掉。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>这里的决策是接受现状：地域白名单下能看见 429 指纹的只剩「国内来源且打爆限流的客户端」，而它吃完第一个 429 后一分钟内会被外部拉黑器掐掉；海外扫描器连 TCP 都握不上手。根治要重建网关二进制，收益不抵风险，暂缓。&lt;/p>
+&lt;/blockquote>
+&lt;p>投入产出比最高的一次审计是上线前 &lt;code>curl -i&lt;/code> 把 404 / 200 / 429 的响应头全量过一遍。框架自带的头比路径和报错更容易暴露软件性质。&lt;/p>
+&lt;h2 id="鉴权与归属一人一把-key">鉴权与归属：一人一把 key
+&lt;/h2>&lt;hr>
+&lt;ul>
+&lt;li>key 一人一把，key 的元数据里带用户名和分组，请求日志把它落成独立的用户列。查用量、判滥用、吊销都靠这一列。&lt;/li>
+&lt;li>吊销 = 删掉那一行并重启。&lt;strong>曾经发过的共享 key 要显式删除&lt;/strong>，否则它的请求会变成 404，而使用者以为自己只是被限流。&lt;/li>
+&lt;li>无 key 与错 key 不做区分（都 404），这是有意的：区分等于告诉对方「这条路存在，只是你没带钥匙」。&lt;/li>
+&lt;/ul>
+&lt;h2 id="限流的三个维度与三个坑">限流的三个维度与三个坑
+&lt;/h2>&lt;hr>
+&lt;p>三个维度各管一件事：按来源 IP 防扫描、按 key 防单个朋友跑飞、按 token 量防成本失控。&lt;/p>
+&lt;p>坑一：&lt;strong>桶的键决定了谁受影响。&lt;/strong> 按来源 IP 的桶对所有请求生效，包括带 key 的。想给未认证请求单独降配额，直接改全局桶会误伤 NAT 后面正常用 agent 客户端的朋友——60 次/分钟对他们很容易撞到。&lt;/p>
+&lt;p>坑二：&lt;strong>条件限流（按是否认证分叉）在配置层表达不出来。&lt;/strong> 三个负结果实验：解析层直接拒绝启动；能启动但恒真条件也不执行；被更具体的策略整体覆盖（单槽位字段，更具体者胜）。最后用外部行为拉黑器做等价替代，效果一样，代价是多一个组件。&lt;/p>
+&lt;p>坑三：&lt;strong>策略执行顺序是固定的。&lt;/strong> 限流先于匿名 404 的生成，于是语义被钉死：404 = 未认证且配额内，429 = 配额耗尽（带不带 key 都一样）。想让匿名 404 不带限流头，配置层做不到。&lt;/p>
+&lt;blockquote>
+&lt;p>限流阈值是使用体验的取舍，不该由「顺手加固」顺手决定。给朋友用的服务，阈值松紧是产品问题。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="数据面的闸门体积并发超时重试">数据面的闸门：体积、并发、超时、重试
+&lt;/h2>&lt;hr>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>闸门&lt;/th>
+&lt;th>策略&lt;/th>
+&lt;th>为什么这么定&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>请求体上限&lt;/td>
+&lt;td>16 MiB，fail-closed&lt;/td>
+&lt;td>超限毫秒级 413，不是慢慢读完再拒——慢读本身就是资源占用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>并发上限&lt;/td>
+&lt;td>全局一个数，超限直接 503，不排队&lt;/td>
+&lt;td>排队会把延迟堆到超时，直接拒更快&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>超时&lt;/td>
+&lt;td>全局放宽（长回答要活）+ 给已知不稳的上游单独压短&lt;/td>
+&lt;td>一个挂住的上游能拖到全局超时&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>重试&lt;/td>
+&lt;td>路由级，覆盖 408/429/5xx&lt;/td>
+&lt;td>框架通常没有按模型配重试的开关，要拆路由&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>客户端 key 配额&lt;/td>
+&lt;td>按分钟请求数 + 按小时 token 量&lt;/td>
+&lt;td>两条独立口径，防跑飞和防成本&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>两个容易搞错的假设，都要用实验确认：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>并发上限的作用域。&lt;/strong> 它可能按监听端口各算一份。你以为是 64，实际两个端口合计 128。&lt;/li>
+&lt;li>&lt;strong>超时对不稳上游的隔离。&lt;/strong> 全局 900s 是给正常长回答的；某个上游正常 8~15 秒、超过 30 秒就是挂了，给它单独一条短超时，别让它占着全局额度。&lt;/li>
+&lt;/ul>
+&lt;h2 id="降级链的三件套">降级链的三件套
+&lt;/h2>&lt;hr>
+&lt;p>首选上游打不通时切到兜底，这件事需要三处配合，缺一条就会漏：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-yaml" data-lang="yaml">&lt;span class="line">&lt;span class="cl">&lt;span class="c"># 1. 健康判定：把配额耗尽也算不健康&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nt">health&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">unhealthy_when&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s1">&amp;#39;响应码 == 429 或 &amp;gt;= 500&amp;#39;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 默认只算 5xx 与连接失败&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="c"># 2. 驱逐：一次失败即驱逐，带退避&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nt">eject&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">consecutive_failures&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">1&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">duration&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">120s &lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="c"># 按次数倍退避：120s → 240s → 360s&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="c"># 3. 重试：让同一条客户端请求改投兜底&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nt">retry&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">attempts&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">3&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">backoff&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="l">500ms&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nt">codes&lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="m">408&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">429&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">500&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">502&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">503&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="m">504&lt;/span>&lt;span class="p">]&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第一条最容易漏。上游额度耗尽返回的是 &lt;strong>429&lt;/strong>，而网关默认只把 5xx 和连接失败当不健康，于是「额度用完了」被当成「一切正常」，请求一直打在打不通的首选上。&lt;/p>
+&lt;p>第二条的机制要注意：&lt;strong>驱逐是异步的，触发驱逐的那条请求本身仍会失败。&lt;/strong> 所以第三条的重试不是可选优化，而是链路的一部分。&lt;/p>
+&lt;p>实测（连打十次，首选是配额很紧的上游）：前两次走首选，第三次起日志出现兜底后端，客户端全程 200。把 429 从健康判定里临时去掉后，客户端立刻拿到上游的 429——这同时证明了优先级顺序确实生效。&lt;/p>
+&lt;h2 id="进程沙箱把安全分数当待办清单">进程沙箱：把安全分数当待办清单
+&lt;/h2>&lt;hr>
+&lt;p>服务用非 root 账号跑，unit 里把沙箱项补全：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-ini" data-lang="ini">&lt;span class="line">&lt;span class="cl">&lt;span class="k">[Service]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">User&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">&amp;lt;专用账号&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">UMask&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">0077&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">CapabilityBoundingSet&lt;/span>&lt;span class="o">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">AmbientCapabilities&lt;/span>&lt;span class="o">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">ProtectSystem&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">strict&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">PrivateTmp&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">PrivateDevices&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">ProtectClock&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">ProtectHostname&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">ProtectKernelLogs&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">ProtectProc&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">invisible&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">RestrictRealtime&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">SystemCallArchitectures&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">native&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">NoNewPrivileges&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="na">MemoryMax&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="s">800M&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>几个判断：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>端口大于 1024 不需要任何 capability&lt;/strong>，所以清空 &lt;code>CapabilityBoundingSet&lt;/code> 是安全的。&lt;/li>
+&lt;li>&lt;strong>&lt;code>systemd-analyze security&lt;/code> 的分数可以当待办清单用&lt;/strong>，实测从 5.9 MEDIUM 降到 3.2 OK。它扣分的地方就是还能收紧的地方。&lt;/li>
+&lt;li>&lt;strong>&lt;code>UMask&lt;/code> 只管新建文件。&lt;/strong> 已经存在的用量库文件得单独 &lt;code>chmod&lt;/code>，不然全机谁都能读全部用量——这条是部署期真实踩到的。&lt;/li>
+&lt;li>&lt;strong>配置文件权限要按内容定。&lt;/strong> 里面有客户端 key，就该是 0640 root:服务组，热加载不受影响。&lt;/li>
+&lt;li>分数不是目标。剩余扣分项里有一条是「用 &lt;code>nobody&lt;/code> 这类共享账号」，扣得有道理，但建专用账号被 agent 的命令黑名单挡住了（&lt;code>useradd&lt;/code> 在列），只能留到控制台手工做。&lt;/li>
+&lt;/ul>
+&lt;h2 id="观测三条信号各回答一个问题">观测：三条信号各回答一个问题
+&lt;/h2>&lt;hr>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>信号&lt;/th>
+&lt;th>回答什么&lt;/th>
+&lt;th>注意&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>指标&lt;/td>
+&lt;td>线上进程现在在做什么&lt;/td>
+&lt;td>&lt;strong>惰性指标首次触发才出现 series&lt;/strong>，「查不到」会被误读成「没生效」&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>访问日志&lt;/td>
+&lt;td>单条请求的判定链：命中哪条策略、走了哪个后端、重试几次&lt;/td>
+&lt;td>排障主力&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>用量库&lt;/td>
+&lt;td>谁、用了什么模型、多少 token、多少钱&lt;/td>
+&lt;td>每请求一行，成本由目录价格算出&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>指标那一行值得单说。护栏、限流这类计数器通常是惰性创建的：改完配置去查指标是空的，这时候「空」既可能是没生效，也可能是没触发过。&lt;strong>主动打一条会命中的请求，再查。&lt;/strong> 同理，证明「线上进程加载了这套规则」和证明「规则行为是对的」是两件不同的事，前者需要指标加访问日志，后者需要 mock 上游。&lt;/p>
+&lt;h2 id="观测的纪律读数据的手别把数据弄坏">观测的纪律：读数据的手别把数据弄坏
+&lt;/h2>&lt;hr>
+&lt;p>这几条都是踩出来的，和配置无关，但比配置重要：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>读用量库必须先复制副本&lt;/strong>（db + wal + shm 一起拷出来再打开）。直接用手上的 &lt;code>sqlite3&lt;/code> 点原库，哪怕只是 &lt;code>.tables&lt;/code>，都会在旁边留下一个属主不对的空文件，之后服务写库直接 &lt;code>readonly database&lt;/code> 报错。这是部署期的真实事故。&lt;/li>
+&lt;li>&lt;strong>统计失败必须显式报错。&lt;/strong> 曾经有个 SQL 异常被吞掉，日报里「被拦来源」整段静默消失，而报告看起来一切正常。观测系统静默失败比不观测更危险。&lt;/li>
+&lt;li>&lt;strong>时间列通常是 UTC 文本，比较前先做时区转换。&lt;/strong> 直接拿文本和 &lt;code>datetime()&lt;/code> 的结果比，会在第 11 个字符上退化成按日期比较，24 小时窗口悄悄变成 24~48 小时。&lt;/li>
+&lt;li>&lt;strong>带点的 JSON key 必须写成 &lt;code>'$.&amp;quot;a.b&amp;quot;'&lt;/code>。&lt;/strong> 写成 &lt;code>'$.a.b'&lt;/code> 会当成嵌套路径，静默返回 NULL——我第一遍统计出「公网流量 322 条」，其实全部落进了 ELSE 分支。&lt;/li>
+&lt;li>&lt;strong>库目录要给服务账号可写。&lt;/strong> 沙箱下改 unit 必须 &lt;code>daemon-reload&lt;/code> 再 restart，否则 &lt;code>ReadWritePaths&lt;/code> 不生效，服务仍然报 &lt;code>unable to open database file&lt;/code>。&lt;/li>
+&lt;/ol>
+&lt;h2 id="观测的出口每天一封日报">观测的出口：每天一封日报
+&lt;/h2>&lt;hr>
+&lt;p>一台没人天天登的小机器，观测必须有「推」的出口，否则等于没有。做法是一个 Go 静态二进制 + 四个 timer：每 10 分钟资源采样、每分钟拉黑决策、每天刷新地域白名单、每天固定时刻发一封邮件。&lt;/p>
+&lt;p>日报的内容按「一眼能看出今天有没有异常」来排：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>段落&lt;/th>
+&lt;th>内容&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>状态摘要&lt;/td>
+&lt;td>阈值超限项（决定标题里的 ⚠）+ 资源指标芯片（绿/橙/红）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>主机资源&lt;/td>
+&lt;td>24h 均值/峰值 + 当前快照 + 运行时长&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>网关用量&lt;/td>
+&lt;td>总数、公网真实流量、404/429/5xx、token、USD、按人×模型表&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>扫描内容分析&lt;/td>
+&lt;td>无 key 被拦请求的路径 Top + 意图归类 + 无 UA 占比&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>被拦来源&lt;/td>
+&lt;td>按 /24 聚合 + 次数 + 404/429 分布 + 归属地&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>调用成功来源&lt;/td>
+&lt;td>逐 IP 归属地 + token + 用户，新出现的 IP 打标记&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>当前封禁&lt;/td>
+&lt;td>封禁集合元素与剩余时长&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>报错 TopN&lt;/td>
+&lt;td>系统与网关各取前几名&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>两条排版上的讲究：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>报错 TopN 要取「出现次数最多的那条消息」，不能取第一条。&lt;/strong> 取第一条会把偶发噪音（比如一次历史遗留的文件损坏）当成主因，掩盖真正的量级。&lt;/li>
+&lt;li>&lt;strong>统计窗口一律近 24 小时。&lt;/strong> 拉长会把旧流量混进当日视图，很容易误读成「今天被打了」。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>邮件模板外置成文件、改完即时生效、写坏了自动回退内嵌兜底版本，这个设计省掉了「改一行文案要重新编译发版」的摩擦，很值。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="请求侧脱敏先定范围再选实现">请求侧脱敏：先定范围，再选实现
+&lt;/h2>&lt;hr>
+&lt;p>需求是「把配置里的几个 key 和 IP 脱敏，不传给上游」。第一版做成了&lt;strong>按形态匹配&lt;/strong>：&lt;code>sk-&lt;/code> 前缀、长度超过 48 的随机串、任意 IPv4/IPv6。代价立刻显现：&lt;/p>
+&lt;ul>
+&lt;li>长 base64 块、长 ID、40 位以上的哈希、形如 &lt;code>1.2.3.4&lt;/code> 的版本号全被误伤&lt;/li>
+&lt;li>讨论里出现的任何第三方 IP 都被改掉&lt;/li>
+&lt;/ul>
+&lt;p>改成&lt;strong>精确值&lt;/strong>之后（本机两个地址 + 各把 key 的具体值 + 客户端 key 按前缀认）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>形态匹配&lt;/th>
+&lt;th>精确值&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>覆盖新值&lt;/td>
+&lt;td>自动&lt;/td>
+&lt;td>要显式加一行&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>误伤&lt;/td>
+&lt;td>高&lt;/td>
+&lt;td>无&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>可审计&lt;/td>
+&lt;td>说不清到底拦了什么&lt;/td>
+&lt;td>配置里逐条可见&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>在 LLM prompt 这个场景里，「看起来像秘密的东西」大部分是正常内容：长哈希、长 base64、版本号、别人的 IP。误伤即事故，所以精确值的代价值得付。范围这句话要一开始就拆成「要拦哪几个具体的值」，别拆成「长得像 key 的东西」。&lt;/p>
+&lt;/blockquote>
+&lt;p>实现边界也都实测过，几条值得记：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>默认作用域不含工具调用的参数。&lt;/strong> 工具参数在协议里是整段 JSON 字符串，改写它有把 JSON 改坏的风险，所以设计上留白是对的。&lt;/li>
+&lt;li>&lt;strong>自定义 pattern 的替换文本固定&lt;/strong>，只有内置的实体规则才会替换成实体名。&lt;/li>
+&lt;li>&lt;strong>只做请求侧。&lt;/strong> 流式响应会被直接跳过（框架日志里明说），而朋友基本都开流式——想做响应侧脱敏得换方案。&lt;/li>
+&lt;li>&lt;strong>正则引擎是 Rust regex&lt;/strong>，没有环视和反向引用。好处是配置校验会真的编译 pattern，写错当场拒；&lt;code>(?=x)&lt;/code>、&lt;code>(a)\1&lt;/code>、&lt;code>[z-a]&lt;/code> 全部报错，不会留到运行时。&lt;/li>
+&lt;/ul>
+&lt;h3 id="env-引用的好处与一个静默坑">env 引用的好处与一个静默坑
+&lt;/h3>&lt;hr>
+&lt;p>key 用环境变量引用而不写死在配置里：&lt;code>$VAR&lt;/code> 在 pattern 里会展开，而管理面接口只回变量名原文、不回展开后的值，所以不会因为这条护栏多一份落盘副本。&lt;code>--validate-only&lt;/code> 要先把 env 文件 source 进来。&lt;/p>
+&lt;p>坑在于：&lt;strong>展开扫的是整份文件的原文，注释也算。&lt;/strong> 任何 &lt;code>$&lt;/code> 紧跟变量名的地方都会被当成环境变量引用去查，查不到就整份配置加载失败。踩的时候是把说明文字写进了注释。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 干净实验：别在被污染的配置上试&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cp /etc/&amp;lt;gw&amp;gt;/config.yaml /tmp/t.yaml
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">printf&lt;/span> &lt;span class="s1">&amp;#39;# probe $NOPE_XYZ\n&amp;#39;&lt;/span> &amp;gt;&amp;gt; /tmp/t.yaml
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">set&lt;/span> -a&lt;span class="p">;&lt;/span> . /etc/&amp;lt;gw&amp;gt;/env&lt;span class="p">;&lt;/span> &lt;span class="nb">set&lt;/span> +a
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&amp;lt;gw-binary&amp;gt; -f /tmp/t.yaml --validate-only &lt;span class="c1"># 报 NOPE_XYZ 就说明注释也被扫&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>更麻烦的是&lt;strong>失败是静默的&lt;/strong>：服务不挂、旧配置继续跑、PID 不变，只有一行 reload 失败混在正常输出里。差点当成「已生效」收工。&lt;/p>
+&lt;blockquote>
+&lt;p>所以改完配置必须去日志里确认「加载成功」那一行真的出现了。「服务活着」和「新配置生效」是两件事。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="零计费验证的三件套">零计费验证的三件套
+&lt;/h2>&lt;hr>
+&lt;p>这台机器有条硬约束：验证不打真实模型调用。于是摸出一套可复用的三件套：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>配置校验&lt;/strong>：证明这份配置能被这个二进制解析。&lt;/li>
+&lt;li>&lt;strong>派生配置 + 回环 mock 上游&lt;/strong>（主力）：从线上配置&lt;strong>派生&lt;/strong>（只改端口、上游地址、库路径），这样被测的就是线上那几条规则，而不是另抄一份。然后两种协议各发一条请求，看 mock 实收什么。&lt;/li>
+&lt;li>&lt;strong>指标 + 访问日志&lt;/strong>：证明线上进程加载并执行了规则。&lt;/li>
+&lt;/ol>
+&lt;p>前两件不需要真实上游，第三件需要一条能走到上游的真实请求。两者缺一不可。&lt;/p>
+&lt;p>&lt;strong>断言要双向。&lt;/strong> 一次塞 26 个值进去：12 个必须被打（各把 key 的真实值、客户端 key、本机地址带端口与不带端口），14 个必须活下来（外部 IP、内网 IP 带端口、IPv6、&lt;code>999.1.1.1&lt;/code>、版本号、40 位哈希、随机长 base64url、&lt;code>sk-&lt;/code> 形状但不是真 key 的串、时间串、C++ 命名空间）。只验「该打的打了」会漏掉误伤。&lt;/p>
+&lt;p>两次「以为零计费」的账：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>次&lt;/th>
+&lt;th>探针设计的假设&lt;/th>
+&lt;th>实际结果&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>第一轮&lt;/td>
+&lt;td>以为非法 &lt;code>max_tokens&lt;/code> 会被上游 400 拒掉&lt;/td>
+&lt;td>上游照收，两条探针花了 261 + 87 token&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>收窄后&lt;/td>
+&lt;td>以为某模型只走一种协议，发另一种会被本地拒掉&lt;/td>
+&lt;td>它两种都声明了，两条探针各真调了一次上游&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>凡是能走到上游的探针都会真花钱。要零计费，只有 mock 上游和「本地必然被拒」两条路；而「本地必然被拒」这种假设，必须先用 mock 验一遍。我那次就是假设错了，白花 token，还差点把一个错误结论写进文档。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="网络层白名单与行为拉黑">网络层：白名单与行为拉黑
+&lt;/h2>&lt;hr>
+&lt;p>&lt;strong>地域白名单&lt;/strong>（选了白名单模式）：只放行本地区网段，扫描器在 TCP 握手层就消失，既不进应用日志也不消耗应用资源。代价是朋友挂海外 VPN 时进不来，用两条兜底补：自动学习「近 7 天有成功调用」的来源 IP，加手工例外清单。&lt;/p>
+&lt;p>实现上有三个坑：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>官方委托数据里同一网段可能被多次分配&lt;/strong>，不自动合并重叠区间会导致整表加载失败（&lt;code>conflicting intervals&lt;/code>）。&lt;/li>
+&lt;li>&lt;strong>源站对大陆限速很凶&lt;/strong>，下载要尽力而为 + 本地缓存 + 下载失败绝不清规则（fail-safe）。&lt;/li>
+&lt;li>&lt;strong>规则装好之后一定要核验集合元素数，并从真实客户端打一遍。&lt;/strong> 曾经出现「规则装上了、网段没进集合」的情况，而我自己恰好因为白名单里的例外能访问，差点漏过。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>行为拉黑&lt;/strong>（不看地理，只看行为）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>触发条件&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>网关自身限流产生的 429 且无 key&lt;/td>
+&lt;td>限流是网关的判断，可信&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>无 key 的 404 达 6 次 / 6 小时&lt;/td>
+&lt;td>分布式单发的等价拦截&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>两条保护：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>近 7 天有 200 成功调用的 IP 永不封&lt;/strong>，防 NAT 或 VPN 后面的正常用户被连坐。&lt;/li>
+&lt;li>&lt;strong>上游返回的 429 永不触发封禁。&lt;/strong> 那是上游配额问题，封客户端 IP 毫无意义。&lt;/li>
+&lt;/ul>
+&lt;p>封禁放在内核的独立表里，只丢业务端口、不影响 SSH；内核表重启会丢，拉黑器每分钟按回看窗自动补齐，不需要持久化。&lt;/p>
+&lt;blockquote>
+&lt;p>拉黑器平时多半空转，这是预期。真实扫描器以分布式单发为主，出现突发扫描时它才会拉。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="做不到的部分以及等价替代">做不到的部分，以及等价替代
+&lt;/h2>&lt;hr>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>想要的&lt;/th>
+&lt;th>现状&lt;/th>
+&lt;th>替代&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>按模型的重试次数&lt;/td>
+&lt;td>只有路由级&lt;/td>
+&lt;td>拆路由&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>下游 mTLS&lt;/td>
+&lt;td>前端 TLS 只暴露版本/套件，客户端证书只在控制面&lt;/td>
+&lt;td>bearer key 是唯一的客户端身份&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>未认证请求单独降配额&lt;/td>
+&lt;td>条件限流表达不出来&lt;/td>
+&lt;td>外部行为拉黑（无 key 404 计数）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>429 不带限流头&lt;/td>
+&lt;td>走错误响应路径，剥不掉&lt;/td>
+&lt;td>地域白名单 + 行为拉黑缩短暴露窗口&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>按 key 的并发上限&lt;/td>
+&lt;td>只有全局并发上限&lt;/td>
+&lt;td>无，记一笔&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>按 key 的模型白名单与预算&lt;/td>
+&lt;td>框架支持，还没配&lt;/td>
+&lt;td>值得做，纯收紧&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>加固的产出不只是一堆开关，还有一张「做不到」的清单。这张清单决定哪一层需要外部组件来补：条件限流做不到，就有了外部的行为拉黑器；响应侧脱敏做不到，就知道流式场景得换方案。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="收尾十条可复用的判断">收尾：十条可复用的判断
+&lt;/h2>&lt;hr>
+&lt;ol>
+&lt;li>先画威胁模型：扫描器的收益在识别你，所以目标是不被标记。&lt;/li>
+&lt;li>响应头是最大的身份泄露点，上线先 &lt;code>curl -i&lt;/code> 把 404 / 200 / 429 全量过一遍。&lt;/li>
+&lt;li>分布式单发逼着防线从「速率」走向「计数」。&lt;/li>
+&lt;li>限流阈值是产品取舍，别让「顺手加固」替你决定。&lt;/li>
+&lt;li>敏感值优先用环境变量引用，顺手确认管理面不会吐明文。&lt;/li>
+&lt;li>断言要双向：该打的一个不漏，不该打的一个不伤。&lt;/li>
+&lt;li>被测配置从线上派生，手抄会漂移。&lt;/li>
+&lt;li>「服务活着」和「新配置生效」是两件事，改完查日志。&lt;/li>
+&lt;li>观测的第一条纪律是别把被观测的数据弄坏；统计失败必须显式报错，静默的观测等于没有观测。&lt;/li>
+&lt;li>零计费验证只有 mock 上游和「本地必然被拒」两条路，后者也要先用 mock 验。&lt;/li>
+&lt;/ol></description></item><item><title>Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策</title><link>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</link><pubDate>Sun, 06 Sep 2026 20:03:25 +0800</pubDate><guid>https://daidaij.github.io/p/higress-endpoint-breaker-all-black/</guid><description>&lt;img src="https://picsum.photos/seed/43e49826/800/600" alt="Featured image of post Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策" />&lt;h1 id="higress-端点级断路器二全拉黑放行最反直觉的设计决策">Higress 端点级断路器（二）：全拉黑放行——最反直觉的设计决策
 &lt;/h1>&lt;hr>
 &lt;blockquote>
 &lt;p>系列第二篇。上一篇写了慢故障的统计口径——5s 去重间隔、70s 慢阈值 × 2&lt;del>3 次确认拉黑、TTL 30&lt;/del>60s 惰性恢复，这一篇只讲一个分支：&lt;strong>当所有端点都被拉黑时，插件选择放行、不做屏蔽&lt;/strong>，让请求继续打到所有节点上。第一次推演到这个 case 时，我的直觉答案是&amp;quot;该 503&amp;quot;；把时间轴往下多推一步，就改了主意。&lt;/p>
